@@ -12,6 +12,8 @@ const envSchema = z.object({
 
   CORS_ORIGIN: z.string().min(1).default("http://localhost:3000"),
 
+  CLIENT_URL: z.string().min(1).default("http://localhost:3000"),
+
   JWT_ACCESS_SECRET: z
     .string()
     .min(32, "JWT_ACCESS_SECRET must be at least 32 characters"),

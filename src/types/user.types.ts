@@ -3,13 +3,14 @@ import { UserRole } from "../constants/roles.js";
 export interface IUser {
   name: string;
   email: string;
-  passwordHash?: string;
+  passwordHash?: string | null;
   role: UserRole;
-  googleId?: string;
-  avatar?: string;
+  googleId?: string | null;
+  authProvider?: "LOCAL" | "GOOGLE";
+  avatar?: string | null;
   isEmailVerified: boolean;
   isActive: boolean;
-  lastLoginAt?: Date;
+  lastLoginAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -6,9 +6,12 @@ let transporterPromise:
 
 async function createTestTransporter() {
   console.log("[EMAIL] Creating Ethereal test account...");
+
   const testAccount =
     await nodemailer.createTestAccount();
-  console.log("[EMAIL] Ethereal account created:", testAccount.user);
+
+  console.log("[EMAIL] Ethereal account created");
+  console.log("[EMAIL] Test email:", testAccount.user);
 
   return nodemailer.createTransport({
     host: testAccount.smtp.host,
@@ -25,39 +28,49 @@ export const sendPasswordResetEmail = async (
   email: string,
   resetUrl: string,
 ): Promise<void> => {
-  console.log("[EMAIL] Sending password reset email to:", email);
-
   try {
     if (!transporterPromise) {
       transporterPromise = createTestTransporter();
     }
 
     const transporter = await transporterPromise;
-    console.log("[EMAIL] Transporter ready");
+
+    console.log("[EMAIL] Sending password reset email...");
+    console.log("[EMAIL] Recipient:", email);
 
     const info = await transporter.sendMail({
       from: '"E-Commerce Marketplace" <no-reply@example.com>',
       to: email,
       subject: "Password Reset",
-      text: `Reset your password using this link:\n\n${resetUrl}\n\nThis link expires in 15 minutes.`,
+      text: [
+        "You requested a password reset.",
+        "",
+        `Reset your password using this link: ${resetUrl}`,
+        "",
+        "This link expires in 15 minutes.",
+      ].join("\n"),
     });
 
-    console.log("[EMAIL] Message sent, Message ID:", info.messageId);
+    console.log("[EMAIL] Message sent");
+    console.log("[EMAIL] Message ID:", info.messageId);
+    console.log("[EMAIL] Accepted:", info.accepted);
 
     const previewUrl =
       nodemailer.getTestMessageUrl(info);
 
+    console.log("[EMAIL] Preview URL:", previewUrl);
+
     if (previewUrl) {
       console.log(
-        "[EMAIL] Preview URL: " + previewUrl,
-      );
-    } else {
-      console.log(
-        "[EMAIL] WARNING: No preview URL available. This usually means the email was not sent via Ethereal or getTestMessageUrl returned null.",
+        `\n[EMAIL] Open this URL in your browser:\n${previewUrl}\n`,
       );
     }
   } catch (error) {
-    console.error("[EMAIL] ERROR sending email:", error);
+    console.error(
+      "[EMAIL] Failed to send password reset email:",
+      error,
+    );
+
     throw error;
   }
 };

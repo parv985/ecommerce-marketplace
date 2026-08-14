@@ -41,6 +41,12 @@ const userSchema = new Schema<IUser>(
       index: true,
     },
 
+    authProvider: {
+      type: String,
+      enum: ["LOCAL", "GOOGLE"],
+      default: "LOCAL",
+    },
+
     avatar: {
       type: String,
     },

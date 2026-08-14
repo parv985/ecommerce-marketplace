@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 
+import { env } from "../../config/env.js";
 import { UserRole } from "../../constants/roles.js";
 import { AppError } from "../../errors/AppError.js";
 import { User } from "../../models/User.js";
@@ -167,7 +168,7 @@ export const forgotPassword = async (
   });
 
   const resetUrl =
-    `http://localhost:3000/reset-password?token=${rawToken}`;
+    `${env.CLIENT_URL}/reset-password?token=${rawToken}`;
 
   await sendPasswordResetEmail(
     user.email,

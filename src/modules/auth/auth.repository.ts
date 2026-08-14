@@ -10,6 +10,12 @@ export const findUserByEmail = async (
   return User.findOne({ email }).select("+passwordHash").exec();
 };
 
+export const findUserById = async (
+  userId: string,
+): Promise<UserDocument | null> => {
+  return User.findById(userId).exec();
+};
+
 export const createUser = async (data: {
   name: string;
   email: string;
