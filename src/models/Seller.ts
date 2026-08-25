@@ -38,6 +38,7 @@
     documents: {
       type: string;
       url: string;
+      publicId: string;
     }[];
 
     status: SellerStatus;
@@ -145,6 +146,12 @@
           },
 
           url: {
+            type: String,
+            required: true,
+            trim: true,
+          },
+
+          publicId: {
             type: String,
             required: true,
             trim: true,

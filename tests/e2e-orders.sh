@@ -47,6 +47,17 @@ B_TOKEN=$(reg_buyer "ob${ts}@test.com")
 B2_TOKEN=$(reg_buyer "ob2${ts}@test.com")
 check "tokens ready" "non-empty" "${SA_TOKEN:+${SB_TOKEN:+${B_TOKEN:+non-empty}}}"
 
+# Approve both sellers (approval gate added in V1 Step 12).
+ADMIN_TOKEN=$(curl -s -X POST "$BASE/auth/login" -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"Admin@1234"}' | field data.accessToken)
+for GST in "27ABCDE" "27FGHIJ"; do
+  SID=$(curl -s "$BASE/admin/sellers?status=PENDING" -H "Authorization: Bearer $ADMIN_TOKEN" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const j=JSON.parse(d);const s=(j.data.items||[]).find(x=>x.gstin&&x.gstin.startsWith('$GST'));console.log(s?s.id:'')})")
+  if [ -n "$SID" ]; then
+    curl -s -X PATCH "$BASE/admin/sellers/$SID/status" -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" -d '{"status":"APPROVED"}' > /dev/null
+  fi
+done
+check "sellers approved" "non-empty" "${SA_TOKEN:+${SB_TOKEN:+non-empty}}"
+
 mk_prod() {
   local token=$1 name=$2 price=$3 stock=$4
   curl -s -X POST "$BASE/products" -H "Content-Type: application/json" -H "Authorization: Bearer $token" -d "{\"name\":\"$name\",\"price\":$price,\"stock\":$stock,\"status\":\"ACTIVE\"}" | field data.id

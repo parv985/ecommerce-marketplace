@@ -15,6 +15,52 @@ export const connect = async (): Promise<void> => {
     await mongoose.connect(process.env.MONGODB_URI!);
 
     /*
+     * Drop a stale unique index that earlier versions of the
+     * ReturnRequest model created (orderId_1). The current model uses
+     * a named partial unique index instead; leaving the old one would
+     * keep enforcing one-return-per-order-ever.
+     */
+    try {
+      const collection =
+        mongoose.connection.collection(
+          "returnrequests",
+        );
+
+      const indexes = await collection.indexes();
+      const stale = indexes.find(
+        (index) => index.name === "orderId_1",
+      );
+
+      if (stale) {
+        await collection.dropIndex("orderId_1");
+      }
+    } catch {
+      // Collection does not exist yet - nothing to clean.
+    }
+
+    /*
+     * Drop a stale webhookEventId_1 index from an earlier Payment
+     * model version that defaulted webhookEventId to null (which
+     * sparse-unique indexes do NOT exclude, allowing only one
+     * unclaimed payment). The current model omits the field instead.
+     */
+    try {
+      const collection =
+        mongoose.connection.collection("payments");
+
+      const indexes = await collection.indexes();
+      const stale = indexes.find(
+        (index) => index.name === "webhookEventId_1",
+      );
+
+      if (stale) {
+        await collection.dropIndex("webhookEventId_1");
+      }
+    } catch {
+      // Collection does not exist yet - nothing to clean.
+    }
+
+    /*
      * Build indexes (unique constraints, etc.) before assertions run
      * so duplicate-key behavior is deterministic.
      */
@@ -174,6 +220,9 @@ export const createApprovedSeller = async (): Promise<{
 
   const profileId = seller!.id;
 
+  // Enable 2FA for the seller so they can perform write operations
+  await enableTwoFactorForUser(profileId);
+
   await api
     .patch(
       `/api/v1/admin/sellers/${profileId}/status`,
@@ -197,6 +246,21 @@ export const createProduct = (
       stock: 10,
       ...overrides,
     });
+};
+
+/**
+ * Enables 2FA for a test user by directly updating the database.
+ * This is needed because the requireTwoFactorSetup middleware
+ * blocks seller operations until 2FA is enabled.
+ */
+export const enableTwoFactorForUser = async (
+  userId: string,
+): Promise<void> => {
+  await User.findByIdAndUpdate(userId, {
+    $set: {
+      twoFactorEnabled: true,
+    },
+  });
 };
 
 export const createAddress = async (

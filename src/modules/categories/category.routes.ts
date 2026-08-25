@@ -1,7 +1,7 @@
 import { Router } from "express";
 
 import { validate } from "../../middlewares/validation.middleware.js";
-import { authorize } from "../../middlewares/roel.middleware.js";
+import { authorize } from "../../middlewares/role.middleware.js";
 import { authenticate } from "../auth/auth.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { UserRole } from "../../constants/roles.js";

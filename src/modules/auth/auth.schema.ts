@@ -69,3 +69,35 @@ export type GoogleLoginInput = z.infer<typeof googleLoginSchema>;
 
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
+
+/*
+ * Completes a login for a 2FA-enabled seller/admin: the loginToken
+ * proves the password step, the code proves possession of the
+ * authenticator app or a recovery code.
+ */
+export const twoFactorVerifySchema = z
+  .object({
+    loginToken: z
+      .string()
+      .min(1, "loginToken is required"),
+    code: z
+      .string()
+      .trim()
+      .min(1, "Verification code is required"),
+  })
+  .strict();
+
+export type TwoFactorVerifyInput =
+  z.infer<typeof twoFactorVerifySchema>;
+
+export const twoFactorCodeSchema = z
+  .object({
+    code: z
+      .string()
+      .trim()
+      .min(1, "Verification code is required"),
+  })
+  .strict();
+
+export type TwoFactorCodeInput =
+  z.infer<typeof twoFactorCodeSchema>;

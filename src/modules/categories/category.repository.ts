@@ -49,3 +49,16 @@ export const updateCategoryById = async (
     },
   ).exec();
 };
+
+/*
+ * Returns how many of the given category ids are active. Used to
+ * validate coupon category restrictions.
+ */
+export const countActiveCategoriesByIds = async (
+  ids: string[],
+): Promise<number> => {
+  return Category.countDocuments({
+    _id: { $in: ids },
+    isActive: true,
+  }).exec();
+};

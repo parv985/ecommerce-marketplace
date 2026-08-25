@@ -1,14 +1,16 @@
 import { Router } from "express";
 
 import { validate } from "../../middlewares/validation.middleware.js";
-import { authorize } from "../../middlewares/roel.middleware.js";
+import { authorize } from "../../middlewares/role.middleware.js";
 import { authenticate } from "../auth/auth.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { UserRole } from "../../constants/roles.js";
 import {
   cancelOrderController,
   createOrderController,
+  getInvoiceController,
   getOrderController,
+  getOrderTrackingController,
   listOrdersController,
   markOrderPaidController,
   updateOrderStatusController,
@@ -313,6 +315,143 @@ router.post(
   "/:id/pay",
   validate(orderIdParamsSchema, "params"),
   asyncHandler(markOrderPaidController),
+);
+
+/**
+ * @openapi
+ * /api/v1/orders/{id}/invoice:
+ *   get:
+ *     tags:
+ *       - Orders
+ *     summary: Get order invoice
+ *     description: Returns structured invoice data for the order including buyer, seller, items, quantities, prices, discounts, taxes, and totals. Buyers can only view their own invoices, sellers only for their orders, admins any order.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Order ObjectId
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Invoice generated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     invoiceNumber:
+ *                       type: string
+ *                     orderNumber:
+ *                       type: string
+ *                     orderDate:
+ *                       type: string
+ *                       format: date-time
+ *                     buyer:
+ *                       type: object
+ *                     seller:
+ *                       type: object
+ *                     items:
+ *                       type: array
+ *                     itemsTotal:
+ *                       type: number
+ *                     discountTotal:
+ *                       type: number
+ *                     taxAmount:
+ *                       type: number
+ *                     total:
+ *                       type: number
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not your order
+ *       404:
+ *         description: Order not found
+ */
+router.get(
+  "/:id/invoice",
+  validate(orderIdParamsSchema, "params"),
+  asyncHandler(getInvoiceController),
+);
+
+/**
+ * @openapi
+ * /api/v1/orders/{id}/tracking:
+ *   get:
+ *     tags:
+ *       - Orders
+ *     summary: Get order tracking timeline
+ *     description: Returns the chronological order-status timeline with timestamps, actors, and reasons. Buyers can only view their own orders, sellers only for their orders, admins any order.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Order ObjectId
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Order tracking fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     orderNumber:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                     timeline:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           status:
+ *                             type: string
+ *                           actorId:
+ *                             type: string
+ *                           actorRole:
+ *                             type: string
+ *                           reason:
+ *                             type: string
+ *                           createdAt:
+ *                             type: string
+ *                             format: date-time
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                     deliveredAt:
+ *                       type: string
+ *                       format: date-time
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not your order
+ *       404:
+ *         description: Order not found
+ */
+router.get(
+  "/:id/tracking",
+  validate(orderIdParamsSchema, "params"),
+  asyncHandler(getOrderTrackingController),
 );
 
 export default router;

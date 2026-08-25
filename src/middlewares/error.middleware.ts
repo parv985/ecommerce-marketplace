@@ -1,4 +1,5 @@
 import { ZodError } from "zod";
+import multer from "multer";
 import type {
   ErrorRequestHandler,
   Request,
@@ -15,6 +16,21 @@ export const errorMiddleware: ErrorRequestHandler = (
   res: Response,
   _next,
 ): void => {
+  /*
+   * Multer file-upload errors (file too large, unexpected field, etc.)
+   * are client errors (400).
+   */
+  if (error instanceof multer.MulterError) {
+    sendError(
+      res,
+      error.message,
+      error.code,
+      400,
+    );
+
+    return;
+  }
+
   /*
    * Zod validation errors that escape a service layer are client
    * errors (400), never internal errors.

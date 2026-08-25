@@ -1,3 +1,5 @@
+import type { Types } from "mongoose";
+
 import {
   OrderStatus,
   PaymentMethod,
@@ -8,7 +10,12 @@ import { AppError } from "../../errors/AppError.js";
 import type { IOrder } from "../../models/Order.js";
 import type { IProduct } from "../../models/Product.js";
 import { findAddressByIdAndUser } from "../users/user.repository.js";
-import { clearCartItems, findCartByUserId } from "../cart/cart.repository.js";
+import {
+  claimCartForCheckout,
+  clearCartItems,
+  findCartByUserId,
+  releaseCartCheckoutLock,
+} from "../cart/cart.repository.js";
 import {
   decrementProductStock,
   findActiveProductsByIds,
@@ -20,9 +27,33 @@ import {
   findSellerBusinessNames,
   listOrdersBySeller,
   listOrdersByUser,
+  resetOrderCoupon,
   updateOrderPaymentStatusById,
   updateOrderStatusById,
 } from "./order.repository.js";
+import {
+  resolveDiscountsForProducts,
+  roundMoney,
+} from "../discounts/discount.pricing.js";
+import {
+  evaluateCouponForOrder,
+  recordCouponUsage,
+  releaseCouponSlotOnly,
+  reserveCouponSlot,
+} from "../coupons/coupon.service.js";
+import {
+  notifyOrderStatusChange,
+  notifyPaymentReceived,
+} from "../notifications/notification.service.js";
+import { refundPaidOrderInternal } from "../payments/payment.service.js";
+import { logAudit } from "../../services/audit.service.js";
+import { InventoryTransactionType } from "../../models/InventoryTransaction.js";
+import { recordStockChange } from "../inventory/inventory.service.js";
+import { recordOrderTimeline, getOrderTimeline } from "./orderTimeline.service.js";
+import {
+  findCouponByCode,
+  releaseCouponUsage,
+} from "../coupons/coupon.repository.js";
 import {
   createOrderSchema,
   listOrdersQuerySchema,
@@ -149,6 +180,7 @@ const toOrderResponse = async (
       price: item.price,
       quantity: item.quantity,
       subtotal: item.subtotal,
+      discountAmount: item.discountAmount,
     })),
     shippingAddress: {
       recipientName:
@@ -164,9 +196,18 @@ const toOrderResponse = async (
       pincode: order.shippingAddress.pincode,
     },
     itemsTotal: order.itemsTotal,
+    discountTotal: order.discountTotal,
+    couponId: order.couponId
+      ? order.couponId.toString()
+      : null,
+    couponCode: order.couponCode ?? null,
+    couponDiscount: order.couponDiscount,
     total: order.total,
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
+    paymentId: order.paymentId
+      ? order.paymentId.toString()
+      : null,
     status: order.status,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
@@ -174,9 +215,10 @@ const toOrderResponse = async (
 };
 
 export const createOrderFromCart = async (
-  userId: string,
+  user: { id: string; role: UserRole },
   input: unknown,
 ): Promise<OrderResponse[]> => {
+  const userId = user.id;
   const data: CreateOrderInput =
     createOrderSchema.parse(input);
 
@@ -204,6 +246,28 @@ export const createOrderFromCart = async (
     );
   }
 
+  /*
+   * Claim the cart before any side effects. A double-submit (two
+   * concurrent checkouts) can never create duplicate orders: the
+   * second request fails the atomic claim and is rejected. The lock
+   * is released on any failure below and cleared with the items on
+   * success. Stale claims (crashed process) expire after 5 minutes.
+   */
+  const claimed = await claimCartForCheckout(
+    cart._id,
+  );
+
+  if (!claimed) {
+    throw new AppError(
+      "Checkout is already in progress for your cart",
+      409,
+      "CART_CHECKOUT_IN_PROGRESS",
+    );
+  }
+
+  let created: IOrder[] = [];
+
+  try {
   const productIds = cart.items.map((item) =>
     item.productId.toString(),
   );
@@ -261,6 +325,12 @@ export const createOrderFromCart = async (
 
   try {
     for (const item of cart.items) {
+      const product = productMap.get(
+        item.productId.toString(),
+      )!;
+
+      const previousStock = product.stock;
+
       const ok =
         await decrementProductStock(
           item.productId.toString(),
@@ -274,6 +344,17 @@ export const createOrderFromCart = async (
           "INSUFFICIENT_STOCK",
         );
       }
+
+      await recordStockChange({
+        productId: item.productId.toString(),
+        sellerId: product.sellerId.toString(),
+        type: InventoryTransactionType.STOCK_DECREMENT,
+        quantity: -item.quantity,
+        previousStock,
+        actorId: user.id,
+        actorRole: user.role,
+        reason: "Order placed",
+      });
 
       applied.push({
         productId: item.productId.toString(),
@@ -290,6 +371,30 @@ export const createOrderFromCart = async (
 
     throw error;
   }
+
+  /*
+   * Resolve live sales discounts once for the whole cart through the
+   * shared pricing service (product discount beats category discount,
+   * highest percentage wins, never stacked). Prices and discount
+   * amounts are always derived server-side - the client never sends
+   * totals.
+   */
+  const discountMap =
+    await resolveDiscountsForProducts(
+      cart.items.map((item) => {
+        const product = productMap.get(
+          item.productId.toString(),
+        )!;
+
+        return {
+          id: product._id.toString(),
+          categoryId: product.category
+            ? product.category.toString()
+            : null,
+          price: product.price,
+        };
+      }),
+    );
 
   /*
    * Group cart lines by seller so each order belongs to exactly
@@ -322,14 +427,45 @@ export const createOrderFromCart = async (
     bySeller.set(sellerId, lines);
   }
 
-  const ordersToCreate: Array<
-    Record<string, unknown>
-  > = [];
+  /*
+   * Build per-seller order drafts first (items, sales-discount totals)
+   * so a coupon can be evaluated against the exact order it would
+   * apply to before anything is persisted. categoryId is kept for the
+   * coupon restriction check and stripped before saving.
+   */
+  const orderDrafts = new Map<
+    string,
+    {
+      items: Array<{
+        productId: Types.ObjectId;
+        name: string;
+        price: number;
+        quantity: number;
+        subtotal: number;
+        discountAmount: number;
+        categoryId?: string | null;
+      }>;
+      itemsTotal: number;
+      discountTotal: number;
+    }
+  >();
 
   for (const [sellerId, lines] of bySeller) {
     const items = lines.map((line) => {
-      const subtotal =
-        line.product.price * line.quantity;
+      const discount = discountMap.get(
+        line.product._id.toString(),
+      );
+
+      const subtotal = roundMoney(
+        line.product.price * line.quantity,
+      );
+
+      const discountAmount = discount
+        ? roundMoney(
+            discount.discountAmount *
+              line.quantity,
+          )
+        : 0;
 
       return {
         productId: line.product._id,
@@ -337,6 +473,10 @@ export const createOrderFromCart = async (
         price: line.product.price,
         quantity: line.quantity,
         subtotal,
+        discountAmount,
+        categoryId: line.product.category
+          ? line.product.category.toString()
+          : null,
       };
     });
 
@@ -345,26 +485,203 @@ export const createOrderFromCart = async (
       0,
     );
 
+    const discountTotal = items.reduce(
+      (sum, item) => sum + item.discountAmount,
+      0,
+    );
+
+    orderDrafts.set(sellerId, {
+      items,
+      itemsTotal,
+      discountTotal,
+    });
+  }
+
+  /*
+   * Coupon evaluation (no side effects). The code must belong to one
+   * of the sellers in the cart; it applies to that seller's order
+   * AFTER the sales discount - the single documented rule. The usage
+   * slot is reserved only after this evaluation succeeds.
+   */
+  let couponPlan: {
+    couponId: string;
+    couponCode: string;
+    discountAmount: number;
+    sellerId: string;
+    reservedPerUserLimit: number | null;
+  } | null = null;
+
+  if (data.couponCode) {
+    const coupon =
+      await findCouponByCode(data.couponCode);
+
+    if (
+      !coupon ||
+      !bySeller.has(
+        coupon.sellerId.toString(),
+      )
+    ) {
+      throw new AppError(
+        "Coupon is not valid for the items in your cart",
+        400,
+        "COUPON_NOT_APPLICABLE",
+      );
+    }
+
+    const couponSellerId =
+      coupon.sellerId.toString();
+    const draft = orderDrafts.get(
+      couponSellerId,
+    )!;
+
+    const evaluation =
+      await evaluateCouponForOrder({
+        code: data.couponCode,
+        userId,
+        itemsTotal: draft.itemsTotal,
+        discountTotal: draft.discountTotal,
+        items: draft.items.map((item) => ({
+          productId:
+            item.productId.toString(),
+          categoryId:
+            item.categoryId ?? null,
+        })),
+      });
+
+    /*
+     * Reserve the usage slot atomically before persisting the order so
+     * an exhausted coupon can never be applied.
+     */
+    const claimed = await reserveCouponSlot(
+      evaluation.coupon._id.toString(),
+    );
+
+    couponPlan = {
+      couponId: evaluation.coupon._id.toString(),
+      couponCode: data.couponCode,
+      discountAmount: evaluation.discountAmount,
+      sellerId: evaluation.sellerId,
+      reservedPerUserLimit:
+        claimed.perUserLimit ?? null,
+    };
+  }
+
+  const ordersToCreate: Array<
+    Record<string, unknown>
+  > = [];
+
+  for (const [sellerId, draft] of orderDrafts) {
+    const isCouponOrder =
+      couponPlan !== null &&
+      couponPlan.sellerId === sellerId;
+
+    const couponDiscount = isCouponOrder
+      ? couponPlan!.discountAmount
+      : 0;
+
+    const total = roundMoney(
+      draft.itemsTotal -
+        draft.discountTotal -
+        couponDiscount,
+    );
+
     ordersToCreate.push({
       orderNumber: generateOrderNumber(),
       userId,
       sellerId,
-      items,
+      items: draft.items.map(
+        ({ categoryId: _categoryId, ...item }) =>
+          item,
+      ),
       shippingAddress:
         toAddressSnapshot(address),
-      itemsTotal,
-      total: itemsTotal,
+      itemsTotal: draft.itemsTotal,
+      discountTotal: draft.discountTotal,
+      couponId: isCouponOrder
+        ? couponPlan!.couponId
+        : null,
+      couponCode: isCouponOrder
+        ? couponPlan!.couponCode
+        : null,
+      couponDiscount,
+      total,
       paymentMethod:
+        data.paymentMethod ??
         PaymentMethod.CASH_ON_DELIVERY,
       paymentStatus: PaymentStatus.PENDING,
       status: OrderStatus.PENDING,
     });
   }
 
-  const created =
-    await createOrders(ordersToCreate);
+  try {
+    created = await createOrders(ordersToCreate);
+  } catch (error) {
+    if (couponPlan) {
+      await releaseCouponSlotOnly(
+        couponPlan.couponId,
+      );
+    }
+
+    throw error;
+  }
+
+  /*
+   * Record the coupon usage against the created order. If recording
+   * fails (rare concurrent per-user duplicate), the reserved slot is
+   * released and the order's coupon fields are reset so no discount is
+   * leaked without a usage record.
+   */
+  if (couponPlan) {
+    const couponOrder = created.find(
+      (order) =>
+        order.sellerId.toString() ===
+        couponPlan!.sellerId,
+    );
+
+    if (couponOrder) {
+      try {
+        await recordCouponUsage({
+          couponId: couponPlan.couponId,
+          userId,
+          orderId: couponOrder._id.toString(),
+          discountAmount:
+            couponPlan.discountAmount,
+          perUserLimit:
+            couponPlan.reservedPerUserLimit,
+        });
+      } catch (error) {
+        await resetOrderCoupon(
+          couponOrder._id.toString(),
+        );
+        throw error;
+      }
+    }
+  }
 
   await clearCartItems(cart._id);
+  } catch (error) {
+    /*
+     * Release the checkout claim so the buyer can fix whatever went
+     * wrong and retry - a failed checkout must never leave the cart
+     * permanently locked.
+     */
+    await releaseCartCheckoutLock(cart._id);
+    throw error;
+  }
+
+  for (const order of created) {
+    await logAudit({
+      actorId: user.id,
+      actorRole: user.role,
+      action: "ORDER_CREATED",
+      entityType: "ORDER",
+      entityId: order._id.toString(),
+      metadata: {
+        orderNumber: order.orderNumber,
+        total: order.total,
+      },
+    });
+  }
 
   return Promise.all(
     created.map((order) =>
@@ -500,20 +817,35 @@ export const updateOrderStatus = async (
 
   /*
    * A cancellation through this endpoint restores the committed
-   * stock back to the seller's inventory.
+   * stock back to the seller's inventory and releases any coupon
+   * usage so cancelled orders never consume coupons. A paid online
+   * order is refunded first; if the gateway rejects the refund the
+   * cancellation aborts so money and state never diverge.
    */
   if (data.status === OrderStatus.CANCELLED) {
+    if (
+      order.paymentMethod === PaymentMethod.ONLINE &&
+      order.paymentStatus === PaymentStatus.PAID
+    ) {
+      await refundPaidOrderInternal(order, user);
+    }
+
     for (const item of order.items) {
       await incrementProductStock(
         item.productId.toString(),
         item.quantity,
       );
     }
+
+    await releaseCouponUsage(orderId);
   }
 
   const updated = await updateOrderStatusById(
     orderId,
     data.status,
+    data.status === OrderStatus.DELIVERED
+      ? new Date()
+      : undefined,
   );
 
   if (!updated) {
@@ -523,6 +855,28 @@ export const updateOrderStatus = async (
       "ORDER_NOT_FOUND",
     );
   }
+
+  await recordOrderTimeline({
+    orderId,
+    status: updated.status,
+    actorId: user.id,
+    actorRole: user.role,
+  });
+
+  await logAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: "ORDER_STATUS_CHANGED",
+    entityType: "ORDER",
+    entityId: orderId,
+    before: { status: order.status },
+    after: { status: updated.status },
+  });
+
+  await notifyOrderStatusChange(
+    updated,
+    updated.status,
+  );
 
   return toOrderResponse(updated);
 };
@@ -563,12 +917,25 @@ export const cancelOrder = async (
     );
   }
 
+  /*
+   * Paid online orders are refunded as part of cancellation so a
+   * buyer never loses money by cancelling (see updateOrderStatus).
+   */
+  if (
+    order.paymentMethod === PaymentMethod.ONLINE &&
+    order.paymentStatus === PaymentStatus.PAID
+  ) {
+    await refundPaidOrderInternal(order, user);
+  }
+
   for (const item of order.items) {
     await incrementProductStock(
       item.productId.toString(),
       item.quantity,
     );
   }
+
+  await releaseCouponUsage(orderId);
 
   const updated = await updateOrderStatusById(
     orderId,
@@ -583,7 +950,181 @@ export const cancelOrder = async (
     );
   }
 
+  await logAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: "ORDER_CANCELLED",
+    entityType: "ORDER",
+    entityId: orderId,
+    before: { status: order.status },
+    after: { status: updated.status },
+  });
+
+  await notifyOrderStatusChange(
+    updated,
+    updated.status,
+  );
+
   return toOrderResponse(updated);
+};
+
+/*
+ * ---------------------------------------------------------------------
+ * Invoice generation
+ * ---------------------------------------------------------------------
+ */
+
+export interface InvoiceItem {
+  productId: string;
+  name: string;
+  price: number;
+  quantity: number;
+  subtotal: number;
+  discountAmount: number;
+}
+
+export interface InvoiceData {
+  invoiceNumber: string;
+  orderNumber: string;
+  orderId: string;
+  orderDate: Date;
+  buyer: {
+    name: string;
+    email: string;
+  };
+  seller: {
+    businessName: string;
+    gstin: string;
+    pan: string;
+    address: {
+      addressLine1: string;
+      addressLine2: string | null;
+      city: string;
+      state: string;
+      pincode: string;
+    };
+  };
+  items: InvoiceItem[];
+  shippingAddress: {
+    recipientName: string;
+    phone: string;
+    addressLine1: string;
+    addressLine2: string | null;
+    city: string;
+    state: string;
+    pincode: string;
+  };
+  itemsTotal: number;
+  discountTotal: number;
+  couponDiscount: number;
+  taxRate: number;
+  taxAmount: number;
+  total: number;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  status: OrderStatus;
+  deliveredAt: Date | null;
+  createdAt: Date;
+}
+
+const generateInvoiceNumber = (): string => {
+  const suffix = Math.floor(Math.random() * 10000);
+  return `INV-${Date.now()}-${suffix}`;
+};
+
+export const generateOrderInvoice = async (
+  user: { id: string; role: UserRole },
+  orderId: string,
+): Promise<InvoiceData> => {
+  const order = await findOrderById(orderId);
+
+  if (!order) {
+    throw new AppError(
+      "Order not found",
+      404,
+      "ORDER_NOT_FOUND",
+    );
+  }
+
+  if (!canManageOrder(user, order)) {
+    throw new AppError(
+      "You do not have permission to view this order",
+      403,
+      "FORBIDDEN",
+    );
+  }
+
+  /* Resolve buyer and seller details */
+  const buyer = await import("../../models/User.js").then(m => m.User.findById(order.userId).select("name email").exec());
+  const seller = await import("../../models/Seller.js").then(m => m.Seller.findOne({ userId: order.sellerId }).exec());
+
+  if (!buyer || !seller) {
+    throw new AppError(
+      "Could not resolve buyer or seller details",
+      500,
+      "INTERNAL_ERROR",
+    );
+  }
+
+  /*
+   * GST calculation: 18% GST is applied to the pre-discount subtotal
+   * for invoice purposes. This is a display-only calculation and does
+   * not affect the order total stored in the database.
+   */
+  const taxRate = 0.18;
+  const preDiscountTotal = order.itemsTotal;
+  const taxAmount = roundMoney(preDiscountTotal * taxRate);
+
+  return {
+    invoiceNumber: generateInvoiceNumber(),
+    orderNumber: order.orderNumber,
+    orderId: order._id.toString(),
+    orderDate: order.createdAt,
+    buyer: {
+      name: buyer.name,
+      email: buyer.email,
+    },
+    seller: {
+      businessName: seller.businessName,
+      gstin: seller.gstin,
+      pan: seller.pan,
+      address: {
+        addressLine1: seller.addressLine1,
+        addressLine2: seller.addressLine2 ?? null,
+        city: seller.city,
+        state: seller.state,
+        pincode: seller.pincode,
+      },
+    },
+    items: order.items.map((item) => ({
+      productId: item.productId.toString(),
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+      subtotal: item.subtotal,
+      discountAmount: item.discountAmount,
+    })),
+    shippingAddress: {
+      recipientName: order.shippingAddress.recipientName,
+      phone: order.shippingAddress.phone,
+      addressLine1: order.shippingAddress.addressLine1,
+      addressLine2: order.shippingAddress.addressLine2 ?? null,
+      city: order.shippingAddress.city,
+      state: order.shippingAddress.state,
+      pincode: order.shippingAddress.pincode,
+    },
+    itemsTotal: order.itemsTotal,
+    discountTotal: order.discountTotal,
+    couponDiscount: order.couponDiscount,
+    taxRate: taxRate * 100,
+    taxAmount,
+    total: roundMoney(order.total + taxAmount),
+    paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus,
+    status: order.status,
+    deliveredAt: order.deliveredAt ?? null,
+    createdAt: order.createdAt,
+  };
 };
 
 /*
@@ -591,6 +1132,50 @@ export const cancelOrder = async (
  * an admin may mark payment as received, and only after delivery.
  * The client can never set payment status directly.
  */
+export const getOrderTracking = async (
+  user: { id: string; role: UserRole },
+  orderId: string,
+): Promise<{
+  orderNumber: string;
+  status: OrderStatus;
+  timeline: Array<{
+    status: OrderStatus;
+    actorId: string;
+    actorRole: string;
+    reason: string | null;
+    createdAt: Date;
+  }>;  createdAt: Date;
+  deliveredAt: Date | null;
+}> => {
+  const order = await findOrderById(orderId);
+
+  if (!order) {
+    throw new AppError(
+      "Order not found",
+      404,
+      "ORDER_NOT_FOUND",
+    );
+  }
+
+  if (!canManageOrder(user, order)) {
+    throw new AppError(
+      "You do not have permission to view this order",
+      403,
+      "FORBIDDEN",
+    );
+  }
+
+  const timeline = await getOrderTimeline(orderId);
+
+  return {
+    orderNumber: order.orderNumber,
+    status: order.status,
+    timeline,
+    createdAt: order.createdAt,
+    deliveredAt: order.deliveredAt ?? null,
+  };
+};
+
 export const markOrderPaid = async (
   user: { id: string; role: UserRole },
   orderId: string,
@@ -610,6 +1195,14 @@ export const markOrderPaid = async (
       "You do not have permission to update this order",
       403,
       "FORBIDDEN",
+    );
+  }
+
+  if (order.paymentMethod === PaymentMethod.ONLINE) {
+    throw new AppError(
+      "Online payments are settled through the payment gateway",
+      400,
+      "PAYMENT_METHOD_NOT_ONLINE",
     );
   }
 
@@ -638,6 +1231,8 @@ export const markOrderPaid = async (
       "ORDER_NOT_FOUND",
     );
   }
+
+  await notifyPaymentReceived(updated);
 
   return toOrderResponse(updated);
 };

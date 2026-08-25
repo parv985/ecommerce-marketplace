@@ -1,6 +1,10 @@
 import { ProductStatus } from "../../constants/productStatus.js";
 import { SellerStatus } from "../../constants/sellerStatus.js";
 import { AppError } from "../../errors/AppError.js";
+import { UserRole } from "../../constants/roles.js";
+import { logAudit } from "../../services/audit.service.js";
+import { CACHE_TTL, getCacheKey, getFromCache, invalidateCache, setCache } from "../../config/redis.js";
+import { deleteByPublicId, uploadBuffer } from "../../services/cloudinary.service.js";
 import type { IProduct } from "../../models/Product.js";
 import { findSellerByUserId } from "../sellers/seller.repository.js";
 import {
@@ -64,6 +68,7 @@ const toProductResponse = async (
     sellerId: product.sellerId.toString(),
     name: product.name,
     description: product.description ?? null,
+    sku: product.sku ?? null,
     category: product.category
       ? {
           id: product.category.toString(),
@@ -73,6 +78,7 @@ const toProductResponse = async (
     price: product.price,
     stock: product.stock,
     images: product.images ?? [],
+    specifications: product.specifications ?? [],
     status: product.status,
     createdAt: product.createdAt,
     updatedAt: product.updatedAt,
@@ -114,6 +120,18 @@ export const createProductForSeller = async (
     images: data.images,
     status: data.status,
   });
+
+  await logAudit({
+    actorId: sellerId,
+    actorRole: UserRole.SELLER,
+    action: "PRODUCT_CREATED",
+    entityType: "PRODUCT",
+    entityId: product._id.toString(),
+    metadata: { name: product.name },
+  });
+
+  /* Invalidate product catalog cache */
+  await invalidateCache(getCacheKey("products", "*"));
 
   return toProductResponse(product);
 };
@@ -217,6 +235,17 @@ export const updateSellerProduct = async (
     );
   }
 
+  await logAudit({
+    actorId: sellerId,
+    actorRole: UserRole.SELLER,
+    action: "PRODUCT_UPDATED",
+    entityType: "PRODUCT",
+    entityId: productId,
+  });
+
+  /* Invalidate product catalog cache */
+  await invalidateCache(getCacheKey("products", "*"));
+
   return toProductResponse(updated);
 };
 
@@ -244,6 +273,19 @@ export const deleteSellerProduct = async (
   await updateProductById(productId, {
     status: ProductStatus.INACTIVE,
   });
+
+  await logAudit({
+    actorId: sellerId,
+    actorRole: UserRole.SELLER,
+    action: "PRODUCT_STATUS_CHANGED",
+    entityType: "PRODUCT",
+    entityId: productId,
+    before: { status: product.status },
+    after: { status: ProductStatus.INACTIVE },
+  });
+
+  /* Invalidate product catalog cache */
+  await invalidateCache(getCacheKey("products", "*"));
 };
 
 export const browseProducts = async (
@@ -251,6 +293,19 @@ export const browseProducts = async (
 ): Promise<PaginatedProducts> => {
   const parsed: ListProductsQuery =
     listProductsQuerySchema.parse(query);
+
+  /*
+   * Cache key includes all query parameters to ensure
+   * different queries hit different cache entries.
+   */
+  const cacheKey = getCacheKey(
+    "products",
+    "browse",
+    JSON.stringify(parsed),
+  );
+
+  const cached = await getFromCache<PaginatedProducts>(cacheKey);
+  if (cached) return cached;
 
   const filter: Record<string, unknown> = {
     status: ProductStatus.ACTIVE,
@@ -352,6 +407,7 @@ export const browseProducts = async (
         name: item.name,
         description:
           item.description ?? null,
+        sku: item.sku ?? null,
         category: item.category
           ? {
               id: item.category.toString(),
@@ -364,20 +420,127 @@ export const browseProducts = async (
         price: item.price,
         stock: item.stock,
         images: item.images ?? [],
+        specifications: item.specifications ?? [],
         status: item.status,
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
       };
     },
-  );
-
-  return {
+  );  const result: PaginatedProducts = {
     items: productResponses,
     page: parsed.page,
     limit: parsed.limit,
     total,
     totalPages:
-      Math.ceil(total / parsed.limit) ||
-      0,
+      Math.ceil(total / parsed.limit) || 0,
   };
+
+  /* Cache for 1 minute */
+  await setCache(cacheKey, result, CACHE_TTL.PRODUCT_CATALOG);
+
+  return result;
+};
+
+/**
+ * Upload one or more images to a product owned by the seller.
+ * Appends each uploaded image to the product's images array.
+ */
+export const uploadProductImages = async (
+  sellerId: string,
+  productId: string,
+  files: { buffer: Buffer; originalname: string }[],
+): Promise<{ url: string; publicId: string }[]> => {
+  const product = await findProductByIdAndSeller(
+    productId,
+    sellerId,
+  );
+
+  if (!product) {
+    throw new AppError(
+      "Product not found",
+      404,
+      "PRODUCT_NOT_FOUND",
+    );
+  }
+
+  if (product.images.length + files.length > 8) {
+    throw new AppError(
+      "A product can have at most 8 images",
+      400,
+      "TOO_MANY_IMAGES",
+    );
+  }
+
+  const uploaded: { url: string; publicId: string }[] = [];
+
+  for (const file of files) {
+    const filename = `product_${productId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const result = await uploadBuffer(file.buffer, "products", filename);
+    uploaded.push(result);
+  }
+
+  const newImages = product.images.concat(uploaded);
+  await updateProductById(productId, { images: newImages });
+
+  await logAudit({
+    actorId: sellerId,
+    actorRole: UserRole.SELLER,
+    action: "PRODUCT_IMAGES_UPLOADED",
+    entityType: "PRODUCT",
+    entityId: productId,
+    metadata: { count: uploaded.length },
+  });
+
+  return uploaded;
+};
+
+/**
+ * Delete a single image from a product owned by the seller.
+ * Removes the Cloudinary asset and the DB record.
+ */
+export const deleteProductImage = async (
+  sellerId: string,
+  productId: string,
+  imagePublicId: string,
+): Promise<void> => {
+  const product = await findProductByIdAndSeller(
+    productId,
+    sellerId,
+  );
+
+  if (!product) {
+    throw new AppError(
+      "Product not found",
+      404,
+      "PRODUCT_NOT_FOUND",
+    );
+  }
+
+  const imageIndex = product.images.findIndex(
+    (img) => img.publicId === imagePublicId,
+  );
+
+  if (imageIndex === -1) {
+    throw new AppError(
+      "Image not found on this product",
+      404,
+      "IMAGE_NOT_FOUND",
+    );
+  }
+
+  // Remove from Cloudinary (best-effort)
+  await deleteByPublicId(imagePublicId);
+
+  // Remove from the array
+  const updatedImages = [...product.images];
+  updatedImages.splice(imageIndex, 1);
+  await updateProductById(productId, { images: updatedImages });
+
+  await logAudit({
+    actorId: sellerId,
+    actorRole: UserRole.SELLER,
+    action: "PRODUCT_IMAGE_DELETED",
+    entityType: "PRODUCT",
+    entityId: productId,
+  });
 };

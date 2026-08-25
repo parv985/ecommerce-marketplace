@@ -16,6 +16,20 @@ export const findUserById = async (
   return User.findById(userId).exec();
 };
 
+/*
+ * Loads the select:false 2FA fields (encrypted secret, recovery code
+ * hashes) - only called from the 2FA service functions.
+ */
+export const findUserForTwoFactor = async (
+  userId: string,
+): Promise<UserDocument | null> => {
+  return User.findById(userId)
+    .select(
+      "+twoFactorSecretEncrypted +recoveryCodes",
+    )
+    .exec();
+};
+
 export const createUser = async (data: {
   name: string;
   email: string;

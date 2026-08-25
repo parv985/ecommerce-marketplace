@@ -1,6 +1,7 @@
 import { AppError } from "../../errors/AppError.js";
 import type { UserDocument } from "../../models/User.js";
 import type { IAddress } from "../../models/Address.js";
+import { deleteByPublicId, uploadBuffer } from "../../services/cloudinary.service.js";
 import {
   createAddress,
   deleteAddressByIdAndUser,
@@ -31,7 +32,7 @@ const toUserProfileResponse = (
     name: user.name,
     email: user.email,
     role: user.role,
-    avatar: user.avatar ?? null,
+    avatarUrl: user.avatarUrl ?? null,
     isEmailVerified: user.isEmailVerified,
     createdAt: user.createdAt,
   };
@@ -198,3 +199,64 @@ export const deleteUserAddress = async (
     userId,
   );
 };
+
+export const uploadUserAvatar = async (
+  userId: string,
+  buffer: Buffer,
+  originalName: string,
+): Promise<{ avatarUrl: string }> => {
+  const user = await findUserById(userId);
+
+  if (!user) {
+    throw new AppError(
+      "User not found",
+      404,
+      "USER_NOT_FOUND",
+    );
+  }
+
+  // Delete old avatar if it exists
+  if (user.avatarPublicId) {
+    await deleteByPublicId(user.avatarPublicId);
+  }
+
+  const filename = `avatar_${userId}_${Date.now()}`;
+  const result = await uploadBuffer(buffer, "avatars", filename);
+
+  await updateUserById(userId, {
+    avatarUrl: result.url,
+    avatarPublicId: result.publicId,
+  });
+
+  return { avatarUrl: result.url };
+};
+
+export const deleteUserAvatar = async (
+  userId: string,
+): Promise<void> => {
+  const user = await findUserById(userId);
+
+  if (!user) {
+    throw new AppError(
+      "User not found",
+      404,
+      "USER_NOT_FOUND",
+    );
+  }
+
+  if (!user.avatarPublicId) {
+    throw new AppError(
+      "No avatar to delete",
+      400,
+      "NO_AVATAR",
+    );
+  }
+
+  await deleteByPublicId(user.avatarPublicId);
+
+  await updateUserById(userId, {
+    avatarUrl: null,
+    avatarPublicId: null,
+  });
+};
+

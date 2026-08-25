@@ -8,11 +8,13 @@ import { sendSuccess } from "../../utils/apiResponse.js";
 import {
   browseProducts,
   createProductForSeller,
+  deleteProductImage,
   deleteSellerProduct,
   getProductDetails,
   getPublicProductDetails,
   listSellerProducts,
   updateSellerProduct,
+  uploadProductImages,
 } from "./product.service.js";
 
 export const createProductController =
@@ -136,3 +138,56 @@ export const browseProductsController =
       result,
     );
   };
+
+export const uploadProductImagesController =
+  async (
+    req: Request<{ id: string }>,
+    res: Response,
+  ): Promise<void> => {
+    const files = req.files as Express.Multer.File[] | undefined;
+
+    if (!files || files.length === 0) {
+      sendSuccess(
+        res,
+        "No files provided",
+        null,
+        400,
+      );
+      return;
+    }
+
+    const images =
+      await uploadProductImages(
+        req.user!.id,
+        req.params.id,
+        files.map((f) => ({
+          buffer: f.buffer,
+          originalname: f.originalname,
+        })),
+      );
+
+    sendSuccess(
+      res,
+      "Product images uploaded successfully",
+      images,
+    );
+  };
+
+export const deleteProductImageController =
+  async (
+    req: Request<{ id: string; imageId: string }>,
+    res: Response,
+  ): Promise<void> => {
+    await deleteProductImage(
+      req.user!.id,
+      req.params.id,
+      req.params.imageId,
+    );
+
+    sendSuccess(
+      res,
+      "Product image deleted successfully",
+      null,
+    );
+  };
+

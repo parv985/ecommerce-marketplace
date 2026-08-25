@@ -128,22 +128,22 @@ export const aggregateProductRating = async (
 
 export const findReviewUserNames = async (
   userIds: string[],
-): Promise<Map<string, { name: string; avatar: string | null }>> => {
+): Promise<Map<string, { name: string; avatarUrl: string | null }>> => {
   const users = await User.find({
     _id: { $in: userIds },
   })
-    .select("name avatar")
+    .select("name avatarUrl")
     .exec();
 
   const map = new Map<
     string,
-    { name: string; avatar: string | null }
+    { name: string; avatarUrl: string | null }
   >();
 
   for (const user of users) {
     map.set(user._id.toString(), {
       name: user.name,
-      avatar: user.avatar ?? null,
+      avatarUrl: user.avatarUrl ?? null,
     });
   }
 

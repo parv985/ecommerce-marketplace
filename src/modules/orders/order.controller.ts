@@ -8,6 +8,7 @@ import { sendSuccess } from "../../utils/apiResponse.js";
 import {
   cancelOrder,
   createOrderFromCart,
+  generateOrderInvoice,
   getOrderDetails,
   listMyOrders,
   markOrderPaid,
@@ -19,7 +20,7 @@ export const createOrderController = async (
   res: Response,
 ): Promise<void> => {
   const orders = await createOrderFromCart(
-    req.user!.id,
+    req.user!,
     req.body,
   );
 
@@ -110,5 +111,38 @@ export const markOrderPaidController = async (
     res,
     "Payment marked as received",
     order,
+  );
+};
+
+export const getInvoiceController = async (
+  req: Request<{ id: string }>,
+  res: Response,
+): Promise<void> => {
+  const invoice = await generateOrderInvoice(
+    req.user!,
+    req.params.id,
+  );
+
+  sendSuccess(
+    res,
+    "Invoice generated successfully",
+    invoice,
+  );
+};
+
+export const getOrderTrackingController = async (
+  req: Request<{ id: string }>,
+  res: Response,
+): Promise<void> => {
+  const { getOrderTracking } = await import("./order.service.js");
+  const tracking = await getOrderTracking(
+    req.user!,
+    req.params.id,
+  );
+
+  sendSuccess(
+    res,
+    "Order tracking fetched successfully",
+    tracking,
   );
 };

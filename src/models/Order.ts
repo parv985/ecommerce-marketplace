@@ -13,9 +13,13 @@ import {
 export interface IOrderItem {
   productId: Types.ObjectId;
   name: string;
+  /* Original unit price (before any sales discount). */
   price: number;
   quantity: number;
+  /* Original line total (price * quantity). */
   subtotal: number;
+  /* Absolute sales-discount amount applied to this line. */
+  discountAmount: number;
 }
 
 export interface IShippingAddress {
@@ -35,11 +39,24 @@ export interface IOrder {
   sellerId: Types.ObjectId;
   items: IOrderItem[];
   shippingAddress: IShippingAddress;
+  /* Sum of original line subtotals (before discounts). */
   itemsTotal: number;
+  /* Sum of sales-discount amounts applied to the items. */
+  discountTotal: number;
+  /* Applied coupon, when the buyer used one at checkout. */
+  couponId?: Types.ObjectId | null;
+  couponCode?: string | null;
+  /* Absolute discount contributed by the coupon. */
+  couponDiscount: number;
+  /* Final payable amount: itemsTotal - discountTotal - couponDiscount. */
   total: number;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
+  /* Payment record id once payment is initiated through the gateway. */
+  paymentId?: Types.ObjectId | null;
   status: OrderStatus;
+  /* Set when the order transitions to DELIVERED (return window anchor). */
+  deliveredAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -74,6 +91,13 @@ const orderItemSchema = new Schema<IOrderItem>(
       type: Number,
       required: true,
       min: 0,
+    },
+
+    discountAmount: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
     },
   },
   {
@@ -169,6 +193,33 @@ const orderSchema = new Schema<IOrder>(
       min: 0,
     },
 
+    discountTotal: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
+
+    couponId: {
+      type: Schema.Types.ObjectId,
+      ref: "Coupon",
+      default: null,
+    },
+
+    couponCode: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      default: null,
+    },
+
+    couponDiscount: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
+
     total: {
       type: Number,
       required: true,
@@ -187,11 +238,22 @@ const orderSchema = new Schema<IOrder>(
       default: PaymentStatus.PENDING,
     },
 
+    paymentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Payment",
+      default: null,
+    },
+
     status: {
       type: String,
       enum: Object.values(OrderStatus),
       default: OrderStatus.PENDING,
       index: true,
+    },
+
+    deliveredAt: {
+      type: Date,
+      default: null,
     },
   },
   {
@@ -201,6 +263,7 @@ const orderSchema = new Schema<IOrder>(
 
 orderSchema.index({ userId: 1, createdAt: -1 });
 orderSchema.index({ sellerId: 1, createdAt: -1 });
+orderSchema.index({ deliveredAt: 1, sellerId: 1 });
 
 export const Order = model<IOrder>(
   "Order",

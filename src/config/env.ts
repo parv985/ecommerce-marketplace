@@ -28,5 +28,29 @@ const envSchema = z.object({
   JWT_REFRESH_EXPIRES_IN: z
     .string()
     .default("7d"),
+
+  /*
+   * Razorpay. When the key id/secret are unset the payment gateway
+   * runs in deterministic MOCK mode (no real money, dev/test only).
+   */
+  RAZORPAY_KEY_ID: z.string().optional(),
+  RAZORPAY_KEY_SECRET: z.string().optional(),
+  RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
+
+  /* Cloudinary */
+  CLOUDINARY_CLOUD_NAME: z.string().min(1, "CLOUDINARY_CLOUD_NAME is required"),
+  CLOUDINARY_API_KEY: z.string().min(1, "CLOUDINARY_API_KEY is required"),
+  CLOUDINARY_API_SECRET: z.string().min(1, "CLOUDINARY_API_SECRET is required"),
+
+  /* SMTP Email Configuration */
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().optional(),
+  SMTP_SECURE: z.string().optional().default("false"),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
+
+  /* Redis (optional) */
+  REDIS_URL: z.string().optional(),
 });
 export const env = envSchema.parse(process.env);

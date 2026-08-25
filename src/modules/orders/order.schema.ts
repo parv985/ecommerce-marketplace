@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import { OrderStatus } from "../../constants/orderStatus.js";
+import {
+  OrderStatus,
+  PaymentMethod,
+} from "../../constants/orderStatus.js";
 
 const objectId = z
   .string()
@@ -12,6 +15,18 @@ const objectId = z
 export const createOrderSchema = z
   .object({
     shippingAddressId: objectId,
+    paymentMethod: z
+      .nativeEnum(PaymentMethod)
+      .optional(),
+    couponCode: z
+      .string()
+      .trim()
+      .min(3)
+      .max(30)
+      .transform((value) =>
+        value.toUpperCase(),
+      )
+      .optional(),
   })
   .strict();
 

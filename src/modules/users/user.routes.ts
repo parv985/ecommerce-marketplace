@@ -1,15 +1,18 @@
 import { Router } from "express";
 
 import { validate } from "../../middlewares/validation.middleware.js";
+import { uploadImage } from "../../middlewares/upload.middleware.js";
 import { authenticate } from "../auth/auth.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import {
   createMyAddressController,
+  deleteAvatarController,
   deleteMyAddressController,
   getMyProfileController,
   listMyAddressesController,
   updateMyAddressController,
   updateMyProfileController,
+  uploadAvatarController,
 } from "./user.controller.js";
 import {
   addressIdParamsSchema,
@@ -243,6 +246,76 @@ router.delete(
   "/me/addresses/:id",
   validate(addressIdParamsSchema, "params"),
   asyncHandler(deleteMyAddressController),
+);
+
+/**
+ * @openapi
+ * /api/v1/users/me/avatar:
+ *   post:
+ *     tags:
+ *       - Users
+ *     summary: Upload avatar
+ *     description: Uploads or replaces the authenticated user's avatar image. Previous avatar is deleted from Cloudinary.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *                 description: Avatar image (JPEG, PNG, WebP, GIF, max 5 MB)
+ *     responses:
+ *       200:
+ *         description: Avatar uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     avatarUrl:
+ *                       type: string
+ *                       format: uri
+ *       400:
+ *         description: Invalid file type or size
+ *       401:
+ *         description: Not authenticated
+ *
+ *   delete:
+ *     tags:
+ *       - Users
+ *     summary: Delete avatar
+ *     description: Removes the authenticated user's avatar from Cloudinary and the database.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Avatar deleted successfully
+ *       400:
+ *         description: No avatar to delete
+ *       401:
+ *         description: Not authenticated
+ */
+router.post(
+  "/me/avatar",
+  uploadImage.single("image"),
+  asyncHandler(uploadAvatarController),
+);
+
+router.delete(
+  "/me/avatar",
+  asyncHandler(deleteAvatarController),
 );
 
 export default router;

@@ -1,4 +1,7 @@
 import { AppError } from "../../errors/AppError.js";
+import { SellerStatus } from "../../constants/sellerStatus.js";
+import { logAudit } from "../../services/audit.service.js";
+import { notifySellerDecision } from "../notifications/notification.service.js";
 import type { UserDocument } from "../../models/User.js";
 import type { ISeller } from "../../models/Seller.js";
 import type { IProduct } from "../../models/Product.js";
@@ -189,6 +192,7 @@ export const getSellersList = async (
 };
 
 export const setSellerStatus = async (
+  user: { id: string; role: string },
   sellerId: string,
   input: unknown,
 ): Promise<AdminSellerResponse> => {
@@ -220,6 +224,28 @@ export const setSellerStatus = async (
       "SELLER_NOT_FOUND",
     );
   }
+
+  /*
+   * The seller is told about approval/rejection decisions, and the
+   * action is recorded in the audit log (before/after status).
+   */
+  if (
+    data.status === SellerStatus.APPROVED ||
+    data.status === SellerStatus.REJECTED
+  ) {
+    await notifySellerDecision(updated, data.status);
+  }
+
+  await logAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: "SELLER_STATUS_UPDATE",
+    entityType: "SELLER",
+    entityId: sellerId,
+    before: { status: seller.status },
+    after: { status: updated.status },
+    metadata: { reason: data.reason ?? null },
+  });
 
   return toAdminSellerResponse(updated);
 };

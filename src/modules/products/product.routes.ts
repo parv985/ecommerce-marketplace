@@ -1,18 +1,22 @@
 import { Router } from "express";
 
 import { validate } from "../../middlewares/validation.middleware.js";
-import { authorize } from "../../middlewares/roel.middleware.js";
+import { uploadProductImages as uploadProductImagesMulter } from "../../middlewares/upload.middleware.js";
+import { authorize } from "../../middlewares/role.middleware.js";
 import { authenticate } from "../auth/auth.middleware.js";
+import { requireTwoFactorSetup } from "../../middlewares/twoFactor.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { UserRole } from "../../constants/roles.js";
 import {
   browseProductsController,
   createProductController,
   deleteProductController,
+  deleteProductImageController,
   getPublicProductController,
   getSellerProductController,
   listMyProductsController,
   updateProductController,
+  uploadProductImagesController,
 } from "./product.controller.js";
 import {
   createProductSchema,
@@ -138,6 +142,7 @@ router.post(
   "/",
   authenticate,
   authorize(UserRole.SELLER),
+  requireTwoFactorSetup,
   validate(createProductSchema),
   asyncHandler(createProductController),
 );
@@ -349,6 +354,7 @@ router.patch(
   "/:id",
   authenticate,
   authorize(UserRole.SELLER),
+  requireTwoFactorSetup,
   validate(productIdParamsSchema, "params"),
   validate(updateProductSchema),
   asyncHandler(updateProductController),
@@ -360,6 +366,117 @@ router.delete(
   authorize(UserRole.SELLER),
   validate(productIdParamsSchema, "params"),
   asyncHandler(deleteProductController),
+);
+
+/**
+ * @openapi
+ * /api/v1/products/{id}/images:
+ *   post:
+ *     tags:
+ *       - Products
+ *     summary: Upload product images
+ *     description: Uploads one or more images to a product owned by the authenticated seller. Appends to existing images (max 8 total).
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Product ObjectId
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: Product images (JPEG, PNG, WebP, GIF, max 5 MB each)
+ *     responses:
+ *       200:
+ *         description: Images uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       url:
+ *                         type: string
+ *                         format: uri
+ *                       publicId:
+ *                         type: string
+ *       400:
+ *         description: Invalid file type, size, or too many images
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Requires SELLER role
+ *       404:
+ *         description: Product not found or not owned by seller
+ */
+router.post(
+  "/:id/images",
+  authenticate,
+  authorize(UserRole.SELLER),
+  validate(productIdParamsSchema, "params"),
+  uploadProductImagesMulter.array("images", 8),
+  asyncHandler(uploadProductImagesController),
+);
+
+/**
+ * @openapi
+ * /api/v1/products/{id}/images/{imageId}:
+ *   delete:
+ *     tags:
+ *       - Products
+ *     summary: Delete product image
+ *     description: Removes a single image from a product and deletes it from Cloudinary.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Product ObjectId
+ *         schema:
+ *           type: string
+ *       - name: imageId
+ *         in: path
+ *         required: true
+ *         description: Image publicId from Cloudinary
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Image deleted successfully
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Requires SELLER role
+ *       404:
+ *         description: Product or image not found
+ */
+router.delete(
+  "/:id/images/:imageId",
+  authenticate,
+  authorize(UserRole.SELLER),
+  validate(productIdParamsSchema, "params"),
+  asyncHandler(deleteProductImageController),
 );
 
 export default router;

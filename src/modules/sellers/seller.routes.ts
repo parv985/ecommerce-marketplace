@@ -1,14 +1,18 @@
 import { Router } from "express";
 
 import { validate } from "../../middlewares/validation.middleware.js";
-import { authorize } from "../../middlewares/roel.middleware.js";
+import { uploadDocument } from "../../middlewares/upload.middleware.js";
+import { authorize } from "../../middlewares/role.middleware.js";
 import { authenticate } from "../auth/auth.middleware.js";
+import { requireTwoFactorSetup } from "../../middlewares/twoFactor.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { UserRole } from "../../constants/roles.js";
 import {
+  deleteSellerDocumentController,
   getSellerProfileController,
   registerSellerController,
   updateSellerProfileController,
+  uploadSellerDocumentController,
 } from "./seller.controller.js";
 import {
   sellerRegistrationSchema,
@@ -197,6 +201,103 @@ router.patch(
   authorize(UserRole.SELLER),
   validate(updateSellerProfileSchema),
   asyncHandler(updateSellerProfileController),
+);
+
+/**
+ * @openapi
+ * /api/v1/sellers/me/documents:
+ *   post:
+ *     tags:
+ *       - Sellers
+ *     summary: Upload seller document
+ *     description: Uploads a KYC document (GST certificate, PAN card, etc.) to Cloudinary.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               document:
+ *                 type: string
+ *                 format: binary
+ *                 description: Document file (JPEG, PNG, PDF, max 10 MB)
+ *               documentType:
+ *                 type: string
+ *                 description: Type of document (e.g., GST, PAN, BANK_STATEMENT)
+ *     responses:
+ *       200:
+ *         description: Document uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     type:
+ *                       type: string
+ *                     url:
+ *                       type: string
+ *                       format: uri
+ *                     publicId:
+ *                       type: string
+ *       400:
+ *         description: Invalid file type, size, or missing document type
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Requires SELLER role
+ *       404:
+ *         description: Seller profile not found
+ */
+router.post(
+  "/me/documents",
+  authenticate,
+  authorize(UserRole.SELLER),
+  uploadDocument.single("document"),
+  asyncHandler(uploadSellerDocumentController),
+);
+
+/**
+ * @openapi
+ * /api/v1/sellers/me/documents/{documentId}:
+ *   delete:
+ *     tags:
+ *       - Sellers
+ *     summary: Delete seller document
+ *     description: Removes a document from Cloudinary and the seller profile.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: documentId
+ *         in: path
+ *         required: true
+ *         description: Document publicId from Cloudinary
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Document deleted successfully
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Requires SELLER role
+ *       404:
+ *         description: Seller profile or document not found
+ */
+router.delete(
+  "/me/documents/:documentId",
+  authenticate,
+  authorize(UserRole.SELLER),
+  asyncHandler(deleteSellerDocumentController),
 );
 
 export default router;

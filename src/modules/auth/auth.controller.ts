@@ -27,6 +27,11 @@ import {
   loginUser,
   logoutUser,
   registerUser,
+  verifyTwoFactorLogin,
+  setupTwoFactor,
+  enableTwoFactor,
+  disableTwoFactor,
+  regenerateRecoveryCodes,
 } from "./auth.service.js";
 import { loginWithGoogle, handleGoogleCallback, getGoogleAuthUrl, getGoogleAuthorizationUrl } from "./google.service.js";
 export { getGoogleAuthorizationUrl };
@@ -140,6 +145,19 @@ export const login = async (
 ): Promise<void> => {
   const result = await loginUser(req.body);
 
+  if ("twoFactorRequired" in result) {
+    /*
+     * Password verified but 2FA pending: no tokens are issued yet,
+     * so the response carries only the short-lived login token.
+     */
+    sendSuccess(res, "Two-factor authentication required", {
+      twoFactorRequired: true,
+      loginToken: result.loginToken,
+    });
+
+    return;
+  }
+
   setRefreshTokenCookie(
     res,
     result.refreshToken,
@@ -150,6 +168,92 @@ export const login = async (
     user: result.user,
   });
 };
+
+export const verifyTwoFactor = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const result =
+    await verifyTwoFactorLogin(req.body);
+
+  setRefreshTokenCookie(
+    res,
+    result.refreshToken,
+  );
+
+  sendSuccess(res, "Two-factor verification successful", {
+    accessToken: result.accessToken,
+    user: result.user,
+  });
+};
+
+export const setupTwoFactorController =
+  async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
+    const result = await setupTwoFactor(
+      req.user!.id,
+    );
+
+    sendSuccess(
+      res,
+      "Scan the code with your authenticator app and confirm with /auth/2fa/enable",
+      result,
+    );
+  };
+
+export const enableTwoFactorController =
+  async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
+    const result = await enableTwoFactor(
+      req.user!.id,
+      req.body,
+    );
+
+    sendSuccess(
+      res,
+      "Two-factor authentication enabled",
+      result,
+    );
+  };
+
+export const disableTwoFactorController =
+  async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
+    const result = await disableTwoFactor(
+      req.user!.id,
+      req.body,
+    );
+
+    sendSuccess(
+      res,
+      "Two-factor authentication disabled",
+      result,
+    );
+  };
+
+export const regenerateRecoveryCodesController =
+  async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
+    const result =
+      await regenerateRecoveryCodes(
+        req.user!.id,
+        req.body,
+      );
+
+    sendSuccess(
+      res,
+      "Recovery codes regenerated",
+      result,
+    );
+  };
 export const logout = async (
   req: Request,
   res: Response,

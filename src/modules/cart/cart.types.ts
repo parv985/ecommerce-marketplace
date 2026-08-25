@@ -1,12 +1,17 @@
 import type { ProductStatus } from "../../constants/productStatus.js";
 
+export interface CartProductImage {
+  url: string;
+  publicId: string;
+}
+
 export interface CartProductSummary {
   id: string;
   sellerId: string;
   name: string;
   price: number;
   stock: number;
-  images: string[];
+  images: CartProductImage[];
   status: ProductStatus;
 }
 

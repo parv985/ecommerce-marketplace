@@ -24,6 +24,7 @@ export interface SellerRegistrationInput {
   documents?: {
     type: string;
     url: string;
+    publicId: string;
   }[];
 }
 
@@ -64,6 +65,7 @@ export interface SellerProfileResponse {
   documents: {
     type: string;
     url: string;
+    publicId: string;
   }[];
   status: SellerStatus;
   statusReason?: string | null;

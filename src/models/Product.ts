@@ -6,15 +6,27 @@ import {
 
 import { ProductStatus } from "../constants/productStatus.js";
 
+export interface IProductImage {
+  url: string;
+  publicId: string;
+}
+
+export interface IProductSpec {
+  key: string;
+  value: string;
+}
+
 export interface IProduct {
   _id: Types.ObjectId;
   sellerId: Types.ObjectId;
   name: string;
   description?: string;
+  sku?: string;
   category?: Types.ObjectId | null;
   price: number;
   stock: number;
-  images: string[];
+  images: IProductImage[];
+  specifications: IProductSpec[];
   status: ProductStatus;
   createdAt: Date;
   updatedAt: Date;
@@ -57,6 +69,13 @@ const productSchema = new Schema<IProduct>(
       min: 0,
     },
 
+    sku: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+      sparse: true,
+    },
+
     stock: {
       type: Number,
       required: true,
@@ -64,10 +83,33 @@ const productSchema = new Schema<IProduct>(
       default: 0,
     },
 
-    images: {
-      type: [String],
-      default: [],
-    },
+    images: [
+      {
+        url: {
+          type: String,
+          required: true,
+        },
+        publicId: {
+          type: String,
+          required: true,
+        },
+      },
+    ],
+
+    specifications: [
+      {
+        key: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        value: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+      },
+    ],
 
     status: {
       type: String,

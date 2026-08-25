@@ -304,6 +304,139 @@ describe("Orders", () => {
     expect(stock.body.data.stock).toBe(4);
   });
 
+  it("enforces the documented cancellation rules across all states", async () => {
+    const seller = await createApprovedSeller();
+    const buyerEmail = `cbuyer${Date.now()}@test.com`;
+    await registerUser(buyerEmail);
+    const buyer = await login(buyerEmail);
+
+    const product = await createProduct(
+      seller.token,
+      { stock: 10, status: "ACTIVE" },
+    );
+    const productId = product.body.data.id;
+
+    const createOrder = async (): Promise<string> => {
+      await api
+        .post("/api/v1/cart/items")
+        .set("Authorization", `Bearer ${buyer.token}`)
+        .send({ productId, quantity: 1 });
+      const addressId = await createAddress(buyer.token);
+      const checkout = await api
+        .post("/api/v1/orders")
+        .set("Authorization", `Bearer ${buyer.token}`)
+        .send({ shippingAddressId: addressId });
+      return checkout.body.data[0].id;
+    };
+
+    const advanceTo = async (
+      orderId: string,
+      status: string,
+    ): Promise<void> => {
+      await api
+        .patch(`/api/v1/orders/${orderId}/status`)
+        .set("Authorization", `Bearer ${seller.token}`)
+        .send({ status });
+    };
+
+    const cancel = async (
+      orderId: string,
+    ): Promise<number> => {
+      const res = await api
+        .post(`/api/v1/orders/${orderId}/cancel`)
+        .set("Authorization", `Bearer ${buyer.token}`);
+      return res.status;
+    };
+
+    // PENDING -> cancellable
+    const pendingOrder = await createOrder();
+    expect(await cancel(pendingOrder)).toBe(200);
+
+    // CONFIRMED -> cancellable
+    const confirmedOrder = await createOrder();
+    await advanceTo(confirmedOrder, "CONFIRMED");
+    expect(await cancel(confirmedOrder)).toBe(200);
+
+    // SHIPPED -> cancellable (goods not yet handed over)
+    const shippedOrder = await createOrder();
+    await advanceTo(shippedOrder, "CONFIRMED");
+    await advanceTo(shippedOrder, "SHIPPED");
+    expect(await cancel(shippedOrder)).toBe(200);
+
+    // DELIVERED -> NOT cancellable
+    const deliveredOrder = await createOrder();
+    await advanceTo(deliveredOrder, "CONFIRMED");
+    await advanceTo(deliveredOrder, "SHIPPED");
+    await advanceTo(deliveredOrder, "DELIVERED");
+    expect(await cancel(deliveredOrder)).toBe(400);
+
+    // CANCELLED is terminal (idempotent no-op)
+    const cancelledOrder = await createOrder();
+    await cancel(cancelledOrder);
+    expect(await cancel(cancelledOrder)).toBe(200);
+
+    // Cancelled orders restored their stock; the delivered order
+    // legitimately consumed 1 unit (10 - 1 = 9).
+    const stock = await api.get(
+      `/api/v1/products/${productId}`,
+    );
+    expect(stock.body.data.stock).toBe(9);
+  });
+
+  it("never creates duplicate orders on concurrent checkout", async () => {
+    const seller = await createApprovedSeller();
+    const buyerEmail = `cd${Date.now()}@test.com`;
+    await registerUser(buyerEmail);
+    const buyer = await login(buyerEmail);
+
+    const product = await createProduct(seller.token, {
+      name: "Double Submit",
+      price: 100,
+      stock: 5,
+      status: "ACTIVE",
+    });
+    const productId = product.body.data.id;
+
+    await api
+      .post("/api/v1/cart/items")
+      .set("Authorization", `Bearer ${buyer.token}`)
+      .send({ productId, quantity: 2 });
+    const addressId = await createAddress(buyer.token);
+
+    const [first, second] = await Promise.all([
+      api
+        .post("/api/v1/orders")
+        .set("Authorization", `Bearer ${buyer.token}`)
+        .send({ shippingAddressId: addressId }),
+      api
+        .post("/api/v1/orders")
+        .set("Authorization", `Bearer ${buyer.token}`)
+        .send({ shippingAddressId: addressId }),
+    ]);
+
+    const statuses = [first.status, second.status];
+
+    // Exactly one checkout wins; the loser is rejected with a
+    // conflict (cart claim) or an empty-cart/stock error.
+    expect(statuses).toContain(201);
+
+    const loser = statuses.find(
+      (status) => status !== 201,
+    )!;
+
+    expect([400, 409]).toContain(loser);
+
+    const orders = await api
+      .get("/api/v1/orders")
+      .set("Authorization", `Bearer ${buyer.token}`);
+    expect(orders.body.data.total).toBe(1);
+
+    const stock = await api.get(
+      `/api/v1/products/${productId}`,
+    );
+    expect(stock.body.data.stock).toBe(3);
+  });
+
   it("never oversells when stock runs out between checkouts", async () => {
     const seller = await createApprovedSeller();
     const buyer1 = `o1${Date.now()}@test.com`;

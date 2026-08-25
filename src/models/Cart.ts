@@ -13,6 +13,12 @@ export interface ICart {
   _id: Types.ObjectId;
   userId: Types.ObjectId;
   items: ICartItem[];
+  /*
+   * Set while a checkout is processing this cart. Acts as an
+   * optimistic lock so two concurrent checkouts can never both create
+   * orders from the same cart (double-submit protection).
+   */
+  checkoutLockedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -49,6 +55,11 @@ const cartSchema = new Schema<ICart>(
     items: {
       type: [cartItemSchema],
       default: [],
+    },
+
+    checkoutLockedAt: {
+      type: Date,
+      default: null,
     },
   },
   {

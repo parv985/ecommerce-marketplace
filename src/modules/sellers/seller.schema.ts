@@ -138,6 +138,11 @@ export const sellerRegistrationSchema =
             .string()
             .trim()
             .url(),
+
+          publicId: z
+            .string()
+            .trim()
+            .min(1),
         }),
       )
       .optional()

@@ -144,6 +144,20 @@ export const incrementProductStock = async (
   ).exec();
 };
 
+/*
+ * Returns how many of the given product ids are owned by the seller.
+ * Used to validate coupon product restrictions (ownership check).
+ */
+export const countProductsOwnedBySeller = async (
+  ids: string[],
+  sellerId: string,
+): Promise<number> => {
+  return Product.countDocuments({
+    _id: { $in: ids },
+    sellerId,
+  }).exec();
+};
+
 export const findCategoryNames = async (
   ids: string[],
 ): Promise<Map<string, string>> => {

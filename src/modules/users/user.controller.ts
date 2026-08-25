@@ -12,6 +12,8 @@ import {
   getUserAddresses,
   updateCurrentUserProfile,
   updateUserAddress,
+  uploadUserAvatar,
+  deleteUserAvatar,
 } from "./user.service.js";
 
 export const getMyProfileController =
@@ -120,3 +122,51 @@ export const deleteMyAddressController =
       null,
     );
   };
+
+export const uploadAvatarController =
+  async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
+    const file = req.file;
+
+    if (!file) {
+      sendSuccess(
+        res,
+        "No file provided",
+        null,
+        400,
+      );
+      return;
+    }
+
+    const avatar =
+      await uploadUserAvatar(
+        req.user!.id,
+        file.buffer,
+        file.originalname,
+      );
+
+    sendSuccess(
+      res,
+      "Avatar uploaded successfully",
+      avatar,
+    );
+  };
+
+export const deleteAvatarController =
+  async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
+    await deleteUserAvatar(
+      req.user!.id,
+    );
+
+    sendSuccess(
+      res,
+      "Avatar deleted successfully",
+      null,
+    );
+  };
+

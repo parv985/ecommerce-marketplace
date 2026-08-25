@@ -1,4 +1,4 @@
-import express from "express";
+import express, { type Request } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
@@ -59,7 +59,18 @@ app.use(
   swaggerUi.serve,
   swaggerUi.setup(swaggerSpec),
 );
-app.use(express.json());
+/*
+ * The verify callback captures the raw request body for the Razorpay
+ * webhook, whose signature is computed over the exact bytes received.
+ */
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      (req as Request & { rawBody?: Buffer }).rawBody =
+        buf;
+    },
+  }),
+);
 app.use(express.urlencoded({ extended: true }));
 
 app.use(cookieParser());

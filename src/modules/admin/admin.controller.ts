@@ -14,6 +14,19 @@ import {
   setSellerStatus,
   setUserActiveStatus,
 } from "./admin.service.js";
+import {
+  generateSettlements,
+  getSettlementDetail,
+  listAllSettlements,
+  remindSettlement,
+  updateSettlementStatus,
+} from "../settlements/settlement.service.js";
+import {
+  getCommissionRate,
+  setCommissionRate,
+} from "../settlements/commission.service.js";
+import { logAudit } from "../../services/audit.service.js";
+import { SettlementStatus } from "../../constants/settlementStatus.js";
 
 export const listUsersController = async (
   req: Request,
@@ -67,6 +80,7 @@ export const updateSellerStatusController =
     res: Response,
   ): Promise<void> => {
     const seller = await setSellerStatus(
+      req.user!,
       req.params.id,
       req.body,
     );
@@ -124,3 +138,179 @@ export const listOrdersController = async (
     result,
   );
 };
+
+export const listSettlementsController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const result = await listAllSettlements(
+    req.query,
+  );
+
+  sendSuccess(
+    res,
+    "Settlements fetched successfully",
+    result,
+  );
+};
+
+export const getSettlementController = async (
+  req: Request<{ id: string }>,
+  res: Response,
+): Promise<void> => {
+  const result = await getSettlementDetail(
+    req.params.id,
+  );
+
+  sendSuccess(
+    res,
+    "Settlement fetched successfully",
+    result,
+  );
+};
+
+export const generateSettlementController =
+  async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
+    const result = await generateSettlements(
+      req.user!,
+      req.body,
+    );
+
+    sendSuccess(
+      res,
+      "Settlements generated",
+      result,
+      201,
+    );
+  };
+
+export const processSettlementController =
+  async (
+    req: Request<{ id: string }>,
+    res: Response,
+  ): Promise<void> => {
+    const result = await updateSettlementStatus(
+      req.user!,
+      req.params.id,
+      SettlementStatus.PROCESSING,
+    );
+
+    sendSuccess(
+      res,
+      "Settlement processing started",
+      result,
+    );
+  };
+
+export const markSettlementPaidController =
+  async (
+    req: Request<{ id: string }>,
+    res: Response,
+  ): Promise<void> => {
+    const result = await updateSettlementStatus(
+      req.user!,
+      req.params.id,
+      SettlementStatus.PAID,
+    );
+
+    sendSuccess(
+      res,
+      "Settlement marked as paid",
+      result,
+    );
+  };
+
+export const cancelSettlementController =
+  async (
+    req: Request<{ id: string }>,
+    res: Response,
+  ): Promise<void> => {
+    const result = await updateSettlementStatus(
+      req.user!,
+      req.params.id,
+      SettlementStatus.CANCELLED,
+    );
+
+    sendSuccess(
+      res,
+      "Settlement cancelled",
+      result,
+    );
+  };
+
+export const failSettlementController = async (
+  req: Request<{ id: string }>,
+  res: Response,
+): Promise<void> => {
+  const result = await updateSettlementStatus(
+    req.user!,
+    req.params.id,
+    SettlementStatus.FAILED,
+  );
+
+  sendSuccess(
+    res,
+    "Settlement marked as failed",
+    result,
+  );
+};
+
+export const remindSettlementController =
+  async (
+    req: Request<{ id: string }>,
+    res: Response,
+  ): Promise<void> => {
+    const result = await remindSettlement(
+      req.user!,
+      req.params.id,
+    );
+
+    sendSuccess(
+      res,
+      "Settlement reminder sent",
+      result,
+    );
+  };
+
+export const getCommissionSettingsController =
+  async (
+    _req: Request,
+    res: Response,
+  ): Promise<void> => {
+    const rate = await getCommissionRate();
+
+    sendSuccess(
+      res,
+      "Commission settings fetched",
+      { rate },
+    );
+  };
+
+export const updateCommissionSettingsController =
+  async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
+    const before = await getCommissionRate();
+    const rate = await setCommissionRate(
+      req.body.rate,
+    );
+
+    await logAudit({
+      actorId: req.user!.id,
+      actorRole: req.user!.role,
+      action: "COMMISSION_RATE_CHANGED",
+      entityType: "PLATFORM_SETTING",
+      before: { rate: before },
+      after: { rate },
+    });
+
+    sendSuccess(
+      res,
+      "Commission settings updated",
+      { rate },
+    );
+  };

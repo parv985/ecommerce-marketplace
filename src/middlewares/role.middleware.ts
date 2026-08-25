@@ -27,7 +27,7 @@ export const authorize = (
       return;
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    if (allowedRoles.length > 0 && !allowedRoles.includes(req.user.role)) {
       next(
         new AppError(
           "You do not have permission to perform this action",

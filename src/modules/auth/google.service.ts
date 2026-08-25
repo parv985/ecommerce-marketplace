@@ -66,8 +66,8 @@ export const loginWithGoogle = async (idToken: string) => {
       user.googleId = googleId;
       user.authProvider = "GOOGLE";
     }
-    if (avatar && !user.avatar) {
-      user.avatar = avatar;
+    if (avatar && !user.avatarUrl) {
+      user.avatarUrl = avatar;
     }
     user.isEmailVerified = true;
     user.lastLoginAt = new Date();
@@ -78,7 +78,7 @@ export const loginWithGoogle = async (idToken: string) => {
       email,
       googleId,
       authProvider: "GOOGLE",
-      ...(avatar ? { avatar } : {}),
+      ...(avatar ? { avatarUrl: avatar } : {}),
       isEmailVerified: true,
       role: UserRole.BUYER,
       lastLoginAt: new Date(),
@@ -123,7 +123,7 @@ export const loginWithGoogle = async (idToken: string) => {
       email: user.email,
       role: user.role,
       isEmailVerified: user.isEmailVerified,
-      avatar: user.avatar,
+      avatarUrl: user.avatarUrl ?? null,
     },
   };
 };

@@ -47,8 +47,13 @@ const userSchema = new Schema<IUser>(
       default: "LOCAL",
     },
 
-    avatar: {
+    avatarUrl: {
       type: String,
+    },
+
+    avatarPublicId: {
+      type: String,
+      select: false,
     },
 
     isEmailVerified: {
@@ -63,6 +68,28 @@ const userSchema = new Schema<IUser>(
 
     lastLoginAt: {
       type: Date,
+    },
+
+    twoFactorEnabled: {
+      type: Boolean,
+      default: false,
+    },
+
+    /*
+     * Encrypted at rest (see src/utils/secretCipher.ts). select:false
+     * keeps it out of every response unless explicitly requested.
+     */
+    twoFactorSecretEncrypted: {
+      type: String,
+      select: false,
+      default: null,
+    },
+
+    /* Hashed recovery codes (never the raw values). */
+    recoveryCodes: {
+      type: [String],
+      select: false,
+      default: [],
     },
   },
   {

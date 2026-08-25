@@ -19,6 +19,18 @@ export interface RefreshTokenPayload {
   tokenId: string;
 }
 
+/*
+ * Short-lived proof that the password was verified but 2FA is still
+ * required. Issued by login, consumed by POST /auth/2fa/verify.
+ * Never grants access on its own - only the 2FA step converts it
+ * into real access/refresh tokens.
+ */
+export interface TwoFactorPendingPayload {
+  userId: string;
+  role: UserRole;
+  type: "2fa_pending";
+}
+
 export const generateAccessToken = (
   payload: AccessTokenPayload,
 ): string => {
@@ -45,6 +57,39 @@ export const generateRefreshToken = (
     env.JWT_REFRESH_SECRET as jwt.Secret,
     options,
   );
+};
+
+export const generateTwoFactorToken = (
+  payload: TwoFactorPendingPayload,
+): string => {
+  return jwt.sign(
+    payload,
+    env.JWT_ACCESS_SECRET as jwt.Secret,
+    { expiresIn: "5m" },
+  );
+};
+
+export const verifyTwoFactorToken = (
+  token: string,
+): TwoFactorPendingPayload => {
+  const decoded = jwt.verify(
+    token,
+    env.JWT_ACCESS_SECRET,
+  ) as JwtPayload;
+
+  if (
+    typeof decoded.userId !== "string" ||
+    typeof decoded.role !== "string" ||
+    decoded.type !== "2fa_pending"
+  ) {
+    throw new Error("Invalid 2FA token payload");
+  }
+
+  return {
+    userId: decoded.userId,
+    role: decoded.role as UserRole,
+    type: "2fa_pending",
+  };
 };
 
 export const verifyAccessToken = (

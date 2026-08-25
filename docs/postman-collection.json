@@ -1,0 +1,4155 @@
+{
+  "info": {
+    "name": "E-Commerce Marketplace API",
+    "description": "Generated from the OpenAPI spec. Set the accessToken collection variable by logging in via the Authentication folder (login returns an access token; 2FA-enabled sellers/admins must complete /auth/2fa/verify).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get current user profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/users/me",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns the profile of the authenticated user."
+          }
+        },
+        {
+          "name": "Update current user profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/users/me",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Updates the name or avatar of the authenticated user."
+          }
+        },
+        {
+          "name": "List my addresses",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/users/me/addresses",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "addresses"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns all saved addresses of the authenticated user."
+          }
+        },
+        {
+          "name": "Create an address",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/users/me/addresses",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "addresses"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Saves a new shipping address for the authenticated user."
+          }
+        },
+        {
+          "name": "Update an address",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/users/me/addresses/:id",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "addresses",
+                ":id"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Updates one of the authenticated user's addresses. Returns 404 if the address does not belong to the user."
+          }
+        },
+        {
+          "name": "Delete an address",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/users/me/addresses/:id",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "addresses",
+                ":id"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Deletes one of the authenticated user's addresses. Returns 404 if the address does not belong to the user."
+          }
+        },
+        {
+          "name": "Upload avatar",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/v1/users/me/avatar",
+              "host": ["http://localhost:5000"],
+              "path": ["api", "v1", "users", "me", "avatar"],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Uploads or replaces the authenticated user's avatar image. Previous avatar is deleted from Cloudinary. Field: 'image' (File, JPEG/PNG/WebP/GIF, max 5 MB)."
+          }
+        },
+        {
+          "name": "Delete avatar",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/users/me/avatar",
+              "host": ["http://localhost:5000"],
+              "path": ["api", "v1", "users", "me", "avatar"],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Removes the authenticated user's avatar from Cloudinary and the database."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sellers",
+      "item": [
+        {
+          "name": "Get my settlement for a period",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/sellers/settlement",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sellers",
+                "settlement"
+              ],
+              "query": [
+                {
+                  "key": "month",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns the authenticated seller's settlement for the given month (defaults to the current month). Returns null when no settlement exists for the period. Settlements are generated by an admin during the monthly payout window (1st-7th)."
+          }
+        },
+        {
+          "name": "Register a seller",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/sellers/register",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sellers",
+                "register"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Public registration. Creates a User with the SELLER role and a Seller profile in PENDING status."
+          }
+        },
+        {
+          "name": "Get current seller profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/sellers/me",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sellers",
+                "me"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns the seller profile belonging to the authenticated seller."
+          }
+        },
+        {
+          "name": "Update current seller profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/sellers/me",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sellers",
+                "me"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Updates business, contact, bank or address information of the authenticated seller's profile. GSTIN and PAN are immutable."
+          }
+        },
+        {
+          "name": "Upload seller document",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "document",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "documentType",
+                  "value": "GST",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/v1/sellers/me/documents",
+              "host": ["http://localhost:5000"],
+              "path": ["api", "v1", "sellers", "me", "documents"],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Uploads a KYC document (GST certificate, PAN card, etc.) to Cloudinary. Fields: 'document' (File, JPEG/PNG/PDF, max 10 MB), 'documentType' (Text, e.g. GST/PAN/BANK_STATEMENT)."
+          }
+        },
+        {
+          "name": "Delete seller document",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/sellers/me/documents/:documentId",
+              "host": ["http://localhost:5000"],
+              "path": ["api", "v1", "sellers", "me", "documents", ":documentId"],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Removes a document from Cloudinary and the seller profile. Replace :documentId with the Cloudinary publicId returned from upload."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reviews",
+      "item": [
+        {
+          "name": "Review a product",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/reviews",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reviews"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Submits a rating (1-5) and optional comment for a product. Only allowed after an order containing the product has been delivered, and only once per user per product."
+          }
+        },
+        {
+          "name": "List product reviews",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/reviews/product/:productId",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reviews",
+                "product",
+                ":productId"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": ""
+                },
+                {
+                  "key": "limit",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Public endpoint. Returns paginated reviews for a product along with the average rating and total review count."
+          }
+        },
+        {
+          "name": "Update a review",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/reviews/:id",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reviews",
+                ":id"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Updates the rating or comment of the authenticated user's own review. Returns 403 for other users' reviews."
+          }
+        },
+        {
+          "name": "Delete a review",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/reviews/:id",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reviews",
+                ":id"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Deletes the authenticated user's own review. Returns 403 for other users' reviews."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Returns",
+      "item": [
+        {
+          "name": "Request a return",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/returns",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "returns"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Requests a return for a DELIVERED order within 7 days of delivery. Only the buyer who owns the order can request; one active return per order. No return can be requested while one is in progress."
+          }
+        },
+        {
+          "name": "List my return requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/returns",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "returns"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": ""
+                },
+                {
+                  "key": "limit",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Buyers see their own return requests; sellers see requests for their orders. Supports status filtering and pagination."
+          }
+        },
+        {
+          "name": "Get a return request",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/returns/:id",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "returns",
+                ":id"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns a single return request. The owning buyer, the order's seller, and admins can view it."
+          }
+        },
+        {
+          "name": "Update a return request status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/returns/:id/status",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "returns",
+                ":id",
+                "status"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Advances a return through PENDING -> APPROVED -> COMPLETED or rejects it (a reason is required for rejection). Only the order's seller or an admin can update. Completing a return restores the committed stock."
+          }
+        },
+        {
+          "name": "Cancel a pending return request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/returns/:id/cancel",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "returns",
+                ":id",
+                "cancel"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Cancels the buyer's own return request while it is still PENDING."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "Create a product",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/products",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Creates a product owned by the authenticated seller. Requires an approved seller account."
+          }
+        },
+        {
+          "name": "Browse active products",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/products",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "category",
+                  "value": ""
+                },
+                {
+                  "key": "minPrice",
+                  "value": ""
+                },
+                {
+                  "key": "maxPrice",
+                  "value": ""
+                },
+                {
+                  "key": "sort",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": ""
+                },
+                {
+                  "key": "limit",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Public catalog search with filtering, sorting and pagination. Only ACTIVE products are returned."
+          }
+        },
+        {
+          "name": "List my products",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/products/my",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "my"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns every product owned by the authenticated seller, including drafts and inactive products."
+          }
+        },
+        {
+          "name": "Get one of my products",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/products/my/:id",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                "my",
+                ":id"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns a single product owned by the authenticated seller regardless of status. Returns 404 if the product does not belong to the seller."
+          }
+        },
+        {
+          "name": "Get active product by id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/products/:id",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                ":id"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Public product details. Only ACTIVE products are visible."
+          }
+        },
+        {
+          "name": "Update a product",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/products/:id",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                ":id"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Updates a product owned by the authenticated seller. A seller can only modify their own products."
+          }
+        },
+        {
+          "name": "Deactivate a product",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/products/:id",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                ":id"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Soft-deletes a product owned by the authenticated seller by setting its status to INACTIVE. It disappears from the public catalog while order history stays intact."
+          }
+        },
+        {
+          "name": "Upload product images",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "images",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:5000/api/v1/products/:id/images",
+              "host": ["http://localhost:5000"],
+              "path": ["api", "v1", "products", ":id", "images"],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Uploads one or more images to a product owned by the authenticated seller. Appends to existing images (max 8 total). Field: 'images' (File, JPEG/PNG/WebP/GIF, max 5 MB each). Replace :id with the product ObjectId."
+          }
+        },
+        {
+          "name": "Delete product image",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/products/:id/images/:imageId",
+              "host": ["http://localhost:5000"],
+              "path": ["api", "v1", "products", ":id", "images", ":imageId"],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Removes a single image from a product and deletes it from Cloudinary. Replace :id with the product ObjectId and :imageId with the Cloudinary publicId."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Razorpay webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/payments/webhook/razorpay",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "webhook",
+                "razorpay"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Processes Razorpay webhook events (payment.captured, order.paid, refund.processed). Authenticated by the X-Razorpay-Signature header over the raw body - no bearer token is used. Duplicate deliveries are safely ignored via an idempotency key per event."
+          }
+        },
+        {
+          "name": "Initiate payment for an order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/payments/orders/:orderId/initiate",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "orders",
+                ":orderId",
+                "initiate"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Creates a gateway payment order for an ONLINE order owned by the authenticated buyer. The amount is always the server-side order total. Idempotent - calling it again returns the existing payment instead of creating a duplicate gateway order."
+          }
+        },
+        {
+          "name": "Verify payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/payments/orders/:orderId/verify",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "orders",
+                ":orderId",
+                "verify"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Verifies the payment signature returned by the Razorpay checkout. The server re-derives the HMAC signature from the stored gateway order id and the supplied payment id - client-supplied payment status is never trusted. Idempotent once paid."
+          }
+        },
+        {
+          "name": "Refund a paid online order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/payments/orders/:orderId/refund",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "orders",
+                ":orderId",
+                "refund"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Refunds the full paid amount of an ONLINE order. Only the order's seller or an admin may issue a refund. The refund amount is always the paid order total - never client-supplied. Idempotent - a second refund on the same payment returns the current state. Buyer-triggered refunds happen automatically through order cancellation."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "Checkout cart and create orders",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/orders",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Creates one order per seller from the authenticated user's cart, atomically decrements product stock, snapshots the shipping address, and clears the cart. Prices come from the database, never from the client."
+          }
+        },
+        {
+          "name": "List my orders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/orders",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": ""
+                },
+                {
+                  "key": "limit",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns the authenticated user's orders. Buyers see their own orders; sellers see orders for their products. Supports status filtering and pagination."
+          }
+        },
+        {
+          "name": "Get order by id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/orders/:id",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                ":id"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns a single order. Buyers can only access their own orders, sellers only orders for their products, admins any order."
+          }
+        },
+        {
+          "name": "Update order status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/orders/:id/status",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                ":id",
+                "status"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Advances an order through its lifecycle (PENDING -> CONFIRMED -> SHIPPED -> DELIVERED) or cancels it. Only the order's seller or an admin may update status. Invalid transitions are rejected."
+          }
+        },
+        {
+          "name": "Cancel an order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/orders/:id/cancel",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                ":id",
+                "cancel"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Cancels an order that has not been delivered yet. The buyer, the order's seller, or an admin may cancel. Committed stock is restored to the seller's inventory."
+          }
+        },
+        {
+          "name": "Mark payment as received",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/orders/:id/pay",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                ":id",
+                "pay"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Marks a cash-on-delivery order as paid. Only the order's seller or an admin can do this, and only after the order has been delivered. Client-supplied payment status is never trusted."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "List my notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/notifications",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "unread",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": ""
+                },
+                {
+                  "key": "limit",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns the authenticated user's in-app notifications with optional unread filter and pagination."
+          }
+        },
+        {
+          "name": "Unread notification count",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/notifications/unread-count",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notifications",
+                "unread-count"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns how many unread notifications the authenticated user has."
+          }
+        },
+        {
+          "name": "Mark all notifications as read",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/notifications/read-all",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notifications",
+                "read-all"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Marks every unread notification of the authenticated user as read."
+          }
+        },
+        {
+          "name": "Get notification preferences",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/notifications/preferences",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notifications",
+                "preferences"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns the authenticated user's notification preferences (defaults created on first access)."
+          }
+        },
+        {
+          "name": "Update notification preferences",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/notifications/preferences",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notifications",
+                "preferences"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Updates the authenticated user's notification preferences. Disabled channels skip that delivery medium for non-critical notifications."
+          }
+        },
+        {
+          "name": "Mark a notification as read",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/notifications/:id/read",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notifications",
+                ":id",
+                "read"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Marks one of the authenticated user's notifications as read."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Discounts",
+      "item": [
+        {
+          "name": "Create a sales discount",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/discounts",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "discounts"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Creates a percentage sales discount targeting one product or one category, owned by the authenticated seller. Requires an approved seller account. A product discount always beats a category discount at checkout; discounts are never stacked."
+          }
+        },
+        {
+          "name": "List my discounts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/discounts",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "discounts"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": ""
+                },
+                {
+                  "key": "limit",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns the discounts owned by the authenticated seller with optional status filter and pagination."
+          }
+        },
+        {
+          "name": "Get one of my discounts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/discounts/:id",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "discounts",
+                ":id"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns a single discount owned by the authenticated seller. Returns 404 if the discount does not belong to the seller."
+          }
+        },
+        {
+          "name": "Update a discount",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/discounts/:id",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "discounts",
+                ":id"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Updates a discount owned by the authenticated seller. The target stays mutually exclusive — switching target type replaces the previous target. A seller can only modify their own discounts."
+          }
+        },
+        {
+          "name": "Deactivate a discount",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/discounts/:id",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "discounts",
+                ":id"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Soft-deletes a discount owned by the authenticated seller by setting its status to INACTIVE. Checkout stops applying it immediately."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Coupons",
+      "item": [
+        {
+          "name": "Create a coupon",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/coupons",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "coupons"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Creates a coupon owned by the authenticated seller. Codes are normalized to uppercase and must be unique. Requires an approved seller account."
+          }
+        },
+        {
+          "name": "List my coupons",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/coupons",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "coupons"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": ""
+                },
+                {
+                  "key": "limit",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns the coupons owned by the authenticated seller with optional status filter and pagination."
+          }
+        },
+        {
+          "name": "Get one of my coupons",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/coupons/:id",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "coupons",
+                ":id"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns a single coupon owned by the authenticated seller. Returns 404 if the coupon does not belong to the seller."
+          }
+        },
+        {
+          "name": "Update a coupon",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/coupons/:id",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "coupons",
+                ":id"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Updates a coupon owned by the authenticated seller. The code itself is immutable (customers type it in). A seller can only modify their own coupons."
+          }
+        },
+        {
+          "name": "Deactivate a coupon",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/coupons/:id",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "coupons",
+                ":id"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Soft-deletes a coupon owned by the authenticated seller by setting its status to INACTIVE. Checkout stops accepting the code immediately."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Categories",
+      "item": [
+        {
+          "name": "List active categories",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/categories",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "categories"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Public endpoint. Returns all active categories sorted by name."
+          }
+        },
+        {
+          "name": "Create a category",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/categories",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "categories"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Creates a new active category. Admin only."
+          }
+        },
+        {
+          "name": "List all categories",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/categories/all",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "categories",
+                "all"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns every category including inactive ones. Admin only."
+          }
+        },
+        {
+          "name": "Update a category",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/categories/:id",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "categories",
+                ":id"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Updates name, description or activation status of a category. Admin only. Setting isActive back to true re-activates a category."
+          }
+        },
+        {
+          "name": "Deactivate a category",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/categories/:id",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "categories",
+                ":id"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Soft-deletes a category by setting isActive to false. Existing products keep their category reference. Admin only."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cart",
+      "item": [
+        {
+          "name": "Get my cart",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/cart",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cart"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns the authenticated user's cart with live product prices and stock resolved from the database. Items whose product is missing or inactive have a null product and are excluded from the totals."
+          }
+        },
+        {
+          "name": "Clear my cart",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/cart",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cart"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Removes every item from the authenticated user's cart."
+          }
+        },
+        {
+          "name": "Add item to cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/cart/items",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cart",
+                "items"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Adds a product to the authenticated user's cart, incrementing the quantity if the item already exists. The product must be active and the resulting quantity must not exceed its stock."
+          }
+        },
+        {
+          "name": "Update item quantity",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/cart/items/:productId",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cart",
+                "items",
+                ":productId"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Sets the quantity of a cart item. The quantity must not exceed the product's current stock."
+          }
+        },
+        {
+          "name": "Remove item from cart",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/cart/items/:productId",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cart",
+                "items",
+                ":productId"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Removes a single item from the authenticated user's cart."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register a new user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/auth/register",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "register"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Creates a new user account."
+          }
+        },
+        {
+          "name": "Log in a user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/auth/login",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Authenticates with email and password and returns access and refresh tokens. The refresh token is also set as an httpOnly cookie."
+          }
+        },
+        {
+          "name": "Refresh access token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/auth/refresh",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "refresh"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Rotates the refresh token (single-use) from the httpOnly cookie and returns a new access token."
+          }
+        },
+        {
+          "name": "Log out",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/auth/logout",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "logout"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Revokes the refresh token and clears the refresh token cookie."
+          }
+        },
+        {
+          "name": "Request password reset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/auth/forgot-password",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "forgot-password"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Sends a password reset email if an account with the email exists. Always returns success to avoid account enumeration."
+          }
+        },
+        {
+          "name": "Reset password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/auth/reset-password",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "reset-password"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Resets the password using a valid reset token."
+          }
+        },
+        {
+          "name": "Start Google OAuth flow",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/auth/google",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "google"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Redirects the browser to Google's consent screen."
+          }
+        },
+        {
+          "name": "Sign in with a Google ID token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/auth/google",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "google"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Verifies a Google ID token obtained from a frontend sign-in flow, upserts the user and returns tokens."
+          }
+        },
+        {
+          "name": "Google OAuth callback",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/auth/google/callback",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "google",
+                "callback"
+              ],
+              "query": [
+                {
+                  "key": "code",
+                  "value": ""
+                },
+                {
+                  "key": "error",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Exchanges the authorization code for tokens, upserts the user and redirects to the frontend with an access token. If the code is missing the user is redirected back to Google's consent screen."
+          }
+        },
+        {
+          "name": "Complete login with 2FA",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/auth/2fa/verify",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "2fa",
+                "verify"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Completes a two-step login for a seller/admin with 2FA enabled. The loginToken comes from /auth/login when twoFactorRequired is true; the code is a TOTP code from the authenticator app or a single-use recovery code. Issues access and refresh tokens only after successful verification."
+          }
+        },
+        {
+          "name": "Start 2FA setup",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/auth/2fa/setup",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "2fa",
+                "setup"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Generates a new TOTP secret and single-use recovery codes for the authenticated user. The secret and recovery codes are returned exactly once; 2FA activates only after /auth/2fa/enable confirms a code. Sellers and admins only."
+          }
+        },
+        {
+          "name": "Enable 2FA",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/auth/2fa/enable",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "2fa",
+                "enable"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Activates 2FA after the user confirms they can generate codes (setup must have been called). Verifies the TOTP code server-side before enabling."
+          }
+        },
+        {
+          "name": "Disable 2FA",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/auth/2fa/disable",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "2fa",
+                "disable"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Disables 2FA for the authenticated user. Requires a valid TOTP code or recovery code so a stolen session cannot strip protection. Clears the stored secret and all recovery codes."
+          }
+        },
+        {
+          "name": "Regenerate recovery codes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/auth/2fa/recovery-codes",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "2fa",
+                "recovery-codes"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Rotates the single-use recovery codes. Requires a TOTP code (never a recovery code) so a lost authenticator cannot mint new codes. Old codes are invalidated immediately."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Seller dashboard overview",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/sellers/dashboard",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sellers",
+                "dashboard"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Aggregated snapshot for the authenticated seller - order counts by status, collected revenue, product counts (active / low stock), pending returns and marketing asset counts."
+          }
+        },
+        {
+          "name": "Sales over time",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/sellers/analytics/sales",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sellers",
+                "analytics",
+                "sales"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": ""
+                },
+                {
+                  "key": "to",
+                  "value": ""
+                },
+                {
+                  "key": "groupBy",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Order count and collected revenue bucketed by day or month within an optional date range."
+          }
+        },
+        {
+          "name": "Top-selling products",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/sellers/analytics/top-products",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sellers",
+                "analytics",
+                "top-products"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Products ranked by units sold, with units, order count and collected revenue. Coupon discounts are not attributed per item."
+          }
+        },
+        {
+          "name": "Category performance",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/sellers/analytics/categories",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sellers",
+                "analytics",
+                "categories"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Units sold and collected revenue grouped by product category."
+          }
+        },
+        {
+          "name": "Seller customer list",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/sellers/customers",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sellers",
+                "customers"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": ""
+                },
+                {
+                  "key": "limit",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Distinct customers who have ordered from this seller, with order count and total spent (only PAID orders count as spent). Supports search on name/email and pagination."
+          }
+        },
+        {
+          "name": "Revenue statistics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/sellers/revenue",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sellers",
+                "revenue"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": ""
+                },
+                {
+                  "key": "to",
+                  "value": ""
+                },
+                {
+                  "key": "groupBy",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Collected revenue, order counts (delivered / cancelled / returned) and the sales series within an optional date range. Cancelled orders never count as revenue."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "List users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/admin/users",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "role",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": ""
+                },
+                {
+                  "key": "limit",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Lists all users with optional role filter and pagination. Admin only."
+          }
+        },
+        {
+          "name": "Activate or deactivate a user",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/admin/users/:id",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "users",
+                ":id"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Toggles the isActive flag of a user account. Deactivated users cannot sign in. Admin only."
+          }
+        },
+        {
+          "name": "List seller profiles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/admin/sellers",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "sellers"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": ""
+                },
+                {
+                  "key": "limit",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Lists all seller profiles with optional status filter and pagination. Admin only."
+          }
+        },
+        {
+          "name": "Update seller status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/admin/sellers/:id/status",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "sellers",
+                ":id",
+                "status"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Approves, rejects, pauses or suspends a seller account with an optional reason. Admin only."
+          }
+        },
+        {
+          "name": "List all products",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/admin/products",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": ""
+                },
+                {
+                  "key": "limit",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Lists every product regardless of status with optional status filter and pagination. Admin only."
+          }
+        },
+        {
+          "name": "Moderate a product",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/admin/products/:id/status",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "products",
+                ":id",
+                "status"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Sets the status of any product (e.g. deactivate a violating listing or reactivate it). Admin only."
+          }
+        },
+        {
+          "name": "List all orders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/admin/orders",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": ""
+                },
+                {
+                  "key": "limit",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Lists every order across all sellers with optional status filter and pagination. Admin only."
+          }
+        },
+        {
+          "name": "Broadcast a custom notification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/admin/notifications",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "notifications"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Sends a custom notification/email to a set of recipients (explicit user ids or an audience of all sellers/users). Preferences are respected; the action is written to the audit log. Admin only."
+          }
+        },
+        {
+          "name": "List settlements",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/admin/settlements",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "settlements"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": ""
+                },
+                {
+                  "key": "sellerId",
+                  "value": ""
+                },
+                {
+                  "key": "month",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": ""
+                },
+                {
+                  "key": "limit",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Lists all seller settlements with optional status, seller, month filters and pagination. Admin only."
+          }
+        },
+        {
+          "name": "Generate settlements for a month",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/admin/settlements/generate",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "settlements",
+                "generate"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Generates PENDING settlements for all sellers with delivered+paid orders in the given month. The commission rate in effect is snapshotted per settlement - later rate changes never alter historical payouts. Idempotent - regenerating a month returns existing settlements instead of duplicating them."
+          }
+        },
+        {
+          "name": "Get settlement details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/admin/settlements/:id",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "settlements",
+                ":id"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns a settlement with its order-by-order commission breakdown. Admin only."
+          }
+        },
+        {
+          "name": "Start processing a settlement",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/admin/settlements/:id/process",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "settlements",
+                ":id",
+                "process"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Moves a PENDING settlement to PROCESSING (payout in progress). Admin only."
+          }
+        },
+        {
+          "name": "Mark a settlement as paid",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/admin/settlements/:id/mark-paid",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "settlements",
+                ":id",
+                "mark-paid"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Moves a PROCESSING settlement to PAID, stamps paidAt and notifies the seller. Admin only."
+          }
+        },
+        {
+          "name": "Cancel a settlement",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/admin/settlements/:id/cancel",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "settlements",
+                ":id",
+                "cancel"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Cancels a PENDING or FAILED settlement. Admin only."
+          }
+        },
+        {
+          "name": "Send a payout reminder",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/admin/settlements/:id/remind",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "settlements",
+                ":id",
+                "remind"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Sends a settlement payment reminder notification/email to the seller and records reminderSentAt. Admin only."
+          }
+        },
+        {
+          "name": "Get the platform commission rate",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/admin/settings/commission",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "settings",
+                "commission"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns the current commission percentage. Admin only."
+          }
+        },
+        {
+          "name": "Update the platform commission rate",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/admin/settings/commission",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "settings",
+                "commission"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Sets the commission percentage used for FUTURE settlements. Existing settlements keep the rate they were generated with. The change is written to the audit log. Admin only."
+          }
+        }
+      ]
+    },
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/health",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "health"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns the API status and current server timestamp."
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "accessToken",
+      "value": ""
+    }
+  ]
+}

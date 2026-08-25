@@ -10,6 +10,7 @@ export interface OrderItemResponse {
   price: number;
   quantity: number;
   subtotal: number;
+  discountAmount: number;
 }
 
 export interface OrderAddressResponse {
@@ -31,9 +32,14 @@ export interface OrderResponse {
   items: OrderItemResponse[];
   shippingAddress: OrderAddressResponse;
   itemsTotal: number;
+  discountTotal: number;
+  couponId: string | null;
+  couponCode: string | null;
+  couponDiscount: number;
   total: number;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
+  paymentId: string | null;
   status: OrderStatus;
   createdAt: Date;
   updatedAt: Date;

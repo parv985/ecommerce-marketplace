@@ -23,6 +23,13 @@ export const createProductSchema = z
       .max(2000, "Description cannot exceed 2000 characters")
       .optional(),
 
+    sku: z
+      .string()
+      .trim()
+      .min(1, "SKU cannot be empty")
+      .max(100, "SKU cannot exceed 100 characters")
+      .optional(),
+
     category: objectId.optional(),
 
     price: z
@@ -38,12 +45,23 @@ export const createProductSchema = z
 
     images: z
       .array(
-        z
-          .string()
-          .trim()
-          .url("Image must be a valid URL"),
+        z.object({
+          url: z.string().trim().url("Image must be a valid URL"),
+          publicId: z.string().trim().min(1),
+        }),
       )
       .max(8, "A product can have at most 8 images")
+      .optional()
+      .default([]),
+
+    specifications: z
+      .array(
+        z.object({
+          key: z.string().trim().min(1).max(100),
+          value: z.string().trim().min(1).max(500),
+        }),
+      )
+      .max(50, "A product can have at most 50 specifications")
       .optional()
       .default([]),
 
@@ -69,6 +87,13 @@ export const updateProductSchema = z
       .max(2000, "Description cannot exceed 2000 characters")
       .optional(),
 
+    sku: z
+      .string()
+      .trim()
+      .min(1, "SKU cannot be empty")
+      .max(100, "SKU cannot exceed 100 characters")
+      .optional(),
+
     category: objectId.nullable().optional(),
 
     price: z
@@ -92,6 +117,16 @@ export const updateProductSchema = z
           .url("Image must be a valid URL"),
       )
       .max(8, "A product can have at most 8 images")
+      .optional(),
+
+    specifications: z
+      .array(
+        z.object({
+          key: z.string().trim().min(1).max(100),
+          value: z.string().trim().min(1).max(500),
+        }),
+      )
+      .max(50, "A product can have at most 50 specifications")
       .optional(),
 
     status: z

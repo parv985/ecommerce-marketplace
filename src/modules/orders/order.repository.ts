@@ -73,12 +73,50 @@ export const listOrdersBySeller = async (
 export const updateOrderStatusById = async (
   id: string,
   status: string,
+  deliveredAt?: Date | null,
 ): Promise<IOrder | null> => {
   return Order.findByIdAndUpdate(
     id,
     {
-      $set: { status },
+      $set: {
+        status,
+        ...(deliveredAt !== undefined && {
+          deliveredAt,
+        }),
+      },
     },
+    {
+      new: true,
+    },
+  ).exec();
+};
+
+/*
+ * Removes an applied coupon from an order and restores the original
+ * payable amount. Used to roll back a coupon when recording its usage
+ * fails after the order was created (rare race), so the discount is
+ * never leaked without a usage record.
+ */
+export const resetOrderCoupon = async (
+  id: string,
+): Promise<IOrder | null> => {
+  return Order.findByIdAndUpdate(
+    id,
+    [
+      {
+        $set: {
+          couponId: null,
+          couponCode: null,
+          couponDiscount: 0,
+          total: {
+            $subtract: [
+              "$itemsTotal",
+              "$discountTotal",
+            ],
+          },
+        },
+      },
+    ],
     {
       new: true,
     },
@@ -93,6 +131,21 @@ export const updateOrderPaymentStatusById = async (
     id,
     {
       $set: { paymentStatus },
+    },
+    {
+      new: true,
+    },
+  ).exec();
+};
+
+export const updateOrderPaymentIdById = async (
+  id: string,
+  paymentId: string,
+): Promise<IOrder | null> => {
+  return Order.findByIdAndUpdate(
+    id,
+    {
+      $set: { paymentId },
     },
     {
       new: true,

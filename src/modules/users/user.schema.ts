@@ -15,13 +15,6 @@ export const updateProfileSchema = z
       .min(2, "Name must be at least 2 characters")
       .max(100, "Name must not exceed 100 characters")
       .optional(),
-
-    avatar: z
-      .string()
-      .trim()
-      .url("Avatar must be a valid URL")
-      .nullable()
-      .optional(),
   })
   .strict();
 

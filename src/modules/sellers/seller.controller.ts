@@ -3,12 +3,14 @@ import type {
   Response,
 } from "express";
 
-import { sendSuccess } from "../../utils/apiResponse.js";
+import { sendSuccess, sendError } from "../../utils/apiResponse.js";
 
 import {
+  deleteSellerDocument,
   getSellerProfile,
   registerSeller,
   updateSellerProfile,
+  uploadSellerDocument,
 } from "./seller.service.js";
 
 
@@ -67,3 +69,64 @@ export const updateSellerProfileController =
       profile,
     );
   };
+
+export const uploadSellerDocumentController =
+  async (
+    req: Request,
+    res: Response,
+  ): Promise<void> => {
+    const file = req.file;
+    const { documentType } = req.body;
+
+    if (!file) {
+      sendError(
+        res,
+        "No file provided. Make sure the Content-Type is multipart/form-data and the file field is named 'document'.",
+        "NO_FILE_PROVIDED",
+        400,
+      );
+      return;
+    }
+
+    if (!documentType) {
+      sendError(
+        res,
+        "Document type is required",
+        "DOCUMENT_TYPE_REQUIRED",
+        400,
+      );
+      return;
+    }
+
+    const document =
+      await uploadSellerDocument(
+        req.user!.id,
+        file.buffer,
+        file.originalname,
+        documentType,
+      );
+
+    sendSuccess(
+      res,
+      "Document uploaded successfully",
+      document,
+    );
+  };
+
+export const deleteSellerDocumentController =
+  async (
+    req: Request<{ documentId: string }>,
+    res: Response,
+  ): Promise<void> => {
+    await deleteSellerDocument(
+      req.user!.id,
+      req.params.documentId,
+    );
+
+    sendSuccess(
+      res,
+      "Document deleted successfully",
+      null,
+    );
+  };
+

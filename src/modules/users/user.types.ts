@@ -5,7 +5,7 @@ export interface UserProfileResponse {
   name: string;
   email: string;
   role: UserRole;
-  avatar: string | null;
+  avatarUrl: string | null;
   isEmailVerified: boolean;
   createdAt: Date;
 }
