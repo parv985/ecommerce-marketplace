@@ -33,7 +33,7 @@ This is a **multi-vendor e-commerce marketplace backend** — think Amazon or Fl
 - **Sellers** register (pending admin approval), manage products, view orders, create discounts/coupons, track analytics, receive settlements
 - **Admins** approve sellers, manage users/categories, oversee orders, handle settlements, send notifications
 - **Platform** handles payments (COD + online via Razorpay), notifications, commission calculation, and audit logging
-
+`
 ### Main Business Flow
 
 ```
@@ -315,7 +315,7 @@ Route → Controller → Service → Repository → Model
 3. routes/index.ts:
    - Matches /api/v1/products → productRoutes
 
-4. product.routes.ts:
+4. product.routes.ts:   
    - POST "/" matched
    - authenticate middleware: verifies JWT → sets req.user = { id, role: "SELLER" }
    - authorize(SELLER) middleware: checks role === "SELLER" ✓

@@ -8,7 +8,7 @@ import { AuditLog } from "../models/AuditLog.js";
 export const logAudit = async (input: {
   actorId: string;
   actorRole: string;
-  action: string;
+  action: string; 
   entityType: string;
   entityId?: string | null;
   before?: unknown;

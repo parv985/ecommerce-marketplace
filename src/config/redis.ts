@@ -9,37 +9,72 @@
  * all queries go directly to MongoDB.
  */
 
-let redisClient: { get: (key: string) => Promise<string | null>; set: (key: string, value: string, ...args: unknown[]) => Promise<unknown>; del: (...keys: string[]) => Promise<unknown>; keys: (pattern: string) => Promise<string[]> } | null = null;
+type RedisClient = {
+  get: (key: string) => Promise<string | null>;
+  set: (...args: any[]) => Promise<any>;
+  del: (...keys: string[]) => Promise<any>;
+  keys: (pattern: string) => Promise<string[]>;
+  disconnect: () => void;
+};
+
+let redisClient: RedisClient | null = null;
+let redisAttempted = false;
 
 const REDIS_URL = process.env.REDIS_URL;
+const REDIS_CONNECT_TIMEOUT_MS = 2000;
 
-export const getRedisClient = async (): Promise<typeof redisClient> => {
+export const getRedisClient = async (): Promise<RedisClient | null> => {
   if (redisClient) return redisClient;
 
-  if (!REDIS_URL) {
+  if (!REDIS_URL || redisAttempted) {
     return null;
   }
 
+  redisAttempted = true;
+
   try {
-    // Dynamic import to avoid errors when Redis is not installed
     const RedisModule = await import("ioredis");
     const RedisClass = (RedisModule as any).default ?? (RedisModule as any).Redis;
-    redisClient = new RedisClass(REDIS_URL);
+    const client: any = new RedisClass(REDIS_URL, {
+      connectTimeout: REDIS_CONNECT_TIMEOUT_MS,
+      enableOfflineQueue: false,
+      maxRetriesPerRequest: 1,
+      retryStrategy: () => null,
+      lazyConnect: true,
+    });
 
-    await (redisClient as any).ping();
+    // Suppress unhandled error events
+    client.on("error", (err: any) => {
+      // Silently ignore - we already handle the failure
+      if (redisClient === client) {
+        redisClient = null;
+      }
+      try { client.disconnect(); } catch { /* ignore */ }
+    });
+
+    await client.connect();
+
+    await Promise.race([
+      client.ping(),
+      new Promise<void>((_, reject) =>
+        setTimeout(() => reject(new Error("Redis connection timed out")), REDIS_CONNECT_TIMEOUT_MS)
+      ),
+    ]);
+
     console.log("[REDIS] Connected to Redis");
-
+    redisClient = client as RedisClient;
     return redisClient;
   } catch (error) {
-    console.warn("[REDIS] Failed to connect to Redis, caching disabled:", error);
+    console.warn("[REDIS] Redis unavailable, caching disabled.");
+    redisClient = null;
     return null;
   }
 };
 
 export const CACHE_TTL = {
-  PRODUCT_CATALOG: 60, // 1 minute
-  PRODUCT_DETAIL: 120, // 2 minutes
-  CATEGORY_LIST: 300, // 5 minutes
+  PRODUCT_CATALOG: 60,
+  PRODUCT_DETAIL: 120,
+  CATEGORY_LIST: 300,
 };
 
 const CACHE_PREFIX = "ecommerce:";
@@ -48,59 +83,37 @@ export const getCacheKey = (...parts: string[]): string => {
   return CACHE_PREFIX + parts.join(":");
 };
 
-export const getFromCache = async <T>(
-  key: string,
-): Promise<T | null> => {
-  const client = await getRedisClient();
-
-  if (!client) return null;
-
+export const getFromCache = async <T>(key: string): Promise<T | null> => {
   try {
+    const client = await getRedisClient();
+    if (!client) return null;
     const data = await client.get(key);
     if (!data) return null;
-
     return JSON.parse(data) as T;
-  } catch (error) {
-    console.error("[REDIS] Cache get error:", error);
+  } catch {
     return null;
   }
 };
 
-export const setCache = async (
-  key: string,
-  value: unknown,
-  ttlSeconds: number,
-): Promise<void> => {
-  const client = await getRedisClient();
-
-  if (!client) return;
-
+export const setCache = async (key: string, value: unknown, ttlSeconds: number): Promise<void> => {
   try {
-    await client.set(
-      key,
-      JSON.stringify(value),
-      "EX",
-      ttlSeconds,
-    );
-  } catch (error) {
-    console.error("[REDIS] Cache set error:", error);
+    const client = await getRedisClient();
+    if (!client) return;
+    await client.set(key, JSON.stringify(value), "EX", ttlSeconds);
+  } catch {
+    // silently ignore
   }
 };
 
-export const invalidateCache = async (
-  pattern: string,
-): Promise<void> => {
-  const client = await getRedisClient();
-
-  if (!client) return;
-
+export const invalidateCache = async (pattern: string): Promise<void> => {
   try {
+    const client = await getRedisClient();
+    if (!client) return;
     const keys = await client.keys(pattern);
     if (keys.length > 0) {
       await client.del(...keys);
-      console.log(`[REDIS] Invalidated ${keys.length} cache keys matching: ${pattern}`);
     }
-  } catch (error) {
-    console.error("[REDIS] Cache invalidation error:", error);
+  } catch {
+    // silently ignore
   }
 };
