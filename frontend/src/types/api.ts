@@ -229,22 +229,23 @@ export interface Discount {
 
 // Coupons
 export interface Coupon {
-  _id: string
-  seller: string
+  id: string
+  sellerId: string
   code: string
-  description?: string
-  discountType: 'PERCENTAGE' | 'FIXED'
-  discountValue: number
-  minOrderAmount: number
-  maxDiscountAmount?: number
-  totalUsageLimit: number
-  perUserLimit: number
-  usedCount: number
-  productId?: string
-  categoryId?: string
-  startDate: string
-  endDate: string
-  isActive: boolean
+  type: 'PERCENTAGE' | 'FIXED'
+  value: number
+  minOrderValue: number
+  maxDiscount?: number | null
+  productIds: string[]
+  categoryIds: string[]
+  startAt: string
+  endAt: string
+  usageLimit?: number | null
+  perUserLimit?: number | null
+  usageCount: number
+  status: 'ACTIVE' | 'INACTIVE'
+  createdAt: string
+  updatedAt: string
 }
 
 // Reviews

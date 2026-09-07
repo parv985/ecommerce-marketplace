@@ -10,17 +10,16 @@ export const couponService = {
 
   create: (data: {
     code: string
-    description?: string
-    discountType: 'PERCENTAGE' | 'FIXED'
-    discountValue: number
-    minOrderAmount?: number
-    maxDiscountAmount?: number
-    totalUsageLimit: number
-    perUserLimit: number
-    productId?: string
-    categoryId?: string
-    startDate: string
-    endDate: string
+    type: 'PERCENTAGE' | 'FIXED'
+    value: number
+    minOrderValue?: number
+    maxDiscount?: number | null
+    usageLimit?: number | null
+    perUserLimit?: number | null
+    productIds?: string[]
+    categoryIds?: string[]
+    startAt: string
+    endAt: string
   }) => api.post<ApiResponse<Coupon>>('/coupons', data).then(r => r.data),
 
   update: (id: string, data: Partial<Coupon>) =>
