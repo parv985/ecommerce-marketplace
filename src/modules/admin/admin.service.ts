@@ -1,5 +1,6 @@
 import { AppError } from "../../errors/AppError.js";
 import { SellerStatus } from "../../constants/sellerStatus.js";
+import { getCacheKey, invalidateCache } from "../../config/redis.js";
 import { logAudit } from "../../services/audit.service.js";
 import { notifySellerDecision } from "../notifications/notification.service.js";
 import type { UserDocument } from "../../models/User.js";
@@ -297,6 +298,10 @@ export const setProductStatus = async (
       "PRODUCT_NOT_FOUND",
     );
   }
+
+  /* Invalidate product catalog cache so the public browse endpoint
+     reflects the status change immediately. */
+  await invalidateCache(getCacheKey("products", "*"));
 
   return toAdminProductResponse(updated);
 };

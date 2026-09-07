@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg: #ffffff;
+    --fg: #0a0a0a;
+    --muted: #71717a;
+    --border: #e4e4e7;
+    --primary: #18181b;
+    --primary-fg: #fafafa;
+    --accent: #f4f4f5;
+    --destructive: #ef4444;
+    --destructive-fg: #fafafa;
+    --success: #16a34a;
+    --warning: #eab308;
+    --ring: #a1a1aa;
+    --radius: 0.625rem;
+  }
+
+  * {
+    @apply border-[var(--border)];
+  }
+
+  body {
+    @apply bg-[var(--bg)] text-[var(--fg)] antialiased;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+}
+
+@layer utilities {
+  .container-app {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}
