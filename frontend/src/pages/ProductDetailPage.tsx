@@ -19,8 +19,6 @@ export function ProductDetailPage() {
   const [selectedImage, setSelectedImage] = useState(0)
   const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({})
   const [quantity, setQuantity] = useState(1)
-  const [reviewRating, setReviewRating] = useState(5)
-  const [reviewComment, setReviewComment] = useState('')
   const [reviewPage, setReviewPage] = useState(1)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const user = useAuthStore((s) => s.user)
@@ -52,19 +50,6 @@ export function ProductDetailPage() {
 
   const { isWishlisted, toggle: toggleWishlistMutation, isToggling } = useWishlist()
   const liked = id ? isWishlisted(id) : false
-
-  const submitReview = useMutation({
-    mutationFn: () => reviewService.create({ productId: id!, rating: reviewRating, comment: reviewComment }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reviews', id] })
-      setReviewComment('')
-      toast.success('Review submitted')
-    },
-    onError: (err: unknown) => {
-      const error = err as { response?: { data?: { message?: string } } }
-      toast.error(error?.response?.data?.message || 'Failed to submit review')
-    },
-  })
 
   const handleAddToCart = () => {
     if (!isAuthenticated) {
@@ -228,27 +213,14 @@ export function ProductDetailPage() {
       <section className="mt-12 border-t pt-8">
         <h2 className="text-xl font-bold mb-6">Customer Reviews</h2>
         {isAuthenticated && user?.role === 'BUYER' && product.status === 'ACTIVE' && (
-          <div className="mb-8 border rounded-lg p-4">
-            <h3 className="font-medium mb-3">Write a Review</h3>
-            <div className="flex items-center gap-1 mb-3">
-              {[1,2,3,4,5].map(n => (
-                <button key={`star-btn-${n}`} onClick={() => setReviewRating(n)}>
-                  <Star size={20} className={n <= reviewRating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'} />
-                </button>
-              ))}
-            </div>
-            <textarea
-              value={reviewComment}
-              onChange={e => setReviewComment(e.target.value)}
-              placeholder="Write your review (optional)"
-              className="w-full border rounded p-2 text-sm min-h-[80px] mb-3"
-            />
-            <Button size="sm" onClick={() => submitReview.mutate()} disabled={submitReview.isPending}>Submit Review</Button>
-          </div>
+          <p className="text-[var(--muted)] text-sm mb-6">
+            You can write a review after your order for this product has been delivered.
+            {' '}<Link to="/orders" className="text-[var(--primary)] hover:underline">View your orders</Link>
+          </p>
         )}
         {!isAuthenticated && product.status === 'ACTIVE' && (
           <p className="text-[var(--muted)] text-sm mb-6">
-            <Link to="/login" className="text-[var(--primary)] hover:underline">Sign in</Link> to write a review.
+            <Link to="/login" className="text-[var(--primary)] hover:underline">Sign in</Link> to write a review after purchase.
           </p>
         )}
         {reviewData?.reviews?.length === 0 ? (
