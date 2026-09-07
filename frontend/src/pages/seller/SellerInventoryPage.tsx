@@ -43,7 +43,7 @@ export function SellerInventoryPage() {
           </thead>
           <tbody>
             {data?.items?.map(t => (
-              <tr key={t._id} className="border-b">
+              <tr key={t.id} className="border-b">
                 <td className="p-3">{typeof t.product === 'object' ? t.product.name : t.product}</td>
                 <td className="p-3"><span className={`px-2 py-0.5 rounded text-xs ${t.quantity > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{t.type}</span></td>
                 <td className="p-3 font-medium">{t.quantity > 0 ? '+' : ''}{t.quantity}</td>

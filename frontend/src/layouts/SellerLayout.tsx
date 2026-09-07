@@ -14,7 +14,7 @@ const navItems = [
   { to: '/seller/coupons', label: 'Coupons', icon: Ticket },
   { to: '/seller/customers', label: 'Customers', icon: Users },
   { to: '/seller/analytics', label: 'Analytics', icon: BarChart3 },
-  { to: '/sellers/settlement', label: 'Settlement', icon: DollarSign },
+  { to: '/seller/settlement', label: 'Settlement', icon: DollarSign },
   { to: '/seller/notifications', label: 'Notifications', icon: Bell },
   { to: '/seller/profile', label: 'Profile', icon: User },
 ]

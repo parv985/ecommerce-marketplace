@@ -41,10 +41,10 @@ export function SellerOrdersPage() {
       </div>
       <div className="space-y-3">
         {data?.items?.map(order => (
-          <div key={order._id} className="border rounded-lg p-4">
+          <div key={order.id} className="border rounded-lg p-4">
             <div className="flex items-center justify-between mb-2">
               <div>
-                <Link to={`/orders/${order._id}`} className="font-medium text-sm hover:underline">#{order.orderNumber}</Link>
+                <Link to={`/orders/${order.id}`} className="font-medium text-sm hover:underline">#{order.orderNumber}</Link>
                 <span className="text-xs text-[var(--muted)] ml-2">{formatDate(order.createdAt)}</span>
               </div>
               <Badge variant={statusColors[order.status]}>{order.status}</Badge>
@@ -52,9 +52,9 @@ export function SellerOrdersPage() {
             <div className="flex items-center justify-between">
               <span className="text-sm text-[var(--muted)]">{order.items.length} item(s) • {formatPrice(order.total)}</span>
               <div className="flex gap-1">
-                {order.status === 'PENDING' && <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: order._id, status: 'CONFIRMED' })}>Confirm</Button>}
-                {order.status === 'CONFIRMED' && <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: order._id, status: 'SHIPPED' })}>Ship</Button>}
-                {order.status === 'SHIPPED' && <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: order._id, status: 'DELIVERED' })}>Deliver</Button>}
+                {order.status === 'PENDING' && <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: order.id, status: 'CONFIRMED' })}>Confirm</Button>}
+                {order.status === 'CONFIRMED' && <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: order.id, status: 'SHIPPED' })}>Ship</Button>}
+                {order.status === 'SHIPPED' && <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: order.id, status: 'DELIVERED' })}>Deliver</Button>}
               </div>
             </div>
           </div>

@@ -159,7 +159,7 @@ export interface OrderItem {
 }
 
 export interface Order {
-  _id: string
+  id: string
   orderNumber: string
   buyer: UserSummary | string
   seller: SellerProfile | string
@@ -203,14 +203,15 @@ export interface Invoice {
 
 // Payments
 export interface Payment {
-  _id: string
-  order: string
+  id: string
+  orderId: string
   gatewayOrderId: string
   gatewayPaymentId?: string
   amount: number
   currency: string
   status: 'PENDING' | 'CAPTURED' | 'FAILED' | 'REFUNDED'
   paymentMethod: PaymentMethod
+  keyId: string | null
 }
 
 // Discounts
@@ -250,7 +251,7 @@ export interface Coupon {
 
 // Reviews
 export interface Review {
-  _id: string
+  id: string
   user: UserSummary | string
   product: string
   rating: number
@@ -271,7 +272,7 @@ export interface ProductReviews {
 export type ReturnStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'COMPLETED'
 
 export interface ReturnRequest {
-  _id: string
+  id: string
   order: Order | string
   buyer: UserSummary | string
   seller: SellerProfile | string
@@ -284,7 +285,7 @@ export interface ReturnRequest {
 
 // Notifications
 export interface Notification {
-  _id: string
+  id: string
   title: string
   message: string
   type: string
@@ -333,7 +334,9 @@ export interface CategoryPerformance {
 }
 
 export interface CustomerInfo {
-  customer: UserSummary
+  customerId: string
+  name: string
+  email: string
   orderCount: number
   totalSpent: number
   lastOrderDate?: string
@@ -372,7 +375,7 @@ export interface Settlement {
 
 // Inventory
 export interface InventoryTransaction {
-  _id: string
+  id: string
   product: Product | string
   type: string
   quantity: number

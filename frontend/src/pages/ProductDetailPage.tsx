@@ -228,7 +228,7 @@ export function ProductDetailPage() {
         ) : (
           <div className="space-y-4">
             {reviewData?.reviews?.map(review => (
-              <div key={review._id} className="border rounded-lg p-4">
+              <div key={review.id} className="border rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-8 h-8 rounded-full bg-zinc-200 flex items-center justify-center text-xs font-medium">
                     {typeof review.user === 'object' ? review.user.name?.charAt(0) : '?'}

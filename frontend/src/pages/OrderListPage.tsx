@@ -45,7 +45,7 @@ export function OrderListPage() {
       ) : (
         <div className="space-y-4">
           {data.items.map(order => (
-            <Link to={`/orders/${order._id}`} key={order._id} className="block border rounded-lg p-4 hover:shadow-sm transition-shadow">
+            <Link to={`/orders/${order.id}`} key={order.id} className="block border rounded-lg p-4 hover:shadow-sm transition-shadow">
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <span className="font-medium text-sm">#{order.orderNumber}</span>

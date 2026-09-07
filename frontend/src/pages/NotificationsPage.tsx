@@ -37,7 +37,7 @@ export function NotificationsPage() {
       ) : (
         <div className="space-y-2">
           {data.items.map(n => (
-            <div key={n._id} className={`p-4 border rounded-lg ${n.isRead ? 'bg-white' : 'bg-blue-50 border-blue-100'}`}>
+            <div key={n.id} className={`p-4 border rounded-lg ${n.isRead ? 'bg-white' : 'bg-blue-50 border-blue-100'}`}>
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="font-medium text-sm">{n.title}</h3>
@@ -45,7 +45,7 @@ export function NotificationsPage() {
                   <p className="text-xs text-[var(--muted)] mt-1">{formatDate(n.createdAt)}</p>
                 </div>
                 {!n.isRead && (
-                  <button onClick={() => markRead.mutate(n._id)} className="text-xs text-blue-600 hover:underline shrink-0">
+                  <button onClick={() => markRead.mutate(n.id)} className="text-xs text-blue-600 hover:underline shrink-0">
                     Mark read
                   </button>
                 )}

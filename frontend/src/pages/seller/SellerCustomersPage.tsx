@@ -36,8 +36,8 @@ export function SellerCustomersPage() {
             {data?.items?.map((c, i) => (
               <tr key={i} className="border-b">
                 <td className="p-3">
-                  <p className="font-medium">{c.customer.name}</p>
-                  <p className="text-xs text-[var(--muted)]">{c.customer.email}</p>
+                  <p className="font-medium">{c.name}</p>
+                  <p className="text-xs text-[var(--muted)]">{c.email}</p>
                 </td>
                 <td className="p-3">{c.orderCount}</td>
                 <td className="p-3 font-medium">{formatPrice(c.totalSpent)}</td>

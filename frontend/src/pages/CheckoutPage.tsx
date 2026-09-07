@@ -63,7 +63,7 @@ export function CheckoutPage() {
     onSuccess: (res) => {
       const orders = res.data
       if (paymentMethod === 'ONLINE' && orders.length > 0) {
-        navigate(`/orders/${orders[0]._id}/pay`)
+        navigate(`/orders/${orders[0].id}/pay`)
       } else {
         toast.success('Order(s) placed successfully!')
         navigate('/orders')

@@ -19,6 +19,7 @@ import { CartPage } from '@/pages/CartPage'
 import { CheckoutPage } from '@/pages/CheckoutPage'
 import { OrderListPage } from '@/pages/OrderListPage'
 import { OrderDetailPage } from '@/pages/OrderDetailPage'
+import { PaymentPage } from '@/pages/PaymentPage'
 import { AccountPage } from '@/pages/AccountPage'
 import { NotificationsPage } from '@/pages/NotificationsPage'
 import { WishlistPage } from '@/pages/WishlistPage'
@@ -109,6 +110,11 @@ export default function App() {
                 <OrderDetailPage />
               </ProtectedRoute>
             } />
+            <Route path="/orders/:id/pay" element={
+              <ProtectedRoute roles={['BUYER']}>
+                <PaymentPage />
+              </ProtectedRoute>
+            } />
             <Route path="/account" element={
               <ProtectedRoute roles={['BUYER']}>
                 <AccountPage />
@@ -153,12 +159,9 @@ export default function App() {
               <Route path="customers" element={<SellerCustomersPage />} />
               <Route path="analytics" element={<SellerAnalyticsPage />} />
               <Route path="profile" element={<SellerProfilePage />} />
+              <Route path="settlement" element={<SellerSettlementPage />} />
+              <Route path="notifications" element={<NotificationsPage />} />
             </Route>
-            <Route path="/sellers/settlement" element={
-              <ProtectedRoute roles={['SELLER']}>
-                <SellerSettlementPage />
-              </ProtectedRoute>
-            } />
 
             {/* Catch-all 404 */}
             <Route path="*" element={
