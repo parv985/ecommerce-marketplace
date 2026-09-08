@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { ProfileAvatar } from '@/components/ui/ProfileAvatar'
 import { useForm } from 'react-hook-form'
 import { toast } from 'react-hot-toast'
 
@@ -36,6 +37,17 @@ export function SellerProfilePage() {
           <strong>Rejection reason:</strong> {profile.rejectionReason}
         </div>
       )}
+
+      <Card>
+        <CardHeader><CardTitle>Profile Photo</CardTitle></CardHeader>
+        <CardContent>
+          {/* Uses the shared user-avatar APIs (POST/DELETE /users/me/avatar) —
+              the seller's photo is stored on the linked user account and is
+              shown in the navbar and seller sidebar immediately after an
+              upload or removal (no page refresh needed). */}
+          <ProfileAvatar size={80} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle>Business Details</CardTitle></CardHeader>

@@ -63,7 +63,20 @@ export function SellerLayout() {
       <aside className="hidden lg:block w-64 border-r border-[var(--border)] bg-[#f8f7f4] shrink-0">
         <div className="p-4 border-b border-[var(--border)]">
           <p className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider">Seller Panel</p>
-          <p className="text-sm font-semibold text-[var(--fg)] mt-1 truncate">{user?.name}</p>
+          <div className="mt-1 flex items-center gap-2">
+            {user?.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.name}
+                className="w-6 h-6 rounded-[var(--radius-sm)] object-cover shrink-0"
+              />
+            ) : (
+              <span className="w-6 h-6 rounded-[var(--radius-sm)] bg-[#191816] flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                {user?.name?.charAt(0).toUpperCase()}
+              </span>
+            )}
+            <p className="text-sm font-semibold text-[var(--fg)] truncate">{user?.name}</p>
+          </div>
           {isPending && (
             <span className={cn(
               'inline-block mt-2 text-[10px] font-medium px-2 py-0.5 rounded-[var(--radius-sm)] border',

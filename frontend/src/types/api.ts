@@ -19,6 +19,8 @@ export interface UserSummary {
   email: string
   role: 'BUYER' | 'SELLER' | 'SUPER_ADMIN'
   avatar?: string
+  /** Avatar URL (Cloudinary) as returned by GET /users/me — null when no avatar is set. */
+  avatarUrl?: string | null
 }
 
 export interface LoginResponse {
