@@ -57,7 +57,7 @@ export function SellerCouponsPage() {
     watch,
     setValue,
     formState: { errors },
-  } = useForm<CouponForm>({
+  } = useForm<z.input<typeof couponSchema>, unknown, CouponForm>({
     resolver: zodResolver(couponSchema),
     defaultValues: {
       code: '',

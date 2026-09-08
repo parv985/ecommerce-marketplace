@@ -2,7 +2,7 @@ import api from './api'
 import type {
   ApiResponse,
   LoginResponse,
-  UserSummary,
+  UserProfile,
   TwoFactorSetupResponse,
   SellerProfile,
 } from '@/types/api'
@@ -73,7 +73,7 @@ export const authApi = {
 
   // Profile
   getMe: () =>
-    api.get<ApiResponse<UserSummary>>('/users/me').then(r => r.data.data),
+    api.get<ApiResponse<UserProfile>>('/users/me').then(r => r.data.data),
 
   getSellerProfile: () =>
     api.get<ApiResponse<SellerProfile>>('/sellers/me').then(r => r.data.data),

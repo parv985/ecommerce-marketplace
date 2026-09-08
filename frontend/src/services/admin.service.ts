@@ -1,5 +1,5 @@
 import api from './api'
-import type { ApiResponse, PaginatedResponse, AdminUser, SellerProfile, Product, Order, Settlement } from '@/types/api'
+import type { ApiResponse, PaginatedResponse, AdminUser, SellerProfile, Product, AdminOrder, Settlement } from '@/types/api'
 
 export const adminService = {
   // Users
@@ -25,7 +25,7 @@ export const adminService = {
 
   // Orders
   getOrders: (params?: { status?: string; page?: number; limit?: number }) =>
-    api.get<ApiResponse<PaginatedResponse<Order>>>('/admin/orders', { params }).then(r => r.data.data),
+    api.get<ApiResponse<PaginatedResponse<AdminOrder>>>('/admin/orders', { params }).then(r => r.data.data),
 
   // Settlements
   getSettlements: (params?: { status?: string; sellerId?: string; month?: string; page?: number; limit?: number }) =>

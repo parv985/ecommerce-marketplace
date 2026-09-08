@@ -1,5 +1,5 @@
 import api from './api'
-import type { ApiResponse, UserProfile, Address } from '@/types/api'
+import type { ApiResponse, UserProfile, Address, CreateAddressInput } from '@/types/api'
 
 export const userService = {
   getProfile: () =>
@@ -11,10 +11,10 @@ export const userService = {
   getAddresses: () =>
     api.get<ApiResponse<Address[]>>('/users/me/addresses').then(r => r.data.data),
 
-  createAddress: (data: Omit<Address, '_id'>) =>
+  createAddress: (data: CreateAddressInput) =>
     api.post<ApiResponse<Address>>('/users/me/addresses', data).then(r => r.data),
 
-  updateAddress: (id: string, data: Partial<Address>) =>
+  updateAddress: (id: string, data: Partial<CreateAddressInput>) =>
     api.patch<ApiResponse<Address>>(`/users/me/addresses/${id}`, data).then(r => r.data),
 
   deleteAddress: (id: string) =>

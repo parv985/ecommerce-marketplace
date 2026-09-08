@@ -35,10 +35,10 @@ export interface TwoFactorSetupResponse {
 }
 
 // User
+// Mirrors the backend `UserProfileResponse` (src/modules/users/user.types.ts).
 export interface UserProfile extends UserSummary {
-  phone?: string
-  avatar?: string
-  isActive: boolean
+  avatarUrl: string | null
+  isEmailVerified: boolean
   createdAt: string
 }
 
@@ -54,6 +54,10 @@ export interface Address {
   pincode: string
   createdAt?: string
 }
+
+// Mirrors the backend `createAddressSchema` (strict): the fields accepted
+// when creating an address. `id`/`createdAt` are server-assigned.
+export type CreateAddressInput = Omit<Address, 'id' | 'createdAt'>
 
 // Seller
 export interface SellerProfile {
@@ -144,10 +148,22 @@ export interface UpdateCategoryInput {
 }
 
 // Cart
+// Mirrors the backend `CartProductSummary` (src/modules/cart/cart.types.ts):
+// live product snapshot resolved for each cart line.
+export interface CartProductSummary {
+  id: string
+  sellerId: string
+  name: string
+  price: number
+  stock: number
+  images: ProductImage[]
+  status: 'DRAFT' | 'ACTIVE' | 'INACTIVE'
+}
+
 export interface CartItem {
   productId: string
   quantity: number
-  product: Product | null
+  product: CartProductSummary | null
   subtotal: number
 }
 
@@ -164,34 +180,65 @@ export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'SHIPPED' | 'DELIVERED' | 'C
 export type PaymentStatus = 'UNPAID' | 'PAID' | 'REFUNDED'
 export type PaymentMethod = 'COD' | 'ONLINE';
 
+// Mirrors the backend `OrderItemResponse` (src/modules/orders/order.types.ts):
+// `subtotal` = price * quantity, `discountAmount` = sale discount for the line.
 export interface OrderItem {
-  product: Product | string
+  productId: string
   name: string
   price: number
   quantity: number
+  subtotal: number
+  discountAmount: number
   image?: string
 }
 
+// Mirrors the backend `OrderAddressResponse` (address snapshot stored on the order).
+export interface OrderShippingAddress {
+  recipientName: string
+  phone: string
+  addressLine1: string
+  addressLine2: string | null
+  city: string
+  state: string
+  pincode: string
+}
+
+// Mirrors the backend `OrderResponse` (src/modules/orders/order.types.ts).
+// Note: there is no order-level `subtotal`/`discountAmount`/`taxAmount` in the
+// API — the fields are `itemsTotal`, `discountTotal`, `couponDiscount`, `total`.
 export interface Order {
   id: string
   orderNumber: string
-  buyer: UserSummary | string
-  seller: SellerProfile | string
+  userId: string
+  sellerId: string
+  sellerBusinessName: string | null
   items: OrderItem[]
-  shippingAddress: Address
-  subtotal: number
-  discountAmount: number
+  shippingAddress: OrderShippingAddress
+  itemsTotal: number
+  discountTotal: number
+  couponId: string | null
+  couponCode: string | null
   couponDiscount: number
-  taxAmount: number
   total: number
   paymentMethod: PaymentMethod
   paymentStatus: PaymentStatus
+  paymentId: string | null
   status: OrderStatus
-  notes?: string
-  tracking: OrderTrackingEntry[]
   createdAt: string
-  deliveredAt?: string
-  paidAt?: string
+  updatedAt: string
+}
+
+// Mirrors the backend `AdminOrderResponse` (src/modules/admin/admin.types.ts).
+export interface AdminOrder {
+  id: string
+  orderNumber: string
+  userId: string
+  sellerId: string
+  itemCount: number
+  total: number
+  paymentStatus: PaymentStatus
+  status: OrderStatus
+  createdAt: string
 }
 
 export interface OrderTrackingEntry {
@@ -202,17 +249,40 @@ export interface OrderTrackingEntry {
   createdAt: string
 }
 
+// Mirrors the backend `InvoiceData` (src/modules/orders/order.service.ts).
+// The invoice adds display-only GST (`taxRate`, `taxAmount`) on top of the
+// stored order amounts; `total` already includes the tax.
 export interface Invoice {
   invoiceNumber: string
   orderNumber: string
+  orderId: string
   orderDate: string
-  buyer: { name: string; email: string; address?: Address }
-  seller: { businessName: string; gstin: string }
-  items: { name: string; quantity: number; price: number }[]
+  buyer: { name: string; email: string }
+  seller: {
+    businessName: string
+    gstin: string
+    pan: string
+    address: {
+      addressLine1: string
+      addressLine2: string | null
+      city: string
+      state: string
+      pincode: string
+    }
+  }
+  items: OrderItem[]
+  shippingAddress: OrderShippingAddress
   itemsTotal: number
   discountTotal: number
+  couponDiscount: number
+  taxRate: number
   taxAmount: number
   total: number
+  paymentMethod: PaymentMethod
+  paymentStatus: PaymentStatus
+  status: OrderStatus
+  deliveredAt: string | null
+  createdAt: string
 }
 
 // Payments

@@ -68,25 +68,28 @@ export function CartPage() {
       </h1>
       <div className="grid lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-3.5">
-          {cart.items.map(item => item.product && (
+          {cart.items.map(item => {
+            const product = item.product
+            if (!product) return null
+            return (
             <div key={item.productId} className="flex gap-4 p-4 border border-[var(--border)] bg-white rounded-[var(--radius-lg)] shadow-[var(--shadow-sm)]">
               <Link to={`/products/${item.productId}`} className="shrink-0 w-20 h-20 bg-[#f6f5f2] border border-[var(--border-subtle)] rounded-[var(--radius)] overflow-hidden">
-                {item.product.images?.[0]?.url ? (
-                  <img src={item.product.images[0].url} alt="" className="w-full h-full object-cover" />
+                {product.images?.[0]?.url ? (
+                  <img src={product.images[0].url} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-neutral-400 text-xs">No img</div>
                 )}
               </Link>
               <div className="flex-1 min-w-0">
                 <Link to={`/products/${item.productId}`} className="font-semibold text-sm text-[var(--fg)] hover:text-[var(--primary)] transition-colors line-clamp-1">
-                  {item.product.name}
+                  {product.name}
                 </Link>
-                <p className="text-sm font-bold text-[var(--fg)] mt-1">{formatPrice(item.product?.price ?? 0)}</p>
+                <p className="text-sm font-bold text-[var(--fg)] mt-1">{formatPrice(product.price)}</p>
                 <div className="flex items-center justify-between mt-3">
                   <div className="flex items-center border border-[var(--border)] rounded-[var(--radius)] bg-white overflow-hidden">
                     <button onClick={() => updateQty.mutate({ productId: item.productId, quantity: Math.max(1, item.quantity - 1) })} className="p-1.5 hover:bg-[var(--accent)] text-[var(--fg)] transition-colors"><Minus size={13} /></button>
                     <span className="px-2.5 text-xs font-semibold min-w-[28px] text-center text-[var(--fg)]">{item.quantity}</span>
-                    <button onClick={() => updateQty.mutate({ productId: item.productId, quantity: Math.min(item.product.stock, item.quantity + 1) })} className="p-1.5 hover:bg-[var(--accent)] text-[var(--fg)] transition-colors"><Plus size={13} /></button>
+                    <button onClick={() => updateQty.mutate({ productId: item.productId, quantity: Math.min(product.stock, item.quantity + 1) })} className="p-1.5 hover:bg-[var(--accent)] text-[var(--fg)] transition-colors"><Plus size={13} /></button>
                   </div>
                   <button onClick={() => removeItem.mutate(item.productId)} className="text-[var(--muted)] hover:text-red-700 transition-colors p-1" title="Remove item">
                     <Trash2 size={16} />
@@ -94,7 +97,8 @@ export function CartPage() {
                 </div>
               </div>
             </div>
-          ))}
+            )
+          })}
           <div className="pt-2">
             <button onClick={() => clearCart.mutate()} className="text-xs text-[var(--muted)] hover:text-red-700 transition-colors font-medium">
               Clear entire cart

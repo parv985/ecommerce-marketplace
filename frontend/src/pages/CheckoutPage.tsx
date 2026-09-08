@@ -184,7 +184,7 @@ export function CheckoutPage() {
             {cart.items.map(item => item.product && (
               <div key={item.productId} className="flex justify-between items-start text-xs text-[var(--fg-secondary)]">
                 <span className="truncate mr-2 font-medium text-[var(--fg)]">{item.product.name} <span className="text-[var(--muted)]">x{item.quantity}</span></span>
-                <span className="shrink-0 font-semibold text-[var(--fg)]">{formatPrice((item.product?.price ?? 0) * item.quantity)}</span>
+                <span className="shrink-0 font-semibold text-[var(--fg)]">{formatPrice(item.subtotal)}</span>
               </div>
             ))}
           </div>

@@ -87,7 +87,7 @@ export function OrderDetailPage() {
                   <p className="text-sm font-medium truncate">{item.name}</p>
                   <p className="text-xs text-[var(--muted)]">Qty: {item.quantity}</p>
                 </div>
-                <span className="text-sm font-medium">{formatPrice(item.price * item.quantity)}</span>
+                <span className="text-sm font-medium">{formatPrice(item.subtotal)}</span>
               </div>
             ))}
           </div>
@@ -118,8 +118,9 @@ export function OrderDetailPage() {
               <p className="text-sm text-[var(--muted)]">Date: {formatDate(invoice.orderDate)}</p>
               <div className="mt-2 space-y-1 text-sm">
                 <div className="flex justify-between"><span>Subtotal</span><span>{formatPrice(invoice.itemsTotal)}</span></div>
-                <div className="flex justify-between"><span>Discount</span><span>-{formatPrice(invoice.discountTotal)}</span></div>
-                <div className="flex justify-between"><span>Tax</span><span>{formatPrice(invoice.taxAmount)}</span></div>
+                {invoice.discountTotal > 0 && <div className="flex justify-between text-green-600"><span>Discount</span><span>-{formatPrice(invoice.discountTotal)}</span></div>}
+                {invoice.couponDiscount > 0 && <div className="flex justify-between text-green-600"><span>Coupon</span><span>-{formatPrice(invoice.couponDiscount)}</span></div>}
+                <div className="flex justify-between"><span>Tax (GST {invoice.taxRate}%)</span><span>{formatPrice(invoice.taxAmount)}</span></div>
                 <div className="flex justify-between font-bold border-t pt-1"><span>Total</span><span>{formatPrice(invoice.total)}</span></div>
               </div>
             </div>
@@ -131,10 +132,9 @@ export function OrderDetailPage() {
           <div className="border border-[var(--border)] rounded-[var(--radius-lg)] bg-white p-5 shadow-[var(--shadow-sm)]">
             <h2 className="font-semibold mb-3">Payment Summary</h2>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span>Subtotal</span><span>{formatPrice(order.subtotal)}</span></div>
-              {order.discountAmount > 0 && <div className="flex justify-between text-green-600"><span>Discount</span><span>-{formatPrice(order.discountAmount)}</span></div>}
-              {order.couponDiscount > 0 && <div className="flex justify-between text-green-600"><span>Coupon</span><span>-{formatPrice(order.couponDiscount)}</span></div>}
-              {order.taxAmount > 0 && <div className="flex justify-between"><span>Tax</span><span>{formatPrice(order.taxAmount)}</span></div>}
+              <div className="flex justify-between"><span>Subtotal</span><span>{formatPrice(order.itemsTotal)}</span></div>
+              {order.discountTotal > 0 && <div className="flex justify-between text-green-600"><span>Discount</span><span>-{formatPrice(order.discountTotal)}</span></div>}
+              {order.couponDiscount > 0 && <div className="flex justify-between text-green-600"><span>Coupon{order.couponCode ? ` (${order.couponCode})` : ''}</span><span>-{formatPrice(order.couponDiscount)}</span></div>}
               <div className="flex justify-between font-bold border-t pt-2"><span>Total</span><span>{formatPrice(order.total)}</span></div>
             </div>
             <p className="text-xs text-[var(--muted)] mt-2">Payment: {order.paymentMethod}</p>

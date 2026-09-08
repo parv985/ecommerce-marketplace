@@ -64,10 +64,10 @@ export function ProductCard({ product }: ProductCardProps) {
               <span className="text-xs text-[var(--muted)] line-through">{formatPrice(product.compareAtPrice!)}</span>
             )}
           </div>
-          {product.averageRating > 0 && (
+          {(product.averageRating ?? 0) > 0 && (
             <div className="flex items-center gap-1 mt-1.5">
               <span className="text-amber-500 text-xs">★</span>
-              <span className="text-xs font-medium text-[var(--fg)]">{product.averageRating.toFixed(1)}</span>
+              <span className="text-xs font-medium text-[var(--fg)]">{(product.averageRating ?? 0).toFixed(1)}</span>
               <span className="text-[11px] text-[var(--muted)]">({product.totalReviews})</span>
             </div>
           )}

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Heart, Trash2, ShoppingCart } from 'lucide-react'
 import { wishlistService } from '@/services/wishlist.service'
 import { formatPrice } from '@/lib/utils'
@@ -10,6 +10,7 @@ import { toast } from 'react-hot-toast'
 
 export function WishlistPage() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
 
   const { data: wishlist, isLoading } = useQuery({
     queryKey: ['wishlist'],
@@ -50,14 +51,10 @@ export function WishlistPage() {
     return (
       <div className="container-app py-8">
         <EmptyState
-          icon={Heart}
+          icon={<Heart size={48} strokeWidth={1.5} />}
           title="Your wishlist is empty"
           description="Save items you love for later"
-          action={
-            <Link to="/products">
-              <Button>Browse Products</Button>
-            </Link>
-          }
+          action={{ label: 'Browse Products', onClick: () => navigate('/products') }}
         />
       </div>
     )

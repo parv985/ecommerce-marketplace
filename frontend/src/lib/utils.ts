@@ -5,13 +5,22 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatPrice(amount: number): string {
+/**
+ * Coerces an API money value to a safe finite number. Missing/invalid
+ * values (undefined, null, NaN, Infinity) become 0 so a bad payload can
+ * never surface as "₹NaN" — the correct field mapping is still the real fix.
+ */
+export function toAmount(value: number | null | undefined): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0
+}
+
+export function formatPrice(amount: number | null | undefined): string {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount)
+  }).format(toAmount(amount))
 }
 
 export function formatDate(date: string | Date): string {
