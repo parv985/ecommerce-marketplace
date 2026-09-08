@@ -15,6 +15,7 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'react-hot-toast'
 import { useSellerErrorHandler } from '@/hooks/useSellerErrorHandler'
+import { getChangedFields, notifyNoChanges } from '@/lib/formChanges'
 import type { Product } from '@/types/api'
 
 /** Mirrors the backend limit: `POST /products/:id/images` takes 8 files and the service rejects more. */
@@ -39,11 +40,27 @@ const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error'> 
  * existing one. `step` chooses between the detail fields and the image manager;
  * `justCreated` marks the hand-off right after creation, so the seller lands on
  * the images step for a product that finally has an id to upload against.
+ * `originalValues` is the snapshot the product had when the dialog opened —
+ * submitting an untouched edit form is compared against it, so a no-op update
+ * never reaches the API.
  */
 interface DialogState {
   productId: string | null
   step: 'details' | 'images'
   justCreated: boolean
+  originalValues: ProductForm | null
+}
+
+/** Maps a product onto the form fields (kept in sync with `openEditDialog`). */
+function productToFormValues(product: Product): ProductForm {
+  return {
+    name: product.name,
+    description: product.description || '',
+    price: product.price,
+    sku: product.sku || '',
+    stock: product.stock,
+    category: typeof product.category === 'object' ? product.category?.id ?? '' : product.category || '',
+  }
 }
 
 export function SellerProductsPage() {
@@ -128,7 +145,7 @@ export function SellerProductsPage() {
           ? list.map(p => (p.id === created.id ? { ...p, ...created } : p))
           : [created, ...list]
       })
-      setDialog({ productId: created.id, step: 'images', justCreated: true })
+      setDialog({ productId: created.id, step: 'images', justCreated: true, originalValues: productToFormValues(created) })
       if (pendingFiles.length > 0) {
         uploadImages.mutate({ targetId: created.id, files: pendingFiles })
       } else {
@@ -163,21 +180,41 @@ export function SellerProductsPage() {
   function openCreateDialog() {
     reset()
     setPendingFiles([])
-    setDialog({ productId: null, step: 'details', justCreated: false })
+    setDialog({ productId: null, step: 'details', justCreated: false, originalValues: null })
   }
 
   /* Prefilled from the row data, so the fields are set before the dialog paints. */
   function openEditDialog(product: Product, step: DialogState['step'] = 'details') {
-    reset({
-      name: product.name,
-      description: product.description || '',
-      price: product.price,
-      sku: product.sku || '',
-      stock: product.stock,
-      category: typeof product.category === 'object' ? product.category?.id : product.category || '',
-    })
+    const originalValues = productToFormValues(product)
+    reset(originalValues)
     setPendingFiles([])
-    setDialog({ productId: product.id, step, justCreated: false })
+    setDialog({ productId: product.id, step, justCreated: false, originalValues })
+  }
+
+  /*
+   * Update guard for the edit dialog: a form nobody touched must never reach the
+   * API. Only the fields that actually differ are sent (PATCH semantics), and
+   * staged image files still count as a change — they are uploaded rather than
+   * silently dropped, which is what the seller expects from "Save & Upload".
+   */
+  function submitDetails(values: ProductForm) {
+    if (!productId) {
+      createProduct.mutate(values)
+      return
+    }
+
+    const changed = getChangedFields(values, dialog?.originalValues ?? null)
+
+    if (Object.keys(changed).length === 0) {
+      if (pendingFiles.length > 0) {
+        uploadImages.mutate({ targetId: productId, files: pendingFiles })
+        return
+      }
+      notifyNoChanges()
+      return
+    }
+
+    updateProduct.mutate({ id: productId, data: changed })
   }
 
   function handleFilesSelected(files: File[]) {
@@ -298,13 +335,7 @@ export function SellerProductsPage() {
           </div>
         ) : (
           <form
-            onSubmit={handleSubmit((d) => {
-              if (productId) {
-                updateProduct.mutate({ id: productId, data: d })
-              } else {
-                createProduct.mutate(d)
-              }
-            })}
+            onSubmit={handleSubmit(submitDetails)}
             className="space-y-3"
           >
             <Input label="Name" error={errors.name?.message} {...register('name')} />

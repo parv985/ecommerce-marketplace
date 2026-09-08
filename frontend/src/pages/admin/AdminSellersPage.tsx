@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { TextArea } from '@/components/ui/TextArea'
 import { Dialog } from '@/components/ui/Dialog'
 import { Pagination } from '@/components/ui/Pagination'
+import { notifyNoChanges } from '@/lib/formChanges'
 import { toast } from 'react-hot-toast'
 
 const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error'> = {
@@ -41,6 +42,30 @@ export function AdminSellersPage() {
     },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to update seller status'),
   })
+
+  /*
+   * Status decisions follow the same rule as every other update flow: when the
+   * seller already has the status being confirmed (the list can be stale while
+   * the dialog is open, or the button was clicked twice), nothing would change,
+   * so the request is skipped and the user is told so.
+   */
+  const confirmAction = () => {
+    if (!actionDialog?.id) {
+      toast.error('Unable to identify this seller. Please refresh and try again.')
+      return
+    }
+    if (updateStatus.isPending) return
+    if (actionDialog.action === 'REJECTED' && !reason.trim()) {
+      toast.error('Rejection reason is required')
+      return
+    }
+    const live = data?.items?.find(s => s.id === actionDialog.id)
+    if (live && live.status === actionDialog.action) {
+      notifyNoChanges()
+      return
+    }
+    updateStatus.mutate({ id: actionDialog.id, status: actionDialog.action, reason: reason || undefined })
+  }
 
   return (
     <div>
@@ -89,20 +114,10 @@ export function AdminSellersPage() {
           <Button variant="outline" onClick={() => { setActionDialog(null); setReason(''); }}>Cancel</Button>
           <Button
             variant={actionDialog?.action === 'SUSPEND' ? 'destructive' : 'default'}
-            disabled={actionDialog?.action === 'REJECTED' && !reason.trim()}
-            onClick={() => {
-              if (!actionDialog?.id) {
-                toast.error('Unable to identify this seller. Please refresh and try again.')
-                return
-              }
-              if (actionDialog.action === 'REJECTED' && !reason.trim()) {
-                toast.error('Rejection reason is required')
-                return
-              }
-              updateStatus.mutate({ id: actionDialog.id, status: actionDialog.action, reason: reason || undefined })
-            }}
+            disabled={(actionDialog?.action === 'REJECTED' && !reason.trim()) || updateStatus.isPending}
+            onClick={confirmAction}
           >
-            Confirm
+            {updateStatus.isPending ? 'Saving...' : 'Confirm'}
           </Button>
         </div>
       </Dialog>

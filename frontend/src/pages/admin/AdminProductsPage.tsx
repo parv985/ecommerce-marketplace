@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminService } from '@/services/admin.service'
 import { formatPrice } from '@/lib/utils'
+import { notifyNoChanges } from '@/lib/formChanges'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Pagination } from '@/components/ui/Pagination'
@@ -24,6 +25,21 @@ export function AdminProductsPage() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-products'] }); toast.success('Status updated') },
   })
 
+  /*
+   * Same rule as the edit forms: applying the status a product already has is
+   * not an update, so it never reaches the API (the cached list can lag behind
+   * the server, and a repeated click would otherwise re-send the same value).
+   */
+  const changeStatus = (targetId: string, nextStatus: string) => {
+    if (updateStatus.isPending) return
+    const live = data?.items?.find(p => p.id === targetId)
+    if (live && live.status === nextStatus) {
+      notifyNoChanges()
+      return
+    }
+    updateStatus.mutate({ id: targetId, status: nextStatus })
+  }
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Products</h1>
@@ -45,7 +61,7 @@ export function AdminProductsPage() {
             </div>
             <div className="flex gap-1">
               {['ACTIVE', 'DRAFT', 'INACTIVE'].filter(s => s !== p.status).map(s => (
-                <Button key={s} size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: p.id, status: s })}>{s}</Button>
+                <Button key={s} size="sm" variant="outline" disabled={updateStatus.isPending} onClick={() => changeStatus(p.id, s)}>{s}</Button>
               ))}
             </div>
           </div>

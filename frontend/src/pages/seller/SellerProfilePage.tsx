@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { ProfileAvatar } from '@/components/ui/ProfileAvatar'
 import { useForm } from 'react-hook-form'
 import { toast } from 'react-hot-toast'
+import { getChangedFields, notifyNoChanges } from '@/lib/formChanges'
 import type { SellerProfile } from '@/types/api'
 
 const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error'> = {
@@ -64,8 +65,6 @@ function profileToFormValues(profile: SellerProfile): SellerFormValues {
   }
 }
 
-const normalize = (v: string | null | undefined) => (v ?? '').trim()
-
 export function SellerProfilePage() {
   const queryClient = useQueryClient()
   const { data: profile, isLoading } = useQuery({ queryKey: ['seller-profile'], queryFn: sellerService.getProfile })
@@ -95,22 +94,19 @@ export function SellerProfilePage() {
 
     // Diff against the loaded profile (trimmed) so a pristine form never
     // triggers an API call. Only changed fields are sent.
+    const changedFields = getChangedFields(data, originalValues)
     const changed: Record<string, string> = {}
-    let hasChanges = false
-    ;(Object.keys(originalValues) as (keyof SellerFormValues)[]).forEach((key) => {
-      const next = normalize(data[key])
-      if (next !== normalize(originalValues[key])) {
-        hasChanges = true
-        // Backend update schema uses .optional() with .min()/.regex() on most
-        // fields, which rejects "" — so cleared values are dropped instead of
-        // sent (addressLine2 accepts "" and can be cleared).
-        if (next === '' && key !== 'addressLine2') return
-        changed[key] = next
-      }
+    ;(Object.keys(changedFields) as (keyof SellerFormValues)[]).forEach((key) => {
+      const next = (changedFields[key] ?? '').trim()
+      // Backend update schema uses .optional() with .min()/.regex() on most
+      // fields, which rejects "" — so cleared values are dropped instead of
+      // sent (addressLine2 accepts "" and can be cleared).
+      if (next === '' && key !== 'addressLine2') return
+      changed[key] = next
     })
 
-    if (!hasChanges || Object.keys(changed).length === 0) {
-      toast('No changes to update.')
+    if (Object.keys(changed).length === 0) {
+      notifyNoChanges()
       return
     }
 

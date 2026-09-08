@@ -42,6 +42,16 @@ The app runs at `http://localhost:3000` and proxies API requests to the backend 
 npm run build
 ```
 
+## Verification Scripts
+
+```bash
+# money/number rendering across order screens
+node scripts/verify-money-ui.mjs
+
+# "no changes → no update request" guard for every edit/update form
+node scripts/verify-no-changes-guard.mjs
+```
+
 ## Type Check
 
 ```bash
@@ -72,6 +82,38 @@ frontend/
 │   └── index.css        # Tailwind CSS styles
 └── .env.example
 ```
+
+## Edit / Update forms: no-op protection
+
+Every form that edits an existing record (seller **Edit Product**, buyer **Update Profile**, seller **Edit Details**, admin **Edit Category**, admin **Commission Rate**, and the status dialogs for users / sellers / products / orders) must:
+
+1. compare the submitted values with the values the form was pre-filled from,
+2. when nothing differs, show **"No changes to update."** and **not** call the API,
+3. only send the update request (and its success toast) when something really changed.
+
+The comparison and the message live in one place — `src/lib/formChanges.ts`:
+
+```ts
+import { getChangedFields, notifyNoChanges } from '@/lib/formChanges'
+
+const submit = (values: ProductForm) => {
+  const changed = getChangedFields(values, originalValues)   // PATCH payload
+  if (Object.keys(changed).length === 0) {
+    notifyNoChanges()                                         // → "No changes to update."
+    return                                                    // no request, no success toast
+  }
+  updateProduct.mutate({ id, data: changed })
+}
+```
+
+`getChangedFields` treats `null` / `undefined` / `''` as the same empty value, trims
+strings (whitespace-only edits are not changes) and compares `'12'` with `12`, so a
+pristine form never looks dirty. Only the changed fields are sent, and the dialogs stay
+open so editing can continue.
+
+Run `node scripts/verify-no-changes-guard.mjs` to check the rule: it unit-tests the
+helpers and audits every screen that can fire an update request, so a new edit form
+cannot skip the guard.
 
 ## Roles
 

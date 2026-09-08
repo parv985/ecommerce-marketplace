@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminService } from '@/services/admin.service'
 import { formatPrice } from '@/lib/utils'
+import { isSameValue, notifyNoChanges } from '@/lib/formChanges'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -41,6 +42,20 @@ export function AdminSettlementsPage() {
     mutationFn: (rate: number) => adminService.updateCommission(rate),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['commission'] }); setShowCommission(false); toast.success('Commission updated') },
   })
+
+  /*
+   * The dialog is pre-filled with the stored rate, so submitting it untouched is
+   * a no-op: show "No changes to update." and skip the PATCH entirely.
+   */
+  const submitCommission = () => {
+    if (updateCommission.isPending) return
+    const storedRate = typeof commission?.rate === 'number' ? commission.rate : null
+    if (storedRate !== null && isSameValue(commissionRate, storedRate)) {
+      notifyNoChanges()
+      return
+    }
+    updateCommission.mutate(commissionRate)
+  }
 
   const processSettlement = useMutation({
     mutationFn: (id: string) => adminService.processSettlement(id),
@@ -104,7 +119,9 @@ export function AdminSettlementsPage() {
       <Dialog open={showCommission} onClose={() => setShowCommission(false)} title="Commission Rate">
         <div className="space-y-3">
           <Input label="Commission %" type="number" value={commissionRate} onChange={e => setCommissionRate(Number(e.target.value))} />
-          <Button className="w-full" onClick={() => updateCommission.mutate(commissionRate)}>Update</Button>
+          <Button className="w-full" onClick={submitCommission} disabled={updateCommission.isPending}>
+            {updateCommission.isPending ? 'Updating...' : 'Update'}
+          </Button>
         </div>
       </Dialog>
     </div>

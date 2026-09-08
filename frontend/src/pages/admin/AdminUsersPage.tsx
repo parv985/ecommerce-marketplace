@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminService } from '@/services/admin.service'
 import { formatDate } from '@/lib/utils'
+import { notifyNoChanges } from '@/lib/formChanges'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Pagination } from '@/components/ui/Pagination'
@@ -21,6 +22,22 @@ export function AdminUsersPage() {
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) => adminService.updateUserStatus(id, isActive),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-users'] }); toast.success('User status updated') },
   })
+
+  /*
+   * Status edits follow the same rule as every other update form here: if the
+   * value being applied already matches the freshest state we have for the row,
+   * there is nothing to update, so no request is sent. This also swallows the
+   * double click that would otherwise PATCH the same status twice.
+   */
+  const changeStatus = (targetId: string, nextIsActive: boolean) => {
+    if (toggleStatus.isPending) return
+    const live = data?.items?.find(u => u.id === targetId)
+    if (live && live.isActive === nextIsActive) {
+      notifyNoChanges()
+      return
+    }
+    toggleStatus.mutate({ id: targetId, isActive: nextIsActive })
+  }
 
   return (
     <div>
@@ -52,7 +69,12 @@ export function AdminUsersPage() {
                 <td className="p-3"><Badge variant={u.isActive ? 'success' : 'error'}>{u.isActive ? 'Active' : 'Inactive'}</Badge></td>
                 <td className="p-3 text-[var(--muted)]">{formatDate(u.createdAt)}</td>
                 <td className="p-3 text-center">
-                  <Button size="sm" variant={u.isActive ? 'destructive' : 'outline'} onClick={() => toggleStatus.mutate({ id: u.id, isActive: !u.isActive })}>
+                  <Button
+                    size="sm"
+                    variant={u.isActive ? 'destructive' : 'outline'}
+                    disabled={toggleStatus.isPending}
+                    onClick={() => changeStatus(u.id, !u.isActive)}
+                  >
                     {u.isActive ? 'Deactivate' : 'Activate'}
                   </Button>
                 </td>
