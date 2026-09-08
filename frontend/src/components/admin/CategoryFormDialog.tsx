@@ -7,6 +7,7 @@ import { Dialog } from '@/components/ui/Dialog'
 import { Input } from '@/components/ui/Input'
 import { TextArea } from '@/components/ui/TextArea'
 import { Button } from '@/components/ui/Button'
+import { getChangedFields } from '@/lib/formChanges'
 import type { Category, CreateCategoryInput, UpdateCategoryInput } from '@/types/api'
 
 /*
@@ -85,12 +86,17 @@ export function CategoryFormDialog({ open, category, submitting, onClose, onSubm
     }
 
     // PATCH: only send fields that actually changed. Clearing the description
-    // sends `null`, which the backend schema explicitly accepts.
+    // sends `null`, which the backend schema explicitly accepts. When nothing
+    // differs from the loaded category the payload stays empty and the parent
+    // reports "No changes to update." instead of firing a request.
+    const changed = getChangedFields(values, {
+      name: category.name,
+      description: category.description ?? '',
+    })
     const data: UpdateCategoryInput = {}
-    if (values.name !== category.name) data.name = values.name
-    const currentDescription = category.description ?? ''
-    if (values.description !== currentDescription) {
-      data.description = values.description === '' ? null : values.description
+    if (changed.name !== undefined) data.name = changed.name
+    if (changed.description !== undefined) {
+      data.description = changed.description === '' ? null : changed.description
     }
     onSubmit({ mode: 'edit', id: category.id, data })
   }

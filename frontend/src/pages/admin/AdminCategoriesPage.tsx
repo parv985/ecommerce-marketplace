@@ -4,6 +4,7 @@ import { Plus, Search, RefreshCw, AlertCircle, Tags, Loader2 } from 'lucide-reac
 import { toast } from 'react-hot-toast'
 import { categoryService } from '@/services/category.service'
 import { extractErrorMessage } from '@/services/api'
+import { notifyNoChanges } from '@/lib/formChanges'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/ui/Dialog'
@@ -91,9 +92,9 @@ export function AdminCategoriesPage() {
       return
     }
     if (Object.keys(payload.data).length === 0) {
-      // Nothing changed — no request needed.
-      closeForm()
-      toast('No changes to save.')
+      // Nothing changed — no request needed. The dialog stays open so the
+      // admin can keep editing; the toast explains why nothing was saved.
+      notifyNoChanges()
       return
     }
     updateMutation.mutate({ id: payload.id, data: payload.data })
@@ -101,6 +102,12 @@ export function AdminCategoriesPage() {
 
   const handleReactivate = (c: Category) => {
     if (isMutating) return
+    // The row already reports an active category (e.g. stale cache after another
+    // admin reactivated it) — flipping it again is a no-op, so no request.
+    if (c.isActive) {
+      notifyNoChanges()
+      return
+    }
     updateMutation.mutate({ id: c.id, data: { isActive: true } })
   }
 

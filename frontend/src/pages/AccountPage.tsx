@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'react-hot-toast'
 import { userService } from '@/services/user.service'
 import { formatDate } from '@/lib/utils'
+import { hasChanges, notifyNoChanges } from '@/lib/formChanges'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -32,7 +33,27 @@ export function AccountPage() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['profile'] }); toast.success('Profile updated') },
   })
 
-  const { register: registerProfile, handleSubmit: handleProfileSubmit, formState: { errors: profileErrors } } = useForm<z.infer<typeof profileSchema>>({ resolver: zodResolver(profileSchema) })
+  const { register: registerProfile, handleSubmit: handleProfileSubmit, reset: resetProfile, formState: { errors: profileErrors } } = useForm<z.infer<typeof profileSchema>>({ resolver: zodResolver(profileSchema) })
+
+  /* Keep the form in sync with the loaded profile so the diff below always has
+     a trustworthy baseline (and the field is filled once the query resolves). */
+  const originalName = profile?.name ?? ''
+  useEffect(() => {
+    if (profile) resetProfile({ name: originalName })
+  }, [profile, originalName, resetProfile])
+
+  /*
+   * An untouched "Update Profile" click must not hit the API — compare the form
+   * value with the stored name first and report that there is nothing to save.
+   */
+  const submitProfile = (data: z.infer<typeof profileSchema>) => {
+    if (!hasChanges(data, { name: originalName })) {
+      notifyNoChanges()
+      return
+    }
+    updateProfile.mutate(data)
+  }
+
   const { register, handleSubmit, reset, formState: { errors } } = useForm<z.infer<typeof addressSchema>>({ resolver: zodResolver(addressSchema) })
 
   const createAddress = useMutation({
@@ -56,8 +77,8 @@ export function AccountPage() {
             {/* Avatar (photo or name initial) + upload/change/remove. Updates
                 the navbar icon immediately via the auth store. */}
             <ProfileAvatar size={64} />
-            <form onSubmit={handleProfileSubmit((d) => updateProfile.mutate(d))} className="space-y-3">
-              <Input label="Name" defaultValue={profile?.name} error={profileErrors.name?.message} {...registerProfile('name')} />
+            <form onSubmit={handleProfileSubmit(submitProfile)} className="space-y-3">
+              <Input label="Name" error={profileErrors.name?.message} {...registerProfile('name')} />
               <Input label="Email" value={profile?.email || ''} disabled />
               <p className="text-xs text-[var(--muted)]">Account created: {profile?.createdAt ? formatDate(profile.createdAt) : '-'}</p>
               <Button type="submit" size="sm">Update Profile</Button>

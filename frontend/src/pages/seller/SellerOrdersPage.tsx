@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { orderService } from '@/services/order.service'
 import { formatPrice, formatDate } from '@/lib/utils'
+import { notifyNoChanges } from '@/lib/formChanges'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { toast } from 'react-hot-toast'
@@ -28,6 +29,18 @@ export function SellerOrdersPage() {
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
   })
 
+  /* Status updates are updates too: skip the request when the order already
+     carries the target status (stale list or a second click). */
+  const changeStatus = (orderId: string, nextStatus: string) => {
+    if (updateStatus.isPending) return
+    const live = data?.items?.find(o => o.id === orderId)
+    if (live && live.status === nextStatus) {
+      notifyNoChanges()
+      return
+    }
+    updateStatus.mutate({ id: orderId, status: nextStatus })
+  }
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Orders</h1>
@@ -52,9 +65,9 @@ export function SellerOrdersPage() {
             <div className="flex items-center justify-between">
               <span className="text-sm text-[var(--muted)]">{order.items.length} item(s) • {formatPrice(order.total)}</span>
               <div className="flex gap-1">
-                {order.status === 'PENDING' && <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: order.id, status: 'CONFIRMED' })}>Confirm</Button>}
-                {order.status === 'CONFIRMED' && <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: order.id, status: 'SHIPPED' })}>Ship</Button>}
-                {order.status === 'SHIPPED' && <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: order.id, status: 'DELIVERED' })}>Deliver</Button>}
+                {order.status === 'PENDING' && <Button size="sm" variant="outline" disabled={updateStatus.isPending} onClick={() => changeStatus(order.id, 'CONFIRMED')}>Confirm</Button>}
+                {order.status === 'CONFIRMED' && <Button size="sm" variant="outline" disabled={updateStatus.isPending} onClick={() => changeStatus(order.id, 'SHIPPED')}>Ship</Button>}
+                {order.status === 'SHIPPED' && <Button size="sm" variant="outline" disabled={updateStatus.isPending} onClick={() => changeStatus(order.id, 'DELIVERED')}>Deliver</Button>}
               </div>
             </div>
           </div>
