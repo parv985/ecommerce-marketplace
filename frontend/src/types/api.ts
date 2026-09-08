@@ -431,36 +431,52 @@ export interface DashboardData {
   }
 }
 
+// Mirrors the backend `SalesPoint` (src/modules/analytics/analytics.types.ts)
+// returned by GET /sellers/analytics/sales. The bucket key is `period`
+// (`YYYY-MM-DD` for groupBy=day, `YYYY-MM` for groupBy=month).
 export interface SalesPoint {
-  date: string
+  period: string
   orders: number
   revenue: number
 }
 
+// Mirrors the backend `TopProduct` (src/modules/analytics/analytics.types.ts)
+// returned by GET /sellers/analytics/top-products. `name` is the product name
+// snapshot stored on the order items; `quantity` is units sold.
 export interface TopProduct {
-  product: Product | string
-  totalSold: number
-  orderCount: number
+  productId: string
+  name: string
+  quantity: number
   revenue: number
+  orders: number
 }
 
+// Mirrors the backend `CategoryPerformance` (src/modules/analytics/analytics.types.ts)
+// returned by GET /sellers/analytics/categories. `categoryName` is null when the
+// category was deleted after the order was placed.
 export interface CategoryPerformance {
-  category: Category | string
-  totalSold: number
+  categoryId: string
+  categoryName: string | null
+  quantity: number
   revenue: number
 }
 
+// Mirrors the backend `CustomerSummary` (src/modules/analytics/analytics.types.ts)
+// returned by GET /sellers/customers. Distinct buyers who ordered from this
+// seller; `totalSpent` counts PAID orders only.
 export interface CustomerInfo {
   customerId: string
   name: string
   email: string
   orderCount: number
   totalSpent: number
-  lastOrderDate?: string
 }
 
+// Mirrors the backend `RevenueResponse` (src/modules/analytics/analytics.types.ts)
+// returned by GET /sellers/revenue.
 export interface RevenueData {
   totalRevenue: number
+  totalOrders: number
   deliveredOrders: number
   cancelledOrders: number
   returnedOrders: number
