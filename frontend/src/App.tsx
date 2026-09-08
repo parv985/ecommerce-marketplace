@@ -43,6 +43,7 @@ import { SellerTwoFactorSetupPage } from '@/pages/seller/SellerTwoFactorSetupPag
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage'
 import { AdminUsersPage } from '@/pages/admin/AdminUsersPage'
 import { AdminSellersPage } from '@/pages/admin/AdminSellersPage'
+import { AdminCategoriesPage } from '@/pages/admin/AdminCategoriesPage'
 import { AdminProductsPage } from '@/pages/admin/AdminProductsPage'
 import { AdminOrdersPage } from '@/pages/admin/AdminOrdersPage'
 import { AdminSettlementsPage } from '@/pages/admin/AdminSettlementsPage'
@@ -71,6 +72,7 @@ export default function App() {
               <Route path="dashboard" element={<AdminDashboardPage />} />
               <Route path="users" element={<AdminUsersPage />} />
               <Route path="sellers" element={<AdminSellersPage />} />
+              <Route path="categories" element={<AdminCategoriesPage />} />
               <Route path="products" element={<AdminProductsPage />} />
               <Route path="orders" element={<AdminOrdersPage />} />
               <Route path="settlements" element={<AdminSettlementsPage />} />
