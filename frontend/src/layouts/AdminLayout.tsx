@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { NavLink, Outlet, Navigate, useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard, Users, Store, Package, ShoppingCart,
+  LayoutDashboard, Users, Store, Tags, Package, ShoppingCart,
   Wallet, Bell, ScrollText, User, LogOut, ChevronDown,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
@@ -12,6 +12,7 @@ const navItems = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/admin/users', label: 'Users', icon: Users },
   { to: '/admin/sellers', label: 'Sellers', icon: Store },
+  { to: '/admin/categories', label: 'Categories', icon: Tags },
   { to: '/admin/products', label: 'Products', icon: Package },
   { to: '/admin/orders', label: 'Orders', icon: ShoppingCart },
   { to: '/admin/settlements', label: 'Settlements', icon: Wallet },

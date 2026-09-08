@@ -119,14 +119,28 @@ export interface Product {
 }
 
 // Categories
+// Mirrors the backend `CategoryResponse` (src/modules/categories/category.types.ts)
 export interface Category {
   id: string
   name: string
-  slug?: string
-  description?: string
+  description: string | null
   isActive: boolean
-  parentCategory?: string
   createdAt: string
+  updatedAt: string
+}
+
+// Mirrors `createCategorySchema` (strict: no other keys are accepted)
+export interface CreateCategoryInput {
+  name: string
+  description?: string
+}
+
+// Mirrors `updateCategorySchema` (strict). `description: null` clears the field,
+// `isActive: true` re-activates a deactivated category.
+export interface UpdateCategoryInput {
+  name?: string
+  description?: string | null
+  isActive?: boolean
 }
 
 // Cart
