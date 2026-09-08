@@ -1,5 +1,5 @@
 import api from './api'
-import type { ApiResponse, SellerProfile, PaginatedResponse, DashboardData, SalesPoint, TopProduct, CategoryPerformance, CustomerInfo, RevenueData } from '@/types/api'
+import type { ApiResponse, SellerProfile, PaginatedResponse, DashboardData, SalesPoint, TopProduct, CategoryPerformance, CustomerInfo, RevenueData, Settlement } from '@/types/api'
 
 export const sellerService = {
   register: (data: {
@@ -57,6 +57,8 @@ export const sellerService = {
   getRevenue: (params?: { from?: string; to?: string; groupBy?: 'day' | 'month' }) =>
     api.get<ApiResponse<RevenueData>>('/sellers/revenue', { params }).then(r => r.data.data),
 
+  /* Returns the authenticated seller's settlement for a month, or null when no
+     settlement exists for the selected period (backend: GET /sellers/settlement). */
   getSettlement: (month?: string) =>
-    api.get<ApiResponse<any>>('/sellers/settlement', { params: month ? { month } : {} }).then(r => r.data.data),
+    api.get<ApiResponse<Settlement | null>>('/sellers/settlement', { params: month ? { month } : {} }).then(r => r.data.data),
 }

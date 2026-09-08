@@ -50,6 +50,9 @@ node scripts/verify-money-ui.mjs
 
 # "no changes → no update request" guard for every edit/update form
 node scripts/verify-no-changes-guard.mjs
+
+# settlement rendering (seller summary/breakdown, admin lifecycle/actions, empty state)
+node scripts/verify-settlement-ui.mjs
 ```
 
 ## Type Check
