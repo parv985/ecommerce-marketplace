@@ -401,17 +401,34 @@ export interface NotificationPreferences {
 }
 
 // Analytics
+// Mirrors the backend `DashboardResponse` (src/modules/analytics/analytics.types.ts)
+// returned by GET /sellers/dashboard. The API nests counts under `orders`,
+// `revenue`, `products`, `returns` and `marketing` — NOT flat fields.
 export interface DashboardData {
-  totalOrders: number
-  pendingOrders: number
-  confirmedOrders: number
-  shippedOrders: number
-  deliveredOrders: number
-  cancelledOrders: number
-  totalRevenue: number
-  activeProducts: number
-  lowStockProducts: number
-  pendingReturns: number
+  orders: {
+    total: number
+    pending: number
+    confirmed: number
+    shipped: number
+    delivered: number
+    cancelled: number
+  }
+  revenue: {
+    total: number
+    currentMonth: number
+  }
+  products: {
+    total: number
+    active: number
+    lowStock: number
+  }
+  returns: {
+    pending: number
+  }
+  marketing: {
+    coupons: number
+    discounts: number
+  }
 }
 
 export interface SalesPoint {
@@ -474,12 +491,19 @@ export interface Settlement {
 }
 
 // Inventory
+// Mirrors the backend `IInventoryTransaction` document (src/models/InventoryTransaction.ts)
+// as returned by GET /inventory and GET /inventory/product/:productId. The API does not
+// populate the product, so each record carries a `productId` reference that the frontend
+// resolves to a product name via the seller's own products (GET /products/my).
 export interface InventoryTransaction {
   id: string
-  product: Product | string
+  productId: string
   type: string
   quantity: number
+  previousStock: number
+  newStock: number
   reason: string
-  orderId?: string
+  referenceId?: string | null
+  referenceType?: string | null
   createdAt: string
 }

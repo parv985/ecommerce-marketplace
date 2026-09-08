@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { inventoryService } from '@/services/inventory.service'
+import { productService } from '@/services/product.service'
 import { formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -19,6 +20,24 @@ export function SellerInventoryPage() {
     queryKey: ['inventory', page],
     queryFn: () => inventoryService.list({ page, limit: 20 }),
   })
+
+  /*
+   * The inventory API returns each transaction with a `productId` reference
+   * (it does not embed the product). Resolve the real product name from the
+   * seller's own products (GET /products/my) instead of hardcoding anything.
+   */
+  const { data: products } = useQuery({
+    queryKey: ['my-products'],
+    queryFn: productService.getMyProducts,
+  })
+
+  const productNames = useMemo(() => {
+    const map = new Map<string, string>()
+    ;(products ?? []).forEach(p => map.set(p.id, p.name))
+    return map
+  }, [products])
+
+  const productNameOf = (productId: string) => productNames.get(productId) ?? '—'
 
   const adjust = useMutation({
     mutationFn: () => inventoryService.adjustStock(adjustProductId, { quantity: adjustQty, reason: adjustReason }),
@@ -44,13 +63,13 @@ export function SellerInventoryPage() {
           <tbody>
             {data?.items?.map(t => (
               <tr key={t.id} className="border-b">
-                <td className="p-3">{typeof t.product === 'object' ? t.product.name : t.product}</td>
+                <td className="p-3 font-medium text-[var(--fg)]">{productNameOf(t.productId)}</td>
                 <td className="p-3"><span className={`px-2 py-0.5 rounded text-xs ${t.quantity > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{t.type}</span></td>
                 <td className="p-3 font-medium">{t.quantity > 0 ? '+' : ''}{t.quantity}</td>
                 <td className="p-3 text-[var(--muted)]">{t.reason}</td>
                 <td className="p-3 text-[var(--muted)]">{formatDate(t.createdAt)}</td>
                 <td className="p-3 text-center">
-                  <Button size="sm" variant="ghost" onClick={() => { setAdjustProductId(typeof t.product === 'object' ? t.product.id : t.product); setAdjustQty(0); setAdjustReason(''); }}>
+                  <Button size="sm" variant="ghost" onClick={() => { setAdjustProductId(t.productId); setAdjustQty(0); setAdjustReason(''); }}>
                     Adjust
                   </Button>
                 </td>
