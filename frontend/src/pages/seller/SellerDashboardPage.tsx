@@ -12,14 +12,14 @@ export function SellerDashboardPage() {
   })
 
   const stats = dashboard ? [
-    { label: 'Total Orders', value: dashboard.totalOrders, icon: ShoppingCart },
-    { label: 'Revenue', value: formatPrice(dashboard.totalRevenue), icon: DollarSign },
-    { label: 'Active Products', value: dashboard.activeProducts, icon: Package },
-    { label: 'Pending Orders', value: dashboard.pendingOrders, icon: ShoppingCart },
-    { label: 'Delivered', value: dashboard.deliveredOrders, icon: Package },
-    { label: 'Cancelled', value: dashboard.cancelledOrders, icon: TrendingDown },
-    { label: 'Low Stock', value: dashboard.lowStockProducts, icon: Package },
-    { label: 'Pending Returns', value: dashboard.pendingReturns, icon: TrendingDown },
+    { label: 'Total Orders', value: dashboard.orders.total, icon: ShoppingCart },
+    { label: 'Revenue', value: formatPrice(dashboard.revenue.total), icon: DollarSign },
+    { label: 'Active Products', value: dashboard.products.active, icon: Package },
+    { label: 'Pending Orders', value: dashboard.orders.pending, icon: ShoppingCart },
+    { label: 'Delivered', value: dashboard.orders.delivered, icon: Package },
+    { label: 'Cancelled', value: dashboard.orders.cancelled, icon: TrendingDown },
+    { label: 'Low Stock', value: dashboard.products.lowStock, icon: Package },
+    { label: 'Pending Returns', value: dashboard.returns.pending, icon: TrendingDown },
   ] : []
 
   if (isLoading) {
