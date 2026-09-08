@@ -43,7 +43,7 @@ export function CartPage() {
     return (
       <div className="container-app py-8">
         <Skeleton className="h-8 w-48 mb-6" />
-        <div className="space-y-4">{[1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}</div>
+        <div className="space-y-4">{[1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full rounded-[var(--radius-lg)]" />)}</div>
       </div>
     )
   }
@@ -54,7 +54,7 @@ export function CartPage() {
         <EmptyState
           icon={<ShoppingBag size={48} strokeWidth={1.5} />}
           title="Your cart is empty"
-          description="Start shopping to add items to your cart"
+          description="Browse our curated catalog to add products from verified sellers"
           action={{ label: 'Browse Products', onClick: () => navigate('/products') }}
         />
       </div>
@@ -63,58 +63,70 @@ export function CartPage() {
 
   return (
     <div className="container-app py-8">
-      <h1 className="text-2xl font-bold mb-6">Shopping Cart ({cart.items.length} items)</h1>
+      <h1 className="text-2xl font-bold tracking-tight text-[var(--fg)] mb-6 pb-4 border-b border-[var(--border)]">
+        Shopping Cart <span className="text-sm font-normal text-[var(--muted)]">({cart.items.length} {cart.items.length === 1 ? 'item' : 'items'})</span>
+      </h1>
       <div className="grid lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-4">
+        <div className="lg:col-span-2 space-y-3.5">
           {cart.items.map(item => item.product && (
-            <div key={item.productId} className="flex gap-4 p-4 border rounded-lg">
-              <Link to={`/products/${item.productId}`} className="shrink-0 w-20 h-20 bg-zinc-100 rounded overflow-hidden">
+            <div key={item.productId} className="flex gap-4 p-4 border border-[var(--border)] bg-white rounded-[var(--radius-lg)] shadow-[var(--shadow-sm)]">
+              <Link to={`/products/${item.productId}`} className="shrink-0 w-20 h-20 bg-[#f6f5f2] border border-[var(--border-subtle)] rounded-[var(--radius)] overflow-hidden">
                 {item.product.images?.[0]?.url ? (
                   <img src={item.product.images[0].url} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-zinc-400 text-xs">No img</div>
+                  <div className="w-full h-full flex items-center justify-center text-neutral-400 text-xs">No img</div>
                 )}
               </Link>
               <div className="flex-1 min-w-0">
-                <Link to={`/products/${item.productId}`} className="font-medium text-sm hover:underline line-clamp-1">
+                <Link to={`/products/${item.productId}`} className="font-semibold text-sm text-[var(--fg)] hover:text-[var(--primary)] transition-colors line-clamp-1">
                   {item.product.name}
                 </Link>
-                <p className="text-sm font-bold mt-1">{formatPrice(item.product?.price ?? 0)}</p>
-                <div className="flex items-center justify-between mt-2">
-                  <div className="flex items-center border rounded">
-                    <button onClick={() => updateQty.mutate({ productId: item.productId, quantity: Math.max(1, item.quantity - 1) })} className="p-1 hover:bg-zinc-50"><Minus size={14} /></button>
-                    <span className="px-2 text-sm min-w-[30px] text-center">{item.quantity}</span>
-                    <button onClick={() => updateQty.mutate({ productId: item.productId, quantity: Math.min(item.product.stock, item.quantity + 1) })} className="p-1 hover:bg-zinc-50"><Plus size={14} /></button>
+                <p className="text-sm font-bold text-[var(--fg)] mt-1">{formatPrice(item.product?.price ?? 0)}</p>
+                <div className="flex items-center justify-between mt-3">
+                  <div className="flex items-center border border-[var(--border)] rounded-[var(--radius)] bg-white overflow-hidden">
+                    <button onClick={() => updateQty.mutate({ productId: item.productId, quantity: Math.max(1, item.quantity - 1) })} className="p-1.5 hover:bg-[var(--accent)] text-[var(--fg)] transition-colors"><Minus size={13} /></button>
+                    <span className="px-2.5 text-xs font-semibold min-w-[28px] text-center text-[var(--fg)]">{item.quantity}</span>
+                    <button onClick={() => updateQty.mutate({ productId: item.productId, quantity: Math.min(item.product.stock, item.quantity + 1) })} className="p-1.5 hover:bg-[var(--accent)] text-[var(--fg)] transition-colors"><Plus size={13} /></button>
                   </div>
-                  <button onClick={() => removeItem.mutate(item.productId)} className="text-[var(--muted)] hover:text-[var(--destructive)]">
+                  <button onClick={() => removeItem.mutate(item.productId)} className="text-[var(--muted)] hover:text-red-700 transition-colors p-1" title="Remove item">
                     <Trash2 size={16} />
                   </button>
                 </div>
               </div>
             </div>
           ))}
-          <button onClick={() => clearCart.mutate()} className="text-sm text-[var(--destructive)] hover:underline">
-            Clear cart
-          </button>
+          <div className="pt-2">
+            <button onClick={() => clearCart.mutate()} className="text-xs text-[var(--muted)] hover:text-red-700 transition-colors font-medium">
+              Clear entire cart
+            </button>
+          </div>
         </div>
 
-        <div className="border rounded-lg p-6 h-fit">
-          <h2 className="font-semibold mb-4">Order Summary</h2>
+        <div className="border border-[var(--border)] bg-white rounded-[var(--radius-lg)] p-5 h-fit shadow-[var(--shadow-sm)]">
+          <h2 className="font-semibold text-base text-[var(--fg)] mb-4 pb-3 border-b border-[var(--border)]">Order Summary</h2>
           <div className="space-y-3 text-sm">
-            <div className="flex justify-between"><span className="text-[var(--muted)]">Subtotal ({cart.items.length} items)</span><span>{formatPrice(cart.totalPrice)}</span></div>
-            <div className="border-t pt-3 flex justify-between font-semibold">
-              <span>Total</span><span>{formatPrice(cart.totalPrice)}</span>
+            <div className="flex justify-between text-[var(--fg-secondary)]">
+              <span>Subtotal ({cart.items.length} items)</span>
+              <span className="font-medium text-[var(--fg)]">{formatPrice(cart.totalPrice)}</span>
+            </div>
+            <div className="flex justify-between text-[var(--fg-secondary)]">
+              <span>Shipping</span>
+              <span className="text-emerald-700 font-medium">Calculated at checkout</span>
+            </div>
+            <div className="border-t border-[var(--border)] pt-3 flex justify-between font-bold text-base text-[var(--fg)]">
+              <span>Estimated Total</span>
+              <span>{formatPrice(cart.totalPrice)}</span>
             </div>
           </div>
-          <div className="mt-4">
+          <div className="mt-5">
             <Input
-              placeholder="Enter coupon code"
+              placeholder="Coupon code"
               value={couponCode}
               onChange={e => setCouponCode(e.target.value)}
             />
           </div>
           <Link to="/checkout">
-            <Button className="w-full mt-4">Proceed to Checkout</Button>
+            <Button className="w-full mt-4" size="lg">Proceed to Checkout</Button>
           </Link>
         </div>
       </div>

@@ -35,7 +35,7 @@ export function SellerAnalyticsPage() {
                 <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip formatter={(value: number) => formatPrice(value)} />
-                <Bar dataKey="revenue" fill="#18181b" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="revenue" fill="#b83e20" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

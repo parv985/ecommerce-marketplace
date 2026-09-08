@@ -78,7 +78,7 @@ export function OrderDetailPage() {
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
           {/* Items */}
-          <div className="border rounded-lg p-4">
+          <div className="border border-[var(--border)] rounded-[var(--radius-lg)] bg-white p-5 shadow-[var(--shadow-sm)]">
             <h2 className="font-semibold mb-3">Items</h2>
             {order.items.map((item, i) => (
               <div key={i} className="flex items-center gap-3 py-2 border-b last:border-0">
@@ -94,7 +94,7 @@ export function OrderDetailPage() {
 
           {/* Timeline */}
           {tracking?.timeline && tracking.timeline.length > 0 && (
-            <div className="border rounded-lg p-4">
+            <div className="border border-[var(--border)] rounded-[var(--radius-lg)] bg-white p-5 shadow-[var(--shadow-sm)]">
               <h2 className="font-semibold mb-3">Order Tracking</h2>
               <div className="space-y-3">
                 {tracking.timeline.map((t, i) => (
@@ -112,7 +112,7 @@ export function OrderDetailPage() {
 
           {/* Invoice */}
           {invoice && (
-            <div className="border rounded-lg p-4">
+            <div className="border border-[var(--border)] rounded-[var(--radius-lg)] bg-white p-5 shadow-[var(--shadow-sm)]">
               <h2 className="font-semibold mb-3">Invoice</h2>
               <p className="text-sm text-[var(--muted)]">Invoice: {invoice.invoiceNumber}</p>
               <p className="text-sm text-[var(--muted)]">Date: {formatDate(invoice.orderDate)}</p>
@@ -128,7 +128,7 @@ export function OrderDetailPage() {
 
         {/* Summary Sidebar */}
         <div className="space-y-4">
-          <div className="border rounded-lg p-4">
+          <div className="border border-[var(--border)] rounded-[var(--radius-lg)] bg-white p-5 shadow-[var(--shadow-sm)]">
             <h2 className="font-semibold mb-3">Payment Summary</h2>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between"><span>Subtotal</span><span>{formatPrice(order.subtotal)}</span></div>
@@ -141,7 +141,7 @@ export function OrderDetailPage() {
           </div>
 
           {/* Shipping */}
-          <div className="border rounded-lg p-4">
+          <div className="border border-[var(--border)] rounded-[var(--radius-lg)] bg-white p-5 shadow-[var(--shadow-sm)]">
             <h2 className="font-semibold mb-2">Shipping Address</h2>
             <p className="text-sm">{order.shippingAddress?.addressLine1}</p>
             <p className="text-sm">{order.shippingAddress?.city}, {order.shippingAddress?.state} {order.shippingAddress?.pincode}</p>

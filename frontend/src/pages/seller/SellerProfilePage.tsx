@@ -53,7 +53,14 @@ export function SellerProfilePage() {
       <Card>
         <CardHeader><CardTitle>Edit Details</CardTitle></CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit((d) => update.mutate(d))} className="space-y-3">
+          <form onSubmit={handleSubmit((d) => {
+            // Filter out empty strings so optional fields pass backend validation.
+            // Backend schema uses .optional() which only accepts undefined, not "".
+            const filtered = Object.fromEntries(
+              Object.entries(d).filter(([_, v]) => v !== '')
+            )
+            update.mutate(filtered as Record<string, string>)
+          })} className="space-y-3">
             <Input label="Business Name" {...register('businessName')} />
             <Input label="Phone" {...register('phone')} />
             <Input label="Account Holder" {...register('bankAccountHolderName')} />
@@ -64,7 +71,10 @@ export function SellerProfilePage() {
               <Input label="City" {...register('city')} />
               <Input label="State" {...register('state')} />
             </div>
-            <Button type="submit">Update Profile</Button>
+            <Input label="Pincode" {...register('pincode')} />
+            <Button type="submit" disabled={update.isPending}>
+              {update.isPending ? 'Updating...' : 'Update Profile'}
+            </Button>
           </form>
         </CardContent>
       </Card>

@@ -61,5 +61,5 @@ export const productService = {
   },
 
   deleteImage: (productId: string, imageId: string) =>
-    api.delete(`/products/${productId}/images/${imageId}`).then(r => r.data),
+    api.delete(`/products/${productId}/images/${encodeURIComponent(imageId)}`).then(r => r.data),
 }

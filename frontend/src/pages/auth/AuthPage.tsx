@@ -164,7 +164,7 @@ export default function AuthPage() {
       setLoading(true)
       const res = await authApi.register(data)
       setAuth(res.data.user, res.data.accessToken)
-      toast.success('Account created! Welcome to ECOM.')
+      toast.success('Account created! Welcome to NexCart.')
       navigate('/', { replace: true })
     } catch (err) {
       toast.error(extractErrorMessage(err))
@@ -243,29 +243,31 @@ export default function AuthPage() {
             <p className="text-sm text-[var(--muted)]">Choose your account type and fill in your details</p>
           </CardHeader>
           <CardContent>
-            {/* Role Switcher */}
-            <div className="flex rounded-lg border overflow-hidden mb-6">
+            {/* Role Switcher — Crisp Segmented Control */}
+            <div className="flex rounded-[var(--radius)] border border-[var(--border)] p-1 bg-[#f6f5f2] mb-6">
               <button
+                type="button"
                 onClick={() => setRegisterRole('BUYER')}
                 className={cn(
-                  'flex-1 py-2.5 text-sm font-medium transition-colors',
+                  'flex-1 py-2 text-xs font-semibold rounded-[calc(var(--radius)-2px)] transition-all duration-150',
                   registerRole === 'BUYER'
-                    ? 'bg-zinc-900 text-white'
-                    : 'bg-white text-zinc-600 hover:bg-zinc-50'
+                    ? 'bg-white text-[var(--fg)] shadow-sm'
+                    : 'text-[var(--fg-secondary)] hover:text-[var(--fg)]'
                 )}
               >
-                Buyer
+                Buyer Account
               </button>
               <button
+                type="button"
                 onClick={() => setRegisterRole('SELLER')}
                 className={cn(
-                  'flex-1 py-2.5 text-sm font-medium transition-colors',
+                  'flex-1 py-2 text-xs font-semibold rounded-[calc(var(--radius)-2px)] transition-all duration-150',
                   registerRole === 'SELLER'
-                    ? 'bg-zinc-900 text-white'
-                    : 'bg-white text-zinc-600 hover:bg-zinc-50'
+                    ? 'bg-white text-[var(--fg)] shadow-sm'
+                    : 'text-[var(--fg-secondary)] hover:text-[var(--fg)]'
                 )}
               >
-                Seller
+                Seller Account
               </button>
             </div>
 
@@ -438,7 +440,7 @@ export default function AuthPage() {
 
             <button
               onClick={handleGoogleLogin}
-              className="w-full flex items-center justify-center gap-2 border rounded-md py-2.5 text-sm font-medium hover:bg-[var(--accent)] transition-colors"
+              className="w-full flex items-center justify-center gap-2 border border-[var(--border)] rounded-[var(--radius)] bg-white py-2.5 text-sm font-medium text-[var(--fg)] hover:bg-[var(--accent)] hover:border-[var(--border-strong)] transition-all"
             >
               <svg viewBox="0 0 24 24" className="w-5 h-5">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
@@ -506,7 +508,7 @@ export default function AuthPage() {
 
           <button
             onClick={handleGoogleLogin}
-            className="w-full flex items-center justify-center gap-2 border rounded-md py-2.5 text-sm font-medium hover:bg-[var(--accent)] transition-colors"
+            className="w-full flex items-center justify-center gap-2 border border-[var(--border)] rounded-[var(--radius)] bg-white py-2.5 text-sm font-medium text-[var(--fg)] hover:bg-[var(--accent)] hover:border-[var(--border-strong)] transition-all"
           >
             <svg viewBox="0 0 24 24" className="w-5 h-5">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>

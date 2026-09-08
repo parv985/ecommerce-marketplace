@@ -5,7 +5,6 @@ import { Package } from 'lucide-react'
 import { orderService } from '@/services/order.service'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
 import { Pagination } from '@/components/ui/Pagination'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -27,34 +26,58 @@ export function OrderListPage() {
     queryFn: () => orderService.list({ page, limit: 10, status: status || undefined }),
   })
 
-  if (isLoading) return <div className="container-app py-8 space-y-4">{[1,2,3].map(i => <Skeleton key={i} className="h-24 w-full rounded-lg" />)}</div>
+  if (isLoading) {
+    return (
+      <div className="container-app py-8 space-y-4">
+        {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full rounded-[var(--radius-lg)]" />)}
+      </div>
+    )
+  }
 
   return (
     <div className="container-app py-8">
-      <h1 className="text-2xl font-bold mb-6">My Orders</h1>
+      <h1 className="text-2xl font-bold tracking-tight text-[var(--fg)] mb-6 pb-4 border-b border-[var(--border)]">
+        My Orders
+      </h1>
       <div className="flex gap-2 mb-6 flex-wrap">
         {['', 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'].map(s => (
-          <button key={s} onClick={() => { setStatus(s); setPage(1); }}
-            className={`px-3 py-1.5 text-sm rounded-md ${status === s ? 'bg-[var(--primary)] text-white' : 'bg-zinc-100 hover:bg-zinc-200'}`}>
-            {s || 'All'}
+          <button
+            key={s}
+            onClick={() => { setStatus(s); setPage(1); }}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-[var(--radius)] transition-all ${
+              status === s
+                ? 'bg-[var(--primary)] text-white shadow-sm'
+                : 'bg-white border border-[var(--border)] text-[var(--fg-secondary)] hover:bg-[var(--accent)] hover:text-[var(--fg)]'
+            }`}
+          >
+            {s || 'All Orders'}
           </button>
         ))}
       </div>
       {!data?.items?.length ? (
-        <EmptyState icon={<Package size={48} />} title="No orders found" description="You haven't placed any orders yet" action={{ label: 'Browse Products', onClick: () => window.location.href = '/products' }} />
+        <EmptyState
+          icon={<Package size={48} strokeWidth={1.5} />}
+          title="No orders found"
+          description="You haven't placed any orders yet"
+          action={{ label: 'Browse Products', onClick: () => window.location.href = '/products' }}
+        />
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3.5">
           {data.items.map(order => (
-            <Link to={`/orders/${order.id}`} key={order.id} className="block border rounded-lg p-4 hover:shadow-sm transition-shadow">
+            <Link
+              to={`/orders/${order.id}`}
+              key={order.id}
+              className="block border border-[var(--border)] rounded-[var(--radius-lg)] p-4.5 bg-white hover:border-neutral-400 hover:shadow-[var(--shadow-sm)] transition-all"
+            >
               <div className="flex items-center justify-between mb-2">
                 <div>
-                  <span className="font-medium text-sm">#{order.orderNumber}</span>
-                  <span className="text-xs text-[var(--muted)] ml-2">{formatDate(order.createdAt)}</span>
+                  <span className="font-semibold text-sm text-[var(--fg)]">Order #{order.orderNumber}</span>
+                  <span className="text-xs text-[var(--muted)] ml-2.5">{formatDate(order.createdAt)}</span>
                 </div>
                 <Badge variant={statusColors[order.status]}>{order.status}</Badge>
               </div>
-              <div className="text-sm text-[var(--muted)]">
-                {order.items.length} item(s) • {formatPrice(order.total)}
+              <div className="text-xs text-[var(--fg-secondary)]">
+                {order.items.length} item{order.items.length === 1 ? '' : 's'} • <span className="font-semibold text-[var(--fg)]">{formatPrice(order.total)}</span>
               </div>
             </Link>
           ))}

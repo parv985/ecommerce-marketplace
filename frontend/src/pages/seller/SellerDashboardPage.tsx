@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ShoppingCart, Package, DollarSign, TrendingDown, Percent, Ticket } from 'lucide-react'
+import { ShoppingCart, Package, DollarSign, TrendingDown } from 'lucide-react'
 import { sellerService } from '@/services/seller.service'
 import { formatPrice } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/Card'
@@ -22,21 +22,31 @@ export function SellerDashboardPage() {
     { label: 'Pending Returns', value: dashboard.pendingReturns, icon: TrendingDown },
   ] : []
 
-  if (isLoading) return <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{Array(8).fill(0).map((_, i) => <Skeleton key={i} className="h-24 rounded-lg" />)}</div>
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {Array(8).fill(0).map((_, i) => (
+          <Skeleton key={i} className="h-24 rounded-[var(--radius-lg)]" />
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+      <h1 className="text-2xl font-bold tracking-tight text-[var(--fg)] mb-6 pb-4 border-b border-[var(--border)]">
+        Seller Dashboard
+      </h1>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map(s => (
           <Card key={s.label}>
-            <CardContent className="flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-zinc-100">
-                <s.icon size={20} className="text-[var(--muted)]" />
+            <CardContent className="flex items-center gap-3.5 p-4.5">
+              <div className="p-2.5 rounded-[var(--radius)] bg-[#f6f5f2] border border-[var(--border)] shrink-0 text-[var(--fg)]">
+                <s.icon size={18} strokeWidth={1.75} />
               </div>
-              <div>
-                <p className="text-xs text-[var(--muted)]">{s.label}</p>
-                <p className="text-xl font-bold">{s.value}</p>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-[var(--muted)] truncate">{s.label}</p>
+                <p className="text-xl font-bold tracking-tight text-[var(--fg)] truncate mt-0.5">{s.value}</p>
               </div>
             </CardContent>
           </Card>

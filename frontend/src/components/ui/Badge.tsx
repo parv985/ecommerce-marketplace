@@ -2,18 +2,26 @@ import React from 'react'
 import { cn } from '@/lib/utils'
 
 interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  variant?: 'default' | 'success' | 'warning' | 'error' | 'secondary'
+  variant?: 'default' | 'success' | 'warning' | 'error' | 'secondary' | 'brand'
 }
 
 export function Badge({ className, variant = 'default', ...props }: BadgeProps) {
   const variants = {
-    default: 'bg-zinc-100 text-zinc-700',
-    success: 'bg-green-100 text-green-700',
-    warning: 'bg-yellow-100 text-yellow-700',
-    error: 'bg-red-100 text-red-700',
-    secondary: 'bg-blue-100 text-blue-700',
+    default: 'bg-[var(--bg-subtle)] text-[var(--fg-secondary)] border border-[var(--border)]',
+    success: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
+    warning: 'bg-amber-50 text-amber-800 border border-amber-200',
+    error: 'bg-rose-50 text-rose-800 border border-rose-200',
+    secondary: 'bg-sky-50 text-sky-800 border border-sky-200',
+    brand: 'bg-[var(--primary-subtle)] text-[var(--primary)] border border-[var(--primary)]/20',
   }
   return (
-    <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium', variants[variant], className)} {...props} />
+    <span
+      className={cn(
+        'inline-flex items-center rounded-[var(--radius-sm)] px-2 py-0.5 text-xs font-medium tracking-tight',
+        variants[variant],
+        className
+      )}
+      {...props}
+    />
   )
 }

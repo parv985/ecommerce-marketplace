@@ -82,7 +82,7 @@ export function PaymentPage() {
         key: payment.keyId,
         amount: payment.amount,
         currency: 'INR',
-        name: 'ECOM Marketplace',
+        name: 'NexCart Marketplace',
         description: `Order #${orderData?.orderNumber || ''}`,
         order_id: payment.gatewayOrderId,
         handler: async (response: any) => {

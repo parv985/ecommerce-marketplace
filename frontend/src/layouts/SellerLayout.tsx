@@ -45,14 +45,14 @@ export function SellerLayout() {
   if (loading) {
     return (
       <div className="flex min-h-[calc(100vh-4rem)]">
-        <aside className="hidden lg:block w-64 border-r bg-zinc-50 shrink-0 p-4">
+        <aside className="hidden lg:block w-64 border-r border-[var(--border)] bg-[#f8f7f4] shrink-0 p-4">
           <div className="space-y-2">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-8 bg-zinc-200 rounded animate-pulse" />
+              <div key={i} className="h-8 bg-neutral-200 rounded-[var(--radius)] animate-pulse" />
             ))}
           </div>
         </aside>
-        <main className="flex-1 p-6 bg-zinc-50/50" />
+        <main className="flex-1 p-6 bg-[var(--bg)]" />
       </div>
     )
   }
@@ -60,16 +60,16 @@ export function SellerLayout() {
   return (
     <div className="flex min-h-[calc(100vh-4rem)]">
       {/* Sidebar */}
-      <aside className="hidden lg:block w-64 border-r bg-zinc-50 shrink-0">
-        <div className="p-4 border-b">
-          <p className="text-xs text-[var(--muted)] uppercase tracking-wider">Seller Panel</p>
-          <p className="text-sm font-medium mt-1 truncate">{user?.name}</p>
+      <aside className="hidden lg:block w-64 border-r border-[var(--border)] bg-[#f8f7f4] shrink-0">
+        <div className="p-4 border-b border-[var(--border)]">
+          <p className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider">Seller Panel</p>
+          <p className="text-sm font-semibold text-[var(--fg)] mt-1 truncate">{user?.name}</p>
           {isPending && (
             <span className={cn(
-              'inline-block mt-1 text-xs font-medium px-2 py-0.5 rounded',
-              sellerStatus === 'PENDING' && 'bg-yellow-100 text-yellow-700',
-              sellerStatus === 'REJECTED' && 'bg-red-100 text-red-700',
-              sellerStatus === 'SUSPENDED' && 'bg-orange-100 text-orange-700',
+              'inline-block mt-2 text-[10px] font-medium px-2 py-0.5 rounded-[var(--radius-sm)] border',
+              sellerStatus === 'PENDING' && 'bg-amber-50 text-amber-800 border-amber-200',
+              sellerStatus === 'REJECTED' && 'bg-rose-50 text-rose-800 border-rose-200',
+              sellerStatus === 'SUSPENDED' && 'bg-orange-50 text-orange-800 border-orange-200',
             )}>
               {sellerStatus === 'PENDING' && 'Awaiting Approval'}
               {sellerStatus === 'REJECTED' && 'Application Rejected'}
@@ -77,17 +77,19 @@ export function SellerLayout() {
             </span>
           )}
         </div>
-        <nav className="p-2 space-y-0.5">
+        <nav className="p-2.5 space-y-1">
           {activeNavItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
               className={({ isActive }) => cn(
-                'flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors',
-                isActive ? 'bg-[var(--primary)] text-white' : 'text-zinc-600 hover:bg-zinc-100'
+                'flex items-center gap-2.5 px-3 py-2 rounded-[var(--radius)] text-sm font-medium transition-all duration-150',
+                isActive
+                  ? 'bg-[var(--primary)] text-white shadow-sm'
+                  : 'text-[var(--fg-secondary)] hover:text-[var(--fg)] hover:bg-[var(--accent)]'
               )}
             >
-              <Icon size={16} />
+              <Icon size={16} strokeWidth={1.75} />
               {label}
             </NavLink>
           ))}
@@ -95,7 +97,7 @@ export function SellerLayout() {
       </aside>
 
       {/* Mobile nav */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t z-40">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[var(--border)] z-40">
         <div className="flex overflow-x-auto">
           {(isPending ? pendingNavItems : navItems.slice(0, 5)).map(({ to, icon: Icon }) => (
             <NavLink
@@ -103,17 +105,17 @@ export function SellerLayout() {
               to={to}
               className={({ isActive }) => cn(
                 'flex flex-col items-center gap-1 px-4 py-2 text-[10px] shrink-0',
-                isActive ? 'text-[var(--primary)] font-medium' : 'text-[var(--muted)]'
+                isActive ? 'text-[var(--primary)] font-semibold' : 'text-[var(--muted)]'
               )}
             >
-              <Icon size={18} />
+              <Icon size={18} strokeWidth={1.75} />
               <span>{(isPending ? pendingNavItems : navItems).find(i => i.to === to)?.label}</span>
             </NavLink>
           ))}
         </div>
       </div>
 
-      <main className="flex-1 p-6 pb-20 lg:pb-6 bg-zinc-50/50">
+      <main className="flex-1 p-6 pb-20 lg:pb-6 bg-[var(--bg)]">
         <Outlet />
       </main>
     </div>
