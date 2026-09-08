@@ -62,27 +62,41 @@ export interface Address {
 export type CreateAddressInput = Omit<Address, 'id' | 'createdAt'>
 
 // Seller
+// Mirrors the backend `SellerProfileResponse` (src/modules/sellers/seller.types.ts):
+// GET /sellers/me nests the address under `address` and reports the
+// rejection/decision reason as `statusReason`.
 export interface SellerProfile {
   id: string
   userId?: string
-  user: UserSummary | string
+  user?: UserSummary | string
   businessName: string
   gstin: string
   pan: string
-  phone?: string
+  phone?: string | null
   bankAccountHolderName?: string
   bankAccountNumber?: string
   ifscCode?: string
+  /** Nested address as returned by GET /sellers/me. */
+  address?: {
+    addressLine1: string
+    addressLine2?: string | null
+    city: string
+    state: string
+    pincode: string
+  }
+  // Flat aliases kept for backward compatibility with older payloads.
   addressLine1?: string
-  addressLine2?: string
+  addressLine2?: string | null
   city?: string
   state?: string
   pincode?: string
   documents?: SellerDocument[]
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'PAUSED' | 'SUSPENDED'
   statusReason?: string | null
-  rejectionReason?: string
+  /** Legacy alias — the backend sends `statusReason`. */
+  rejectionReason?: string | null
   createdAt: string
+  updatedAt?: string
 }
 
 export interface SellerDocument {

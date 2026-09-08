@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import axios from 'axios'
 import { toast } from 'react-hot-toast'
 import { Camera, Loader2, Trash2 } from 'lucide-react'
 import { userService } from '@/services/user.service'
@@ -62,7 +63,22 @@ export function ProfileAvatar({ size = 64, name, avatarUrl, showActions = true, 
       queryClient.invalidateQueries({ queryKey: ['profile'] })
       toast.success('Profile photo removed')
     },
-    onError: (e) => toast.error(extractErrorMessage(e)),
+    onError: (e) => {
+      const code = axios.isAxiosError(e) ? (e.response?.data as { code?: string } | undefined)?.code : undefined
+      const message = extractErrorMessage(e)
+      const isNoAvatar = code === 'NO_AVATAR' || message === 'No avatar to delete'
+      // The Remove button only renders when an avatar URL is shown, so a
+      // NO_AVATAR response means local state is stale (the server already has
+      // no avatar). Sync local state so the name-initial fallback is shown
+      // instead of leaving a stuck avatar with an error toast.
+      if (isNoAvatar && useAuthStore.getState().user?.avatarUrl) {
+        updateUser({ avatarUrl: null })
+        queryClient.invalidateQueries({ queryKey: ['profile'] })
+        toast.success('Profile photo removed')
+        return
+      }
+      toast.error(message)
+    },
   })
 
   const isBusy = uploadAvatar.isPending || deleteAvatar.isPending
