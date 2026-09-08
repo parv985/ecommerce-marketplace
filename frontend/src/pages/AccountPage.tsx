@@ -14,9 +14,9 @@ import { Trash2 } from 'lucide-react'
 
 const profileSchema = z.object({ name: z.string().min(2) })
 const addressSchema = z.object({
-  label: z.string().min(1), addressLine1: z.string().min(1), addressLine2: z.string().optional(),
+  label: z.string().min(1), recipientName: z.string().min(2), addressLine1: z.string().min(3), addressLine2: z.string().optional(),
   city: z.string().min(1), state: z.string().min(1), pincode: z.string().regex(/^\d{6}$/),
-  phone: z.string().regex(/^\d{10}$/).optional(), isDefault: z.boolean().default(false),
+  phone: z.string().regex(/^\d{10}$/),
 })
 
 export function AccountPage() {
@@ -42,6 +42,7 @@ export function AccountPage() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['profile'] }); toast.success('Avatar removed') },
   })
 
+  const { register: registerProfile, handleSubmit: handleProfileSubmit, formState: { errors: profileErrors } } = useForm<z.infer<typeof profileSchema>>({ resolver: zodResolver(profileSchema) })
   const { register, handleSubmit, reset, formState: { errors } } = useForm<z.infer<typeof addressSchema>>({ resolver: zodResolver(addressSchema) })
 
   const createAddress = useMutation({
@@ -64,18 +65,17 @@ export function AccountPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-full bg-zinc-200 overflow-hidden flex items-center justify-center text-xl font-bold">
-                {profile?.avatar ? <img src={profile.avatar} alt="" className="w-full h-full object-cover" /> : profile?.name?.charAt(0)}
+                {profile?.avatarUrl ? <img src={profile.avatarUrl} alt="" className="w-full h-full object-cover" /> : profile?.name?.charAt(0)}
               </div>
               <div>
                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAvatar.mutate(f) }} />
                 <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>Change Avatar</Button>
-                {profile?.avatar && <Button variant="ghost" size="sm" onClick={() => deleteAvatar.mutate()}>Remove</Button>}
+                {profile?.avatarUrl && <Button variant="ghost" size="sm" onClick={() => deleteAvatar.mutate()}>Remove</Button>}
               </div>
             </div>
-            <form onSubmit={handleSubmit((d) => updateProfile.mutate(d))} className="space-y-3">
-              <Input label="Name" defaultValue={profile?.name} error={errors.name?.message} {...register('name')} />
+            <form onSubmit={handleProfileSubmit((d) => updateProfile.mutate(d))} className="space-y-3">
+              <Input label="Name" defaultValue={profile?.name} error={profileErrors.name?.message} {...registerProfile('name')} />
               <Input label="Email" value={profile?.email || ''} disabled />
-              <Input label="Phone" value={profile?.phone || ''} disabled />
               <p className="text-xs text-[var(--muted)]">Account created: {profile?.createdAt ? formatDate(profile.createdAt) : '-'}</p>
               <Button type="submit" size="sm">Update Profile</Button>
             </form>
@@ -97,8 +97,7 @@ export function AccountPage() {
                   <div key={addr.id} className="border rounded p-3 flex justify-between">
                     <div>
                       <span className="font-medium text-sm">{addr.label}</span>
-                      {addr.isDefault && <span className="ml-1 text-xs bg-green-100 text-green-700 px-1.5 rounded">Default</span>}
-                      <p className="text-sm text-[var(--muted)]">{addr.addressLine1}, {addr.city}, {addr.state} {addr.pincode}</p>
+                      <p className="text-sm text-[var(--muted)]">{addr.recipientName} — {addr.addressLine1}, {addr.city}, {addr.state} {addr.pincode}</p>
                     </div>
                     <button onClick={() => deleteAddress.mutate(addr.id)} className="text-[var(--muted)] hover:text-[var(--destructive)]">
                       <Trash2 size={14} />
@@ -114,6 +113,7 @@ export function AccountPage() {
       <Dialog open={showAddressForm} onClose={() => setShowAddressForm(false)} title="Add Address">
         <form onSubmit={handleSubmit((d) => createAddress.mutate(d))} className="space-y-3">
           <Input label="Label" placeholder="Home/Office" error={errors.label?.message} {...register('label')} />
+          <Input label="Recipient Name" error={errors.recipientName?.message} {...register('recipientName')} />
           <Input label="Address" error={errors.addressLine1?.message} {...register('addressLine1')} />
           <Input label="Address 2" {...register('addressLine2')} />
           <div className="grid grid-cols-2 gap-3">

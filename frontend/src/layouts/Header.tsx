@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { ShoppingCart, Heart, User, Search, Menu, X, Bell, LogOut, Package, LayoutDashboard, Shield } from 'lucide-react'
+import { ShoppingCart, User, Search, Menu, X, Bell, LogOut, Package, LayoutDashboard, Shield } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { cn } from '@/lib/utils'
 import { authApi } from '@/services/auth.service'
