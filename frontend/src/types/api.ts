@@ -489,14 +489,29 @@ export interface AdminUser extends UserSummary {
   createdAt: string
 }
 
+// Mirrors the backend `SettlementResponse` / `SettlementOrderResponse`
+// (src/modules/settlements/settlement.types.ts) returned by
+// GET /sellers/settlement, GET /admin/settlements and GET /admin/settlements/:id.
+export type SettlementStatus = 'PENDING' | 'PROCESSING' | 'PAID' | 'FAILED' | 'CANCELLED'
+
+export interface SettlementOrder {
+  orderId: string
+  orderNumber: string
+  total: number
+  commissionRate: number
+  commissionAmount: number
+  sellerPayable: number
+  deliveredAt: string
+}
+
 export interface Settlement {
   id: string
   sellerId: string
   periodKey: string
   periodStart: string
   periodEnd: string
-  status: 'PENDING' | 'PROCESSING' | 'PAID' | 'FAILED' | 'CANCELLED'
-  orders: { orderId: string; orderNumber: string; total: number; commissionRate: number; commissionAmount: number; sellerPayable: number }[]
+  status: SettlementStatus
+  orders: SettlementOrder[]
   totalSales: number
   totalCommission: number
   totalPayable: number
@@ -504,6 +519,7 @@ export interface Settlement {
   paidAt: string | null
   reminderSentAt: string | null
   createdAt: string
+  updatedAt: string
 }
 
 // Inventory
