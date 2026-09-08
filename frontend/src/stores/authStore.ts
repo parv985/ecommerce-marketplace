@@ -8,6 +8,8 @@ interface AuthState {
   isLoading: boolean
   setAuth: (user: UserSummary, token: string) => void
   setUser: (user: UserSummary) => void
+  /** Merge a partial update (e.g. a new/removed avatarUrl) into the stored user. */
+  updateUser: (partial: Partial<UserSummary>) => void
   setLoading: (loading: boolean) => void
   logout: () => void
 }
@@ -35,6 +37,15 @@ export const useAuthStore = create<AuthState>((set) => ({
   setUser: (user) => {
     sessionStorage.setItem('user', JSON.stringify(user))
     set({ user })
+  },
+
+  updateUser: (partial) => {
+    set((state) => {
+      if (!state.user) return state
+      const user = { ...state.user, ...partial }
+      sessionStorage.setItem('user', JSON.stringify(user))
+      return { user }
+    })
   },
 
   setLoading: (loading) => set({ isLoading: loading }),

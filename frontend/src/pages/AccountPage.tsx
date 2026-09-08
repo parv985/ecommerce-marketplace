@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Dialog } from '@/components/ui/Dialog'
+import { ProfileAvatar } from '@/components/ui/ProfileAvatar'
 import { Trash2 } from 'lucide-react'
 
 const profileSchema = z.object({ name: z.string().min(2) })
@@ -21,7 +22,6 @@ const addressSchema = z.object({
 
 export function AccountPage() {
   const queryClient = useQueryClient()
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [showAddressForm, setShowAddressForm] = useState(false)
 
   const { data: profile } = useQuery({ queryKey: ['profile'], queryFn: userService.getProfile })
@@ -30,16 +30,6 @@ export function AccountPage() {
   const updateProfile = useMutation({
     mutationFn: (data: { name: string }) => userService.updateProfile(data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['profile'] }); toast.success('Profile updated') },
-  })
-
-  const uploadAvatar = useMutation({
-    mutationFn: (file: File) => userService.uploadAvatar(file),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['profile'] }); toast.success('Avatar updated') },
-  })
-
-  const deleteAvatar = useMutation({
-    mutationFn: () => userService.deleteAvatar(),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['profile'] }); toast.success('Avatar removed') },
   })
 
   const { register: registerProfile, handleSubmit: handleProfileSubmit, formState: { errors: profileErrors } } = useForm<z.infer<typeof profileSchema>>({ resolver: zodResolver(profileSchema) })
@@ -63,16 +53,9 @@ export function AccountPage() {
         <Card>
           <CardHeader><CardTitle>Profile</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-zinc-200 overflow-hidden flex items-center justify-center text-xl font-bold">
-                {profile?.avatarUrl ? <img src={profile.avatarUrl} alt="" className="w-full h-full object-cover" /> : profile?.name?.charAt(0)}
-              </div>
-              <div>
-                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAvatar.mutate(f) }} />
-                <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>Change Avatar</Button>
-                {profile?.avatarUrl && <Button variant="ghost" size="sm" onClick={() => deleteAvatar.mutate()}>Remove</Button>}
-              </div>
-            </div>
+            {/* Avatar (photo or name initial) + upload/change/remove. Updates
+                the navbar icon immediately via the auth store. */}
+            <ProfileAvatar size={64} />
             <form onSubmit={handleProfileSubmit((d) => updateProfile.mutate(d))} className="space-y-3">
               <Input label="Name" defaultValue={profile?.name} error={profileErrors.name?.message} {...registerProfile('name')} />
               <Input label="Email" value={profile?.email || ''} disabled />

@@ -78,9 +78,9 @@ export function AdminLayout() {
             onClick={() => setMenuOpen(!menuOpen)}
             className="mt-1 flex items-center gap-2 text-sm font-semibold text-[var(--fg)] hover:opacity-80 transition-opacity w-full text-left group"
           >
-            {user?.avatar ? (
+            {user?.avatarUrl ? (
               <img
-                src={user.avatar}
+                src={user.avatarUrl}
                 alt={user.name}
                 className="w-6 h-6 rounded-[var(--radius-sm)] object-cover shrink-0"
               />

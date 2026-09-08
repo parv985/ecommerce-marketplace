@@ -136,9 +136,17 @@ export function Header() {
                     onClick={() => setMenuOpen(!menuOpen)}
                     className="flex items-center gap-2 p-1 rounded-[var(--radius)] hover:bg-[var(--accent)] transition-colors"
                   >
-                    <div className="h-8 w-8 rounded-[var(--radius)] bg-[#191816] text-white flex items-center justify-center text-xs font-semibold">
-                      {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-                    </div>
+                    {user?.avatarUrl ? (
+                      <img
+                        src={user.avatarUrl}
+                        alt={user.name}
+                        className="h-8 w-8 rounded-[var(--radius)] object-cover"
+                      />
+                    ) : (
+                      <div className="h-8 w-8 rounded-[var(--radius)] bg-[#191816] text-white flex items-center justify-center text-xs font-semibold">
+                        {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                      </div>
+                    )}
                   </button>
                   {menuOpen && (
                     <>
