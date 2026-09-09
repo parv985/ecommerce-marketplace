@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Heart, ImageOff, Star } from 'lucide-react'
+import { Heart, ShoppingBag, Star } from 'lucide-react'
 import { cn, formatPrice } from '@/lib/utils'
 import type { Product } from '@/types/api'
 import { useAuthStore } from '@/stores/authStore'
@@ -66,7 +66,7 @@ export function HomeProductCard({ product, priority = false }: HomeProductCardPr
       {/* ── Image ── */}
       <div
         className={cn(
-          'relative aspect-square overflow-hidden border-b border-[var(--border-subtle)] bg-[var(--surface-subtle)]',
+          'relative aspect-square overflow-hidden border-b border-[var(--border-subtle)] bg-[var(--surface-warm)]',
           !!imageUrl && imageState === 'loading' && 'animate-pulse'
         )}
       >
@@ -83,9 +83,13 @@ export function HomeProductCard({ product, priority = false }: HomeProductCardPr
             )}
           />
         ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-[var(--muted)]">
-            <ImageOff className="h-7 w-7" strokeWidth={1.5} aria-hidden />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.14em]">No image</span>
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2.5 bg-[linear-gradient(165deg,var(--surface-warm),#ffffff_72%)]">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--muted)]">
+              <ShoppingBag className="h-5 w-5" strokeWidth={1.5} aria-hidden />
+            </span>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
+              No photo yet
+            </span>
           </div>
         )}
 
@@ -132,8 +136,8 @@ export function HomeProductCard({ product, priority = false }: HomeProductCardPr
 
         {/* Sold-out overlay */}
         {outOfStock && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#191816]/60 backdrop-blur-[1px]">
-            <span className="rounded-[var(--radius-sm)] border border-white/20 bg-[#191816]/85 px-2.5 py-1 text-xs font-semibold text-white">
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-[var(--surface-warm)]/90 backdrop-blur-[2px]">
+            <span className="rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-white px-2.5 py-1 text-xs font-semibold text-[var(--fg)]">
               Out of Stock
             </span>
           </div>

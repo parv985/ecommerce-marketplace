@@ -20,13 +20,13 @@ interface SectionHeaderProps {
  */
 export function SectionHeader({ eyebrow, title, titleId, subtitle, linkTo, linkLabel }: SectionHeaderProps) {
   return (
-    <div className="mb-6 flex items-end justify-between gap-4 md:mb-7">
+    <div className="mb-5 flex items-end justify-between gap-4 md:mb-6">
       <div className="min-w-0">
         <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--primary)]">
           <span className="h-px w-5 bg-[var(--primary)]" aria-hidden />
           {eyebrow}
         </p>
-        <h2 id={titleId} className="mt-1.5 text-xl font-semibold tracking-tight text-[var(--fg)] md:text-2xl">
+        <h2 id={titleId} className="mt-1.5 text-xl font-semibold tracking-tight text-[var(--fg)] sm:text-[1.4rem]">
           {title}
         </h2>
         {subtitle && (

@@ -1,23 +1,24 @@
 import { BadgeCheck, Headset, LockKeyhole, Truck } from 'lucide-react'
+import { SectionHeader } from './SectionHeader'
 
 /**
- * "Why NexCart" trust band.
+ * "Why NexCart" trust band — light theme.
  *
- * Four platform guarantees presented as a divided strip — a calmer, more
- * premium take on the previous icon row. Copy reflects real platform
- * behaviour: sellers are admin-approved before listing, free shipping over
- * ₹999, Razorpay-protected checkout with COD, and a 7-day return window.
+ * Four platform guarantees presented as subtle white cards on a soft-gray
+ * band. Copy reflects real platform behaviour: sellers are admin-approved
+ * before listing, free shipping over ₹999, Razorpay-protected checkout
+ * with COD, and a 7-day return window.
  */
 const TRUST_ITEMS = [
-  {
-    icon: BadgeCheck,
-    title: 'Verified Sellers',
-    desc: 'Every merchant is reviewed and approved before they can list a single item.',
-  },
   {
     icon: Truck,
     title: 'Free Shipping',
     desc: 'Free delivery on orders over ₹999, shipped to pin codes across India.',
+  },
+  {
+    icon: BadgeCheck,
+    title: 'Verified Sellers',
+    desc: 'Every merchant is reviewed and approved before they can list a single item.',
   },
   {
     icon: LockKeyhole,
@@ -27,24 +28,36 @@ const TRUST_ITEMS = [
   {
     icon: Headset,
     title: 'Dedicated Support',
-    desc: 'A 7-days-a-week resolution desk for orders, 7-day returns and refunds.',
+    desc: 'A 7-days-a-week resolution desk for orders, returns and refunds.',
   },
 ] as const
 
 export function TrustSection() {
   return (
-    <section aria-label="Why shop with NexCart" className="border-y border-[var(--border)] bg-white">
-      <div className="container-app py-9 md:py-11">
-        <div className="grid grid-cols-1 gap-x-6 gap-y-7 sm:grid-cols-2 lg:grid-cols-4 lg:gap-y-0 lg:divide-x lg:divide-[var(--border)]">
+    <section
+      aria-labelledby="home-trust-title"
+      className="border-y border-[var(--border)] bg-[var(--surface-gray)] py-9 md:py-12"
+    >
+      <div className="container-app">
+        <SectionHeader
+          eyebrow="Why NexCart"
+          title="A marketplace you can rely on"
+          titleId="home-trust-title"
+          subtitle="Platform promises backed by real policies — every guarantee below is enforced end-to-end."
+        />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4 md:gap-4">
           {TRUST_ITEMS.map((item) => (
-            <div key={item.title} className="flex items-start gap-3.5 lg:px-6 lg:first:pl-0 lg:last:pr-0">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius)] border border-[var(--primary)]/15 bg-[var(--primary-subtle)] text-[var(--primary)]">
+            <div
+              key={item.title}
+              className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-white p-4 transition-colors duration-200 hover:border-[var(--border-strong)] md:p-5"
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-[var(--radius)] border border-[var(--primary)]/15 bg-[var(--primary-subtle)] text-[var(--primary)]">
                 <item.icon className="h-5 w-5" strokeWidth={1.75} aria-hidden />
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold tracking-tight text-[var(--fg)]">{item.title}</h3>
-                <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">{item.desc}</p>
-              </div>
+              </span>
+              <h3 className="mt-3.5 text-sm font-semibold tracking-tight text-[var(--fg)]">
+                {item.title}
+              </h3>
+              <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">{item.desc}</p>
             </div>
           ))}
         </div>

@@ -66,7 +66,7 @@ export function MainLayout() {
         <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
         {/* Skeleton header */}
         <header className="sticky top-0 z-50 bg-white border-b">
-          <div className="hidden md:block bg-[var(--primary)] h-6" />
+          <div className="hidden md:block bg-[var(--surface-warm)] border-b border-[var(--border-subtle)] h-8" />
           <div className="container-app">
             <div className="flex items-center justify-between h-16 px-4">
               <Skeleton className="h-6 w-20" />
@@ -77,7 +77,7 @@ export function MainLayout() {
         </header>
         {/* Skeleton content */}
         <main className="flex-1">
-          <div className="bg-zinc-900 h-64" />
+          <div className="bg-[var(--surface-warm-deep)] h-72" />
           <div className="container-app py-12 px-4">
             <Skeleton className="h-8 w-48 mb-6" />
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

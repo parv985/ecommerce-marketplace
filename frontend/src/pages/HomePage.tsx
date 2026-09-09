@@ -13,7 +13,9 @@ import { HeroShowcase } from '@/components/home/HeroShowcase'
 import { HomeProductCard } from '@/components/home/HomeProductCard'
 import { SectionHeader } from '@/components/home/SectionHeader'
 import { TrustSection } from '@/components/home/TrustSection'
+import { SellerCtaSection } from '@/components/home/SellerCtaSection'
 import { CategoryIcon } from '@/components/home/categoryVisual'
+import { formatCategoryLabel } from '@/lib/categoryLabel'
 import { useAuthStore } from '@/stores/authStore'
 import { toast } from 'react-hot-toast'
 import { APP_NAME } from '@/config/brand'
@@ -21,11 +23,17 @@ import type { Category } from '@/types/api'
 import '@/components/home/home.css'
 
 /*
- * Homepage — Hero → Categories → New Arrivals → Best Deals → Trust → Footer.
+ * Homepage — Announcement bar (header) → Hero → Categories → New Arrivals →
+ * Best Deals → Trust → Become-a-Seller CTA → Footer.
  *
  * Everything is rendered from the LIVE catalog: one browse query feeds the
  * hero showcase, the New Arrivals grid and the Best Deals row (products with
  * a live seller discount, ranked by discount). No mock products anywhere.
+ *
+ * Visual language: light and premium — warm cream hero, white product
+ * surfaces, soft-gray trust band, warm-orange tints reserved for the deals
+ * highlight and the seller CTA. Dark ink only for text; the terracotta
+ * brand color is the accent.
  */
 
 /** Products shown in the New Arrivals grid. */
@@ -74,26 +82,31 @@ export function HomePage() {
 
   return (
     <div>
-      {/* ── Hero: two-column — headline + CTAs left, live product showcase right ── */}
-      <section className="relative overflow-hidden bg-[#191816] text-white">
-        <div className="nc-home-grid-bg absolute inset-0" aria-hidden />
+      {/* ── Hero — two-column: headline + CTAs left, live product showcase right ── */}
+      <section className="nc-home-hero relative overflow-hidden">
+        <div className="nc-home-grid-warm absolute inset-0" aria-hidden />
         <div
-          className="nc-home-glow absolute -top-32 right-[-8%] h-[26rem] w-[26rem] rounded-full opacity-50"
+          className="nc-home-glow absolute -top-32 right-[-8%] h-[24rem] w-[24rem] rounded-full opacity-70"
           aria-hidden
         />
-        <div className="container-app relative grid items-center gap-10 py-10 md:py-12 lg:grid-cols-2 lg:gap-14 lg:py-14">
+        <div
+          className="nc-home-glow-soft absolute -bottom-40 left-[-10%] h-[26rem] w-[26rem] rounded-full opacity-80"
+          aria-hidden
+        />
+
+        <div className="container-app relative grid items-center gap-10 py-10 md:py-12 lg:grid-cols-[1.04fr_0.96fr] lg:gap-12 lg:py-14">
           <div>
-            <div className="nc-home-rise inline-flex items-center gap-2 rounded-[var(--radius-sm)] border border-neutral-700 bg-neutral-900/90 px-2.5 py-1 text-xs font-medium tracking-tight text-neutral-300">
+            <div className="nc-home-rise inline-flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border)] bg-white/80 px-2.5 py-1 text-xs font-medium tracking-tight text-[var(--fg-secondary)] backdrop-blur-sm">
               <span className="h-1.5 w-1.5 rounded-full bg-[var(--primary)]" aria-hidden />
               Verified Marketplace · 10,000+ Indian Sellers
             </div>
 
-            <h1 className="nc-home-rise nc-home-rise-1 mt-5 text-3xl font-semibold leading-[1.15] tracking-tight text-white sm:text-4xl lg:text-[2.75rem]">
+            <h1 className="nc-home-rise nc-home-rise-1 mt-4 text-[1.85rem] font-bold leading-[1.18] tracking-tight text-[var(--fg)] sm:text-4xl lg:text-[2.6rem]">
               Shop authentic goods from{' '}
-              <span className="text-neutral-300">verified sellers across India</span>
+              <span className="text-[var(--primary)]">verified sellers across India</span>
             </h1>
 
-            <p className="nc-home-rise nc-home-rise-1 mt-4 max-w-xl text-base leading-relaxed text-[#a8a59e] md:text-lg">
+            <p className="nc-home-rise nc-home-rise-1 mt-4 max-w-xl text-base leading-relaxed text-[var(--fg-secondary)] md:text-lg">
               Connect directly with trusted regional artisans, verified distributors, and
               independent merchants. Quality inspected, transparently priced.
             </p>
@@ -101,7 +114,7 @@ export function HomePage() {
             <div className="nc-home-rise nc-home-rise-2 mt-7 flex flex-wrap items-center gap-3">
               <Link
                 to="/products"
-                className="inline-flex items-center gap-2 rounded-[var(--radius)] bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)]"
+                className="inline-flex items-center gap-2 rounded-[var(--radius)] bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_2px_10px_-2px_rgba(184,62,32,0.45)] transition-colors duration-150 hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)]"
               >
                 Browse Products
                 <ArrowRight size={15} aria-hidden />
@@ -109,14 +122,14 @@ export function HomePage() {
               <button
                 type="button"
                 onClick={handleSellClick}
-                className="inline-flex items-center rounded-[var(--radius)] border border-neutral-700 bg-neutral-900/40 px-5 py-2.5 text-sm font-medium text-neutral-200 transition-colors duration-150 hover:bg-neutral-800 hover:text-white"
+                className="inline-flex items-center rounded-[var(--radius)] border border-[var(--border-strong)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--fg)] transition-colors duration-150 hover:border-[var(--primary)] hover:text-[var(--primary)] active:bg-[var(--primary-subtle)]"
               >
                 Sell on {APP_NAME}
               </button>
             </div>
 
             {/* Compact trust markers — the facts that matter before the first scroll */}
-            <ul className="nc-home-rise nc-home-rise-3 mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-white/10 pt-5 text-xs font-medium text-[#a8a59e]">
+            <ul className="nc-home-rise nc-home-rise-3 mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[var(--border)] pt-5 text-xs font-medium text-[var(--fg-secondary)]">
               <li className="flex items-center gap-1.5">
                 <Truck size={14} className="text-[var(--primary)]" aria-hidden />
                 Free shipping over ₹999
@@ -132,7 +145,7 @@ export function HomePage() {
             </ul>
           </div>
 
-          <div className="nc-home-rise nc-home-rise-2 mx-auto w-full max-w-md lg:max-w-none lg:pl-4">
+          <div className="nc-home-rise nc-home-rise-2 mx-auto w-full max-w-xl lg:max-w-none">
             <HeroShowcase
               products={newestItems}
               categories={categories}
@@ -144,16 +157,26 @@ export function HomePage() {
 
       {/* ── Shop by Category ── */}
       {categoriesLoading ? (
-        <section className="container-app pb-10 pt-10 md:pb-12 md:pt-12" aria-label="Loading categories">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4">
+        <section
+          className="container-app py-9 md:py-11"
+          aria-label="Loading categories"
+        >
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 md:gap-4">
             {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={`cat-skeleton-${i}`} className="h-[76px] rounded-[var(--radius-lg)]" />
+              <Skeleton
+                key={`cat-skeleton-${i}`}
+                className="h-[76px] rounded-[var(--radius-lg)]"
+              />
             ))}
           </div>
         </section>
       ) : (
-        categories && categories.length > 0 && (
-          <section className="container-app pb-10 pt-10 md:pb-12 md:pt-12" aria-labelledby="home-categories-title">
+        categories &&
+        categories.length > 0 && (
+          <section
+            className="container-app py-9 md:py-11"
+            aria-labelledby="home-categories-title"
+          >
             <SectionHeader
               eyebrow="Browse"
               title="Shop by Category"
@@ -161,7 +184,7 @@ export function HomePage() {
               subtitle="Explore the live catalog across verified sellers"
               linkTo="/products"
             />
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 md:gap-4">
               {categories.slice(0, 8).map((cat) => (
                 <CategoryCard key={cat.id} category={cat} />
               ))}
@@ -171,54 +194,71 @@ export function HomePage() {
       )}
 
       {/* ── New Arrivals ── */}
-      <section className="container-app pb-10 md:pb-12" aria-labelledby="home-new-arrivals-title">
-        <SectionHeader
-          eyebrow="Just dropped"
-          title="New Arrivals"
-          titleId="home-new-arrivals-title"
-          subtitle="The latest inspected items added by verified merchants"
-          linkTo="/products?sort=newest"
-        />
-        {productsLoading ? (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <ProductCardSkeleton key={`product-skeleton-${i}`} />
-            ))}
-          </div>
-        ) : newArrivals.length > 0 ? (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
-            {newArrivals.map((product, index) => (
-              <HomeProductCard key={product.id} product={product} priority={index < 4} />
-            ))}
-          </div>
-        ) : (
-          <p className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] bg-white px-5 py-10 text-center text-sm text-[var(--muted)]">
-            No products in the catalog yet — check back soon.
-          </p>
-        )}
+      <section
+        className="border-y border-[var(--border-subtle)] bg-white py-9 md:py-12"
+        aria-labelledby="home-new-arrivals-title"
+      >
+        <div className="container-app">
+          <SectionHeader
+            eyebrow="Just dropped"
+            title="New Arrivals"
+            titleId="home-new-arrivals-title"
+            subtitle="The latest inspected items added by verified merchants"
+            linkTo="/products?sort=newest"
+          />
+          {productsLoading ? (
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <ProductCardSkeleton key={`product-skeleton-${i}`} />
+              ))}
+            </div>
+          ) : newArrivals.length > 0 ? (
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
+              {newArrivals.map((product, index) => (
+                <HomeProductCard
+                  key={product.id}
+                  product={product}
+                  priority={index < 4}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] bg-[var(--bg)] px-5 py-10 text-center text-sm text-[var(--muted)]">
+              No products in the catalog yet — check back soon.
+            </p>
+          )}
+        </div>
       </section>
 
       {/* ── Best Deals (only when live seller discounts exist) ── */}
       {!productsLoading && bestDeals.length > 0 && (
-        <section className="container-app pb-10 md:pb-12" aria-labelledby="home-best-deals-title">
-          <SectionHeader
-            eyebrow="Limited time"
-            title="Best Deals"
-            titleId="home-best-deals-title"
-            subtitle="Live seller discounts across the marketplace — ranked by savings"
-            linkTo="/products?sort=price_asc"
-            linkLabel="Shop all deals"
-          />
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
-            {bestDeals.map((product) => (
-              <HomeProductCard key={product.id} product={product} />
-            ))}
+        <section
+          className="border-y border-[var(--border)] bg-[var(--surface-tint)] py-9 md:py-12"
+          aria-labelledby="home-best-deals-title"
+        >
+          <div className="container-app">
+            <SectionHeader
+              eyebrow="Limited time"
+              title="Best Deals"
+              titleId="home-best-deals-title"
+              subtitle="Live seller discounts across the marketplace — ranked by savings"
+              linkTo="/products?sort=price_asc"
+              linkLabel="Shop all deals"
+            />
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
+              {bestDeals.map((product) => (
+                <HomeProductCard key={product.id} product={product} />
+              ))}
+            </div>
           </div>
         </section>
       )}
 
       {/* ── Trust / Why NexCart ── */}
       <TrustSection />
+
+      {/* ── Become a Seller CTA ── */}
+      <SellerCtaSection />
     </div>
   )
 }
@@ -237,12 +277,12 @@ function CategoryCard({ category }: { category: Category }) {
       to={`/products?category=${category.id}`}
       className="group flex items-center gap-3.5 rounded-[var(--radius-lg)] border border-[var(--border)] bg-white p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-md)] md:p-4"
     >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius)] bg-[var(--surface-subtle)] text-[var(--fg-secondary)] transition-colors duration-200 group-hover:bg-[var(--primary)] group-hover:text-white">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius)] bg-[var(--primary-subtle)] text-[var(--primary)] transition-colors duration-200 group-hover:bg-[var(--primary)] group-hover:text-white">
         <CategoryIcon name={category.name} className="h-5 w-5" />
       </span>
-      <span className="min-w-0">
-        <span className="block truncate text-sm font-semibold tracking-tight text-[var(--fg)] transition-colors group-hover:text-[var(--primary)]">
-          {category.name}
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold tracking-tight text-[var(--fg)] transition-colors duration-200 group-hover:text-[var(--primary)]">
+          {formatCategoryLabel(category.name)}
         </span>
         <span className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-[var(--muted)]">
           Shop now
@@ -270,4 +310,3 @@ function ProductCardSkeleton() {
     </div>
   )
 }
-
