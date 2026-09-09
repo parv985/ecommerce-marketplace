@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Trash2, Minus, Plus, ShoppingBag } from 'lucide-react'
@@ -6,7 +5,6 @@ import { useCart } from '@/hooks/useCart'
 import { cartService } from '@/services/cart.service'
 import { formatPrice } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { toast } from 'react-hot-toast'
@@ -15,7 +13,6 @@ export function CartPage() {
   const { data: cart, isLoading } = useCart()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [couponCode, setCouponCode] = useState('')
 
   const updateQty = useMutation({
     mutationFn: ({ productId, quantity }: { productId: string; quantity: number }) =>
@@ -122,15 +119,11 @@ export function CartPage() {
               <span>{formatPrice(cart.totalPrice)}</span>
             </div>
           </div>
-          <div className="mt-5">
-            <Input
-              placeholder="Coupon code"
-              value={couponCode}
-              onChange={e => setCouponCode(e.target.value)}
-            />
-          </div>
+          <p className="text-[11px] text-[var(--muted)] mt-4">
+            Have a coupon? Apply it at checkout.
+          </p>
           <Link to="/checkout">
-            <Button className="w-full mt-4" size="lg">Proceed to Checkout</Button>
+            <Button className="w-full mt-3" size="lg">Proceed to Checkout</Button>
           </Link>
         </div>
       </div>

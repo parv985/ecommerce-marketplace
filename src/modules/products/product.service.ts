@@ -6,6 +6,7 @@ import { logAudit } from "../../services/audit.service.js";
 import { CACHE_TTL, getCacheKey, getFromCache, invalidateCache, setCache } from "../../config/redis.js";
 import { deleteByPublicId, uploadBuffer } from "../../services/cloudinary.service.js";
 import type { IProduct } from "../../models/Product.js";
+import { resolveDiscountsForProducts } from "../discounts/discount.pricing.js";
 import { findSellerByUserId } from "../sellers/seller.repository.js";
 import {
   createProduct,
@@ -27,8 +28,43 @@ import {
 } from "./product.schema.js";
 import type {
   PaginatedProducts,
+  ProductActiveDiscount,
   ProductResponse,
 } from "./product.types.js";
+
+/*
+ * Resolves the live seller discount currently applicable to each
+ * product (product-specific discounts win over category discounts, the
+ * highest percentage wins, discounts are never stacked - the exact
+ * rules used at checkout). Returns a map keyed by product id; products
+ * without a live discount are absent from the map.
+ */
+const resolveActiveDiscounts = async (
+  products: IProduct[],
+): Promise<Map<string, ProductActiveDiscount>> => {
+  const appliedMap = await resolveDiscountsForProducts(
+    products.map((product) => ({
+      id: product._id.toString(),
+      categoryId: product.category
+        ? product.category.toString()
+        : null,
+      price: product.price,
+    })),
+  );
+
+  const result = new Map<string, ProductActiveDiscount>();
+
+  for (const applied of appliedMap.values()) {
+    result.set(applied.productId, {
+      id: applied.discountId,
+      discountValue: applied.discountValue,
+      discountAmount: applied.discountAmount,
+      discountedPrice: applied.discountedPrice,
+    });
+  }
+
+  return result;
+};
 
 const validateCategory = async (
   category?: string | null,
@@ -196,7 +232,16 @@ export const getPublicProductDetails =
       );
     }
 
-    return toProductResponse(product);
+    const response = await toProductResponse(product);
+
+    const activeDiscounts =
+      await resolveActiveDiscounts([product]);
+
+    response.activeDiscount =
+      activeDiscounts.get(response.id) ??
+      null;
+
+    return response;
   };
 
 export const updateSellerProduct = async (
@@ -398,10 +443,15 @@ export const browseProducts = async (
     categoryIds,
   );
 
+  const activeDiscounts =
+    await resolveActiveDiscounts(items);
+
   const productResponses = items.map(
     (item): ProductResponse => {
+      const id = item._id.toString();
+
       return {
-        id: item._id.toString(),
+        id,
         sellerId:
           item.sellerId.toString(),
         name: item.name,
@@ -424,9 +474,14 @@ export const browseProducts = async (
         status: item.status,
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
+        activeDiscount:
+          activeDiscounts.get(id) ??
+          null,
       };
     },
-  );  const result: PaginatedProducts = {
+  );
+
+  const result: PaginatedProducts = {
     items: productResponses,
     page: parsed.page,
     limit: parsed.limit,

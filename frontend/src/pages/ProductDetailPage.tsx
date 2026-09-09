@@ -90,8 +90,24 @@ export function ProductDetailPage() {
 
   if (!product) return <div className="text-center py-20 text-[var(--muted)]">Product not found</div>
 
-  const discount = product.compareAtPrice && product.compareAtPrice > product.price
-    ? Math.round(((product.compareAtPrice - product.price) / product.compareAtPrice) * 100) : 0
+  /*
+   * Live seller sales discount (product or category) wins the price
+   * display: the discounted price is what the buyer pays at checkout and
+   * the base product.price becomes the struck-through reference. When no
+   * seller discount is live, the seller's compareAtPrice (MRP-style
+   * marker) is used as the struck-through reference instead.
+   */
+  const saleDiscount = product.activeDiscount ?? null
+  const displayPrice = saleDiscount ? saleDiscount.discountedPrice : product.price
+  const hasCompareAt = !!product.compareAtPrice && product.compareAtPrice > product.price
+  const strikeThrough = saleDiscount
+    ? product.price
+    : (hasCompareAt ? product.compareAtPrice! : null)
+  const discountPercent = saleDiscount
+    ? saleDiscount.discountValue
+    : (hasCompareAt
+      ? Math.round(((product.compareAtPrice! - product.price) / product.compareAtPrice!) * 100)
+      : 0)
 
   return (
     <div className="container-app py-8">
@@ -150,16 +166,21 @@ export function ProductDetailPage() {
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-[var(--fg)] mb-3 leading-tight">{product.name}</h1>
           <div className="flex items-baseline gap-3 mb-4">
-            <span className="text-2xl md:text-3xl font-bold text-[var(--fg)]">{formatPrice(product.price)}</span>
-            {discount > 0 && (
+            <span className="text-2xl md:text-3xl font-bold text-[var(--fg)]">{formatPrice(displayPrice)}</span>
+            {strikeThrough !== null && (
               <>
-                <span className="text-base text-[var(--muted)] line-through">{formatPrice(product.compareAtPrice!)}</span>
+                <span className="text-base text-[var(--muted)] line-through">{formatPrice(strikeThrough)}</span>
                 <span className="bg-[var(--primary)] text-white text-xs px-2 py-0.5 rounded-[var(--radius-sm)] font-semibold tracking-tight">
-                  {discount}% off
+                  {discountPercent}% off
                 </span>
               </>
             )}
           </div>
+          {saleDiscount && (
+            <p className="text-xs font-medium text-emerald-700 mb-3">
+              Seller discount active — you save {formatPrice(saleDiscount.discountAmount)} per unit
+            </p>
+          )}
           {product.averageRating && product.averageRating > 0 && (
             <div className="flex items-center gap-1.5 mb-4">
               <div className="flex items-center text-amber-500">

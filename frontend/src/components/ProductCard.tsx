@@ -22,9 +22,19 @@ export function ProductCard({ product }: ProductCardProps) {
   // inactive users (the backend rejects it too).
   const canUseWishlist = isAuthenticated && isActive && !accountInactive
 
-  const discount = product.compareAtPrice && product.compareAtPrice > product.price
-    ? Math.round(((product.compareAtPrice - product.price) / product.compareAtPrice) * 100)
-    : 0
+  /*
+   * Live seller sales discount (product or category) wins the display:
+   * discountedPrice is what the buyer pays, base price is struck
+   * through. Without one, the seller's compareAtPrice (MRP-style
+   * marker) is used as the struck-through reference.
+   */
+  const saleDiscount = product.activeDiscount ?? null
+  const displayPrice = saleDiscount ? saleDiscount.discountedPrice : product.price
+  const hasCompareAt = !!product.compareAtPrice && product.compareAtPrice > product.price
+  const strikeThrough = saleDiscount ? product.price : (hasCompareAt ? product.compareAtPrice : null)
+  const discount = saleDiscount
+    ? saleDiscount.discountValue
+    : (hasCompareAt ? Math.round(((product.compareAtPrice! - product.price) / product.compareAtPrice!) * 100) : 0)
 
   return (
     <div className="group border border-[var(--border)] rounded-[var(--radius-lg)] overflow-hidden bg-white transition-all duration-200 hover:border-neutral-300 hover:shadow-[var(--shadow-md)] flex flex-col justify-between">
@@ -64,11 +74,16 @@ export function ProductCard({ product }: ProductCardProps) {
             </h3>
           </Link>
           <div className="flex items-baseline gap-2">
-            <span className="font-semibold text-sm text-[var(--fg)]">{formatPrice(product.price)}</span>
-            {discount > 0 && (
-              <span className="text-xs text-[var(--muted)] line-through">{formatPrice(product.compareAtPrice!)}</span>
+            <span className="font-semibold text-sm text-[var(--fg)]">{formatPrice(displayPrice)}</span>
+            {strikeThrough !== null && strikeThrough !== undefined && (
+              <span className="text-xs text-[var(--muted)] line-through">{formatPrice(strikeThrough)}</span>
             )}
           </div>
+          {saleDiscount && (
+            <p className="text-[11px] font-medium text-emerald-700 mt-1">
+              Save {formatPrice(saleDiscount.discountAmount)} · Seller discount
+            </p>
+          )}
           {(product.averageRating ?? 0) > 0 && (
             <div className="flex items-center gap-1 mt-1.5">
               <span className="text-amber-500 text-xs">★</span>

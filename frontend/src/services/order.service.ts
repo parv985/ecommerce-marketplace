@@ -1,9 +1,17 @@
 import api from './api'
-import type { ApiResponse, PaginatedResponse, Order, Invoice } from '@/types/api'
+import type { ApiResponse, PaginatedResponse, Order, Invoice, CheckoutPreview } from '@/types/api'
 
 export const orderService = {
   create: (data: { shippingAddressId: string; paymentMethod: 'COD' | 'ONLINE'; couponCode?: string }) =>
     api.post<ApiResponse<Order[]>>('/orders', data).then(r => r.data),
+
+  /**
+   * Validates the cart (and an optional coupon code) server-side and
+   * returns the exact checkout totals — no order is placed. Coupon
+   * errors surface here before the buyer submits the order.
+   */
+  preview: (data?: { couponCode?: string }) =>
+    api.post<ApiResponse<CheckoutPreview>>('/orders/preview', data ?? {}).then(r => r.data.data),
 
   list: (params?: { status?: string; page?: number; limit?: number }) =>
     api.get<ApiResponse<PaginatedResponse<Order>>>('/orders', { params }).then(r => r.data.data),

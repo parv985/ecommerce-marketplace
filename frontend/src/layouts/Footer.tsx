@@ -1,7 +1,29 @@
 import { Link } from 'react-router-dom'
+import type { MouseEvent } from 'react'
+import { toast } from 'react-hot-toast'
 import { APP_NAME, APP_DESCRIPTION, APP_COPYRIGHT } from '@/config/brand'
+import { useAuthStore } from '@/stores/authStore'
 
 export function Footer() {
+  /*
+   * Sellers and buyers cannot use the seller registration funnel. Show
+   * exactly one role-appropriate toast and stay on the page; the fixed
+   * toast ids also de-duplicate any StrictMode double-invocation.
+   */
+  const handleBecomeSeller = (event: MouseEvent<HTMLAnchorElement>) => {
+    const { isAuthenticated, user } = useAuthStore.getState()
+
+    if (!isAuthenticated || !user) return
+
+    if (user.role === 'SELLER') {
+      event.preventDefault()
+      toast.error('You are already registered as a seller.', { id: 'become-seller-already-registered' })
+    } else if (user.role === 'BUYER') {
+      event.preventDefault()
+      toast.error('Buyers cannot sell products.', { id: 'become-seller-buyer' })
+    }
+  }
+
   return (
     <footer className="bg-[#191816] text-[#9e9b94] mt-auto border-t border-neutral-800">
       <div className="container-app py-14">
@@ -33,7 +55,15 @@ export function Footer() {
           <div>
             <h4 className="font-semibold text-xs uppercase tracking-wider text-neutral-300 mb-4">Seller</h4>
             <ul className="space-y-2.5">
-              <li><Link to="/seller/register" className="text-sm text-[#9e9b94] hover:text-white transition-colors">Become a Seller</Link></li>
+              <li>
+                <Link
+                  to="/seller/register"
+                  onClick={handleBecomeSeller}
+                  className="text-sm text-[#9e9b94] hover:text-white transition-colors"
+                >
+                  Become a Seller
+                </Link>
+              </li>
               <li><Link to="/seller/dashboard" className="text-sm text-[#9e9b94] hover:text-white transition-colors">Seller Dashboard</Link></li>
             </ul>
           </div>

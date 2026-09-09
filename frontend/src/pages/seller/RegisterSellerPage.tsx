@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { useForm } from 'react-hook-form'
@@ -35,14 +35,21 @@ export function RegisterSellerPage() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const { user, isAuthenticated } = useAuthStore()
+  const guardedRef = useRef(false)
 
   useEffect(() => {
     if (!isAuthenticated || !user) return
+    // Guard once per mount - React StrictMode re-runs effects in dev,
+    // which previously produced duplicate toasts + redirects.
+    if (guardedRef.current) return
+    guardedRef.current = true
+
     // Buyers, sellers, and admins cannot access this page
     if (user.role === 'BUYER') {
-      toast.error('Buyers cannot sell products.')
+      toast.error('Buyers cannot sell products.', { id: 'become-seller-buyer' })
       navigate('/', { replace: true })
     } else if (user.role === 'SELLER') {
+      toast.error('You are already registered as a seller.', { id: 'become-seller-already-registered' })
       navigate('/seller/dashboard', { replace: true })
     } else if (user.role === 'SUPER_ADMIN') {
       navigate('/admin/dashboard', { replace: true })

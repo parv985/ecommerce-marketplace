@@ -12,6 +12,7 @@ import {
   getOrderDetails,
   listMyOrders,
   markOrderPaid,
+  previewCheckoutFromCart,
   updateOrderStatus,
 } from "./order.service.js";
 
@@ -29,6 +30,22 @@ export const createOrderController = async (
     "Order created successfully",
     orders,
     201,
+  );
+};
+
+export const previewOrderController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const preview = await previewCheckoutFromCart(
+    req.user!,
+    req.body,
+  );
+
+  sendSuccess(
+    res,
+    "Checkout preview fetched successfully",
+    preview,
   );
 };
 

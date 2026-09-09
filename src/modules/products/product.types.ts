@@ -10,6 +10,21 @@ export interface ProductSpec {
   value: string;
 }
 
+/*
+ * Live sales discount (created by a seller for a product or category)
+ * that currently applies to the product, resolved server-side with the
+ * same deterministic rules used at checkout. Absent/null when no
+ * discount is live. `discountValue` is the percentage, `discountAmount`
+ * the absolute saving per unit and `discountedPrice` the price a buyer
+ * actually pays per unit at checkout.
+ */
+export interface ProductActiveDiscount {
+  id: string;
+  discountValue: number;
+  discountAmount: number;
+  discountedPrice: number;
+}
+
 export interface ProductResponse {
   id: string;
   sellerId: string;
@@ -27,6 +42,8 @@ export interface ProductResponse {
   status: ProductStatus;
   createdAt: Date;
   updatedAt: Date;
+  /** Present on public catalog responses; null when nothing is live. */
+  activeDiscount?: ProductActiveDiscount | null;
 }
 
 export interface PaginatedProducts {

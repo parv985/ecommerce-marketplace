@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, keepPreviousData } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'react-hot-toast'
+import { Ticket, X } from 'lucide-react'
 import { useCart } from '@/hooks/useCart'
 import { useRestrictedAction } from '@/hooks/useRestrictedAction'
 import { userService } from '@/services/user.service'
@@ -15,6 +16,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Dialog } from '@/components/ui/Dialog'
+import type { CheckoutPreview } from '@/types/api'
 
 const addressSchema = z.object({
   label: z.string().min(1, 'Label is required').max(30),
@@ -35,8 +37,64 @@ export function CheckoutPage() {
   const guardRestrictedAction = useRestrictedAction()
   const [selectedAddress, setSelectedAddress] = useState<string>('')
   const [paymentMethod, setPaymentMethod] = useState<'COD' | 'ONLINE'>('COD')
-  const [couponCode, setCouponCode] = useState('')
+  const [couponInput, setCouponInput] = useState('')
+  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null)
   const [showNewAddress, setShowNewAddress] = useState(false)
+
+  /*
+   * Server-side checkout preview (no side effects). Runs whenever the
+   * applied coupon changes so subtotal, product discounts, coupon
+   * discount and the final payable always match what the backend will
+   * actually charge when the order is placed.
+   */
+  const cartFingerprint = cart?.items
+    .map(item => `${item.productId}:${item.quantity}`)
+    .join(',') ?? ''
+
+  const previewQuery = useQuery({
+    queryKey: ['checkout-preview', appliedCoupon ?? '', cartFingerprint],
+    queryFn: () =>
+      orderService.preview(appliedCoupon ? { couponCode: appliedCoupon } : undefined),
+    enabled: !!(cart && cart.items.length > 0),
+    staleTime: 15_000,
+    // Keep the last totals on screen while a coupon preview refreshes,
+    // so the payable amount never flickers to a wrong value.
+    placeholderData: keepPreviousData,
+  })
+
+  const applyCoupon = useMutation({
+    mutationFn: (code: string) => orderService.preview({ couponCode: code }),
+    onSuccess: (data) => {
+      setAppliedCoupon(data.couponCode ?? couponInput.trim().toUpperCase())
+      setCouponInput(data.couponCode ?? couponInput.trim().toUpperCase())
+      if (data.couponDiscount > 0) {
+        toast.success(`🎉 Coupon applied! You saved ${formatPrice(data.couponDiscount)} on this order.`)
+      } else {
+        toast.success('Coupon applied!')
+      }
+    },
+    onError: () => {
+      toast.error('Invalid coupon code.', { id: 'checkout-invalid-coupon' })
+    },
+  })
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponInput('')
+  }
+
+  const preview: CheckoutPreview | null =
+    previewQuery.data ??
+    (cart && cart.items.length > 0
+      ? {
+          itemsTotal: cart.totalPrice,
+          discountTotal: 0,
+          couponCode: null,
+          couponDiscount: 0,
+          total: cart.totalPrice,
+          orders: [],
+        }
+      : null)
 
   const { data: addresses } = useQuery({
     queryKey: ['addresses'],
@@ -61,7 +119,7 @@ export function CheckoutPage() {
     mutationFn: () => orderService.create({
       shippingAddressId: selectedAddress,
       paymentMethod,
-      couponCode: couponCode || undefined,
+      couponCode: appliedCoupon || undefined,
     }),
     onSuccess: (res) => {
       const orders = res.data
@@ -175,11 +233,59 @@ export function CheckoutPage() {
 
           {/* Coupon */}
           <Card>
+            <CardHeader><CardTitle>Coupon</CardTitle></CardHeader>
             <CardContent>
-              <div className="flex gap-2">
-                <Input placeholder="Enter coupon code" value={couponCode} onChange={e => setCouponCode(e.target.value)} />
-                <Button variant="outline" onClick={() => couponCode && toast.success('Coupon applied! Calculated server-side.')}>Apply</Button>
-              </div>
+              {appliedCoupon ? (
+                <div className="flex items-center justify-between gap-3 border border-emerald-200 bg-emerald-50 rounded-[var(--radius)] px-3.5 py-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Ticket size={16} className="text-emerald-700 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-emerald-800">
+                        Coupon <span className="uppercase">{appliedCoupon}</span> applied
+                      </p>
+                      <p className="text-xs text-emerald-700">
+                        {preview && preview.couponDiscount > 0
+                          ? `You save ${formatPrice(preview.couponDiscount)} on this order`
+                          : 'Discount applied at checkout'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={removeCoupon}
+                    className="shrink-0 text-emerald-700 hover:text-red-700 transition-colors p-1"
+                    title="Remove coupon"
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter coupon code"
+                    value={couponInput}
+                    onChange={e => setCouponInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && couponInput.trim()) {
+                        e.preventDefault()
+                        applyCoupon.mutate(couponInput.trim())
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="outline"
+                    disabled={!couponInput.trim() || applyCoupon.isPending}
+                    onClick={() => applyCoupon.mutate(couponInput.trim())}
+                  >
+                    {applyCoupon.isPending ? 'Checking...' : 'Apply'}
+                  </Button>
+                </div>
+              )}
+              {!appliedCoupon && (
+                <p className="text-[11px] text-[var(--muted)] mt-2">
+                  Enter a seller coupon code — it is validated instantly and the discount is shown below.
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -195,10 +301,30 @@ export function CheckoutPage() {
               </div>
             ))}
           </div>
-          <div className="border-t border-[var(--border)] mt-4 pt-4 space-y-2 text-sm font-semibold">
-            <div className="flex justify-between text-base">
+          <div className="border-t border-[var(--border)] mt-4 pt-4 space-y-2 text-sm">
+            <div className="flex justify-between text-[var(--fg-secondary)]">
+              <span>Subtotal ({cart.totalQuantity} items)</span>
+              <span className="font-semibold text-[var(--fg)]">{formatPrice(preview?.itemsTotal ?? cart.totalPrice)}</span>
+            </div>
+            {(preview?.discountTotal ?? 0) > 0 && (
+              <div className="flex justify-between text-emerald-700">
+                <span>Product Discounts</span>
+                <span className="font-semibold">− {formatPrice(preview!.discountTotal)}</span>
+              </div>
+            )}
+            {(preview?.couponDiscount ?? 0) > 0 && appliedCoupon && (
+              <div className="flex justify-between text-emerald-700">
+                <span className="uppercase">Coupon ({appliedCoupon})</span>
+                <span className="font-semibold">− {formatPrice(preview!.couponDiscount)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-[var(--fg-secondary)]">
+              <span>Shipping</span>
+              <span className="text-emerald-700 font-medium">Calculated at checkout</span>
+            </div>
+            <div className="border-t border-[var(--border)] pt-3 flex justify-between font-bold text-base text-[var(--fg)]">
               <span>Total Payable</span>
-              <span className="font-bold text-[var(--primary)]">{formatPrice(cart.totalPrice)}</span>
+              <span className="font-bold text-[var(--primary)]">{formatPrice(preview?.total ?? cart.totalPrice)}</span>
             </div>
           </div>
           <Button

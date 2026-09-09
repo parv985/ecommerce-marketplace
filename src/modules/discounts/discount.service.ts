@@ -3,6 +3,7 @@ import { SellerStatus } from "../../constants/sellerStatus.js";
 import { AppError } from "../../errors/AppError.js";
 import { UserRole } from "../../constants/roles.js";
 import { logAudit } from "../../services/audit.service.js";
+import { getCacheKey, invalidateCache } from "../../config/redis.js";
 import type { IDiscount } from "../../models/Discount.js";
 import { findSellerByUserId } from "../sellers/seller.repository.js";
 import {
@@ -141,6 +142,9 @@ export const createDiscountForSeller = async (
     entityType: "DISCOUNT",
     entityId: discount._id.toString(),
   });
+
+  /* Discounts change public product pricing - refresh the catalog cache. */
+  await invalidateCache(getCacheKey("products", "*"));
 
   return toDiscountResponse(discount);
 };
@@ -295,6 +299,9 @@ export const updateSellerDiscount = async (
     entityId: discountId,
   });
 
+  /* Discounts change public product pricing - refresh the catalog cache. */
+  await invalidateCache(getCacheKey("products", "*"));
+
   return toDiscountResponse(updated);
 };
 
@@ -335,4 +342,7 @@ export const deactivateSellerDiscount = async (
     entityType: "DISCOUNT",
     entityId: discountId,
   });
+
+  /* Discounts change public product pricing - refresh the catalog cache. */
+  await invalidateCache(getCacheKey("products", "*"));
 };

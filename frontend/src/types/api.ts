@@ -142,6 +142,18 @@ export interface Product {
   totalReviews?: number
   createdAt: string
   updatedAt: string
+  /**
+   * Live sales discount created by the seller for this product or its
+   * category (resolved server-side with checkout rules). Absent/null
+   * when nothing is live. `discountedPrice` is the per-unit price a
+   * buyer actually pays.
+   */
+  activeDiscount?: {
+    id: string
+    discountValue: number
+    discountAmount: number
+    discountedPrice: number
+  } | null
 }
 
 // Categories
@@ -248,6 +260,27 @@ export interface Order {
   status: OrderStatus
   createdAt: string
   updatedAt: string
+}
+
+// Checkout preview (POST /orders/preview) — mirrors the backend
+// `CheckoutPreviewResponse`. No side effects; used by the checkout page to
+// display server-computed sales discounts and coupon discounts before an
+// order is placed.
+export interface CheckoutPreviewOrder {
+  sellerId: string
+  itemsTotal: number
+  discountTotal: number
+  couponDiscount: number
+  total: number
+}
+
+export interface CheckoutPreview {
+  itemsTotal: number
+  discountTotal: number
+  couponCode: string | null
+  couponDiscount: number
+  total: number
+  orders: CheckoutPreviewOrder[]
 }
 
 // Mirrors the backend `AdminOrderResponse` (src/modules/admin/admin.types.ts).

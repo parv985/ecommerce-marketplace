@@ -13,12 +13,14 @@ import {
   getOrderTrackingController,
   listOrdersController,
   markOrderPaidController,
+  previewOrderController,
   updateOrderStatusController,
 } from "./order.controller.js";
 import {
   createOrderSchema,
   listOrdersQuerySchema,
   orderIdParamsSchema,
+  previewOrderSchema,
   updateOrderStatusSchema,
 } from "./order.schema.js";
 
@@ -117,6 +119,79 @@ router.post(
   "/",
   validate(createOrderSchema),
   asyncHandler(createOrderController),
+);
+
+/**
+ * @openapi
+ * /api/v1/orders/preview:
+ *   post:
+ *     tags:
+ *       - Orders
+ *     summary: Preview checkout totals (no side effects)
+ *     description: Validates the authenticated user's cart and an optional coupon code and returns the exact totals checkout will charge - items subtotal, product/category sales discounts, coupon discount and final payable - without placing an order, claiming the coupon or decrementing stock. Coupons are evaluated server-side with the same rules used when the order is actually placed.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               couponCode:
+ *                 type: string
+ *                 maxLength: 30
+ *                 description: Optional coupon code to validate and apply
+ *     responses:
+ *       200:
+ *         description: Checkout preview fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     itemsTotal:
+ *                       type: number
+ *                     discountTotal:
+ *                       type: number
+ *                     couponCode:
+ *                       type: string
+ *                       nullable: true
+ *                     couponDiscount:
+ *                       type: number
+ *                     total:
+ *                       type: number
+ *                     orders:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           sellerId:
+ *                             type: string
+ *                           itemsTotal:
+ *                             type: number
+ *                           discountTotal:
+ *                             type: number
+ *                           couponDiscount:
+ *                             type: number
+ *                           total:
+ *                             type: number
+ *       400:
+ *         description: Empty cart, unavailable product, insufficient stock, invalid/expired coupon or coupon not applicable to the cart
+ *       401:
+ *         description: Not authenticated
+ */
+router.post(
+  "/preview",
+  validate(previewOrderSchema),
+  asyncHandler(previewOrderController),
 );
 
 router.get(
