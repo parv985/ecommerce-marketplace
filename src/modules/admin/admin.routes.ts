@@ -13,6 +13,7 @@ import {
   generateSettlementController,
   getCommissionSettingsController,
   getSettlementController,
+  listAuditLogsController,
   listOrdersController,
   listProductsController,
   listSellersController,
@@ -866,6 +867,86 @@ router.patch(
   "/settings/commission",
   validate(commissionRateSchema),
   asyncHandler(updateCommissionSettingsController),
+);
+
+/**
+ * @openapi
+ * /api/v1/admin/audit-logs:
+ *   get:
+ *     tags:
+ *       - Admin
+ *     summary: List audit logs
+ *     description: Lists AuditLog records with pagination and filters. SUPER_ADMIN only.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: actorId
+ *         in: query
+ *         schema:
+ *           type: string
+ *       - name: actorRole
+ *         in: query
+ *         schema:
+ *           type: string
+ *       - name: action
+ *         in: query
+ *         schema:
+ *           type: string
+ *       - name: entityType
+ *         in: query
+ *         schema:
+ *           type: string
+ *       - name: entityId
+ *         in: query
+ *         schema:
+ *           type: string
+ *       - name: fromDate
+ *         in: query
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *       - name: toDate
+ *         in: query
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *       - name: sortBy
+ *         in: query
+ *         schema:
+ *           type: string
+ *           enum: [createdAt, action, actorRole, entityType]
+ *           default: createdAt
+ *       - name: sortOrder
+ *         in: query
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *       - name: page
+ *         in: query
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *       - name: limit
+ *         in: query
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: Audit logs fetched successfully
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Requires SUPER_ADMIN role
+ */
+router.get(
+  "/audit-logs",
+  validate(listAuditLogsQuerySchema, "query"),
+  asyncHandler(listAuditLogsController),
 );
 
 export default router;
