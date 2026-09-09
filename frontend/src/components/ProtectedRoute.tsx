@@ -10,7 +10,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, roles, requireAuth = true }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, user } = useAuthStore()
+  const { isAuthenticated, isLoading, user, accountInactive } = useAuthStore()
   const location = useLocation()
 
   if (isLoading) {
@@ -25,7 +25,12 @@ export function ProtectedRoute({ children, roles, requireAuth = true }: Protecte
     )
   }
 
-  if (requireAuth && !isAuthenticated) {
+  // Deactivated accounts are treated like signed-out users: they lose
+  // access to every protected (seller/buyer) route immediately — no page
+  // refresh needed, because the account status is polled dynamically.
+  const accountBlocked = accountInactive || user?.isActive === false
+
+  if (requireAuth && (!isAuthenticated || accountBlocked)) {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 

@@ -21,6 +21,12 @@ export interface UserSummary {
   avatar?: string
   /** Avatar URL (Cloudinary) as returned by GET /users/me — null when no avatar is set. */
   avatarUrl?: string | null
+  /**
+   * Account status as returned by the backend (login response and
+   * GET /users/me). False when a Super Admin deactivated the account.
+   * Undefined only for sessions stored before this field existed.
+   */
+  isActive?: boolean
 }
 
 export interface LoginResponse {

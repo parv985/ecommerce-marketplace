@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { Toaster } from 'react-hot-toast'
 import { useAuthStore } from '@/stores/authStore'
 import { authApi } from '@/services/auth.service'
+import { useAccountStatus } from '@/hooks/useAccountStatus'
 
 /**
  * Root layout for admin routes.
@@ -11,6 +12,10 @@ import { authApi } from '@/services/auth.service'
  */
 export function AdminRootLayout() {
   const { isAuthenticated, isLoading, setLoading, logout } = useAuthStore()
+
+  // Keep the account status fresh — deactivations are enforced without a
+  // page refresh.
+  useAccountStatus()
 
   useEffect(() => {
     if (!isAuthenticated) {

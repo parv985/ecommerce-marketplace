@@ -5,11 +5,16 @@ import { Footer } from './Footer'
 import { Toaster } from 'react-hot-toast'
 import { useAuthStore } from '@/stores/authStore'
 import { authApi } from '@/services/auth.service'
+import { useAccountStatus } from '@/hooks/useAccountStatus'
 import { Skeleton } from '@/components/ui/Skeleton'
 
 export function MainLayout() {
   const { isAuthenticated, isLoading, user, setLoading, logout } = useAuthStore()
   const location = useLocation()
+
+  // Re-check the account status on an interval and on window focus, so a
+  // Super Admin deactivation is enforced without a page refresh.
+  useAccountStatus()
 
   useEffect(() => {
     if (!isAuthenticated) {

@@ -12,6 +12,9 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    // Allow preview/proxy hosts (e.g. sandbox previews) in addition to
+    // localhost so the dev server is reachable when hosted remotely.
+    allowedHosts: true,
     proxy: {
       '/api': {
         target: 'http://localhost:5000',

@@ -17,6 +17,33 @@ export const findUserById = async (
 };
 
 /*
+ * Minimal projection used by the authenticate middleware on every
+ * request: just enough to re-check the role and the active flag that
+ * a Super Admin may have flipped since the access token was minted.
+ */
+export const findUserForAuth = async (
+  userId: string,
+): Promise<UserDocument | null> => {
+  return User.findById(userId)
+    .select("role isActive")
+    .exec();
+};
+
+/*
+ * Revokes every live refresh token of a user. Called when a Super
+ * Admin deactivates an account so the user cannot mint new access
+ * tokens from an existing session.
+ */
+export const revokeAllRefreshTokensForUser = async (
+  userId: string,
+): Promise<void> => {
+  await RefreshToken.updateMany(
+    { userId, revokedAt: null },
+    { $set: { revokedAt: new Date() } },
+  );
+};
+
+/*
  * Loads the select:false 2FA fields (encrypted secret, recovery code
  * hashes) - only called from the 2FA service functions.
  */

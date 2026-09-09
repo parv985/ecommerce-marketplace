@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ShoppingCart, Heart, Star, Minus, Plus, ArrowLeft } from 'lucide-react'
 import { productService } from '@/services/product.service'
 import { cartService } from '@/services/cart.service'
 import { reviewService } from '@/services/review.service'
+import { isAccountInactiveError } from '@/services/api'
 import { useWishlist } from '@/hooks/useWishlist'
+import { useRestrictedAction } from '@/hooks/useRestrictedAction'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -15,7 +17,6 @@ import { Pagination } from '@/components/ui/Pagination'
 
 export function ProductDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const [selectedImage, setSelectedImage] = useState(0)
   const [imageErrors, setImageErrors] = useState<Record<number, boolean>>({})
   const [quantity, setQuantity] = useState(1)
@@ -43,29 +44,26 @@ export function ProductDetailPage() {
       toast.success('Added to cart')
     },
     onError: (err: unknown) => {
+      // Inactive-account errors are toasted + handled by the api interceptor.
+      if (isAccountInactiveError(err)) return
       const error = err as { response?: { data?: { message?: string } } }
       toast.error(error?.response?.data?.message || 'Failed to add to cart')
     },
   })
 
   const { isWishlisted, toggle: toggleWishlistMutation, isToggling } = useWishlist()
+  const guardRestrictedAction = useRestrictedAction()
   const liked = id ? isWishlisted(id) : false
 
   const handleAddToCart = () => {
-    if (!isAuthenticated) {
-      toast('Sign in to add items to your cart', { icon: '🔐' })
-      navigate('/login', { state: { from: { pathname: `/products/${id}` } } })
-      return
-    }
+    // Buying is a buyer-specific action: unauthenticated and inactive
+    // users are blocked with a toast ("Your account is inactive").
+    if (!guardRestrictedAction()) return
     addToCartMutation.mutate()
   }
 
   const handleWishlist = () => {
-    if (!isAuthenticated) {
-      toast('Sign in to add items to your wishlist', { icon: '🔐' })
-      navigate('/login', { state: { from: { pathname: `/products/${id}` } } })
-      return
-    }
+    if (!guardRestrictedAction()) return
     if (isToggling || !id) return
     toggleWishlistMutation.mutate(id, {
       onSuccess: (result) => {

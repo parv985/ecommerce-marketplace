@@ -34,6 +34,7 @@ const toUserProfileResponse = (
     role: user.role,
     avatarUrl: user.avatarUrl ?? null,
     isEmailVerified: user.isEmailVerified,
+    isActive: user.isActive,
     createdAt: user.createdAt,
   };
 };

@@ -255,6 +255,51 @@ Route → Controller → Service → Repository → Model
 - **Repositories** encapsulate database access (easy to swap Mongoose for raw MongoDB)
 - **Models** define data structure independently of HTTP
 
+### Account Status Enforcement (§4.1)
+
+When the Super Admin deactivates a seller or buyer
+(`PATCH /api/v1/admin/users/:id` with `isActive: false`), the
+restriction is enforced **immediately**, on both the API and the UI:
+
+**Backend (cannot be bypassed by calling the API directly)**
+
+1. `setUserActiveStatus` (admin service) flips `isActive` **and revokes
+   every live refresh token** for that user — no new access token can be
+   minted from an existing session. The change is audit-logged
+   (`USER_STATUS_UPDATE`).
+2. The `authenticate` middleware re-loads the user from the database on
+   **every** request. A deactivated account is rejected with
+   `403 { code: "ACCOUNT_INACTIVE", message: "Your account is inactive" }`
+   — even with a still-valid access token. This blocks inactive sellers
+   from selling (products, inventory, discounts, coupons, …) and inactive
+   buyers from buying (cart, orders, checkout, wishlist, reviews, …).
+3. `POST /auth/login` and `POST /auth/2fa/verify` reject deactivated
+   accounts with the same 403, and `POST /auth/refresh` explains itself
+   with 403 `ACCOUNT_INACTIVE` when the account (not just the token) is
+   the problem.
+
+**Frontend (no page refresh needed)**
+
+1. `services/api.ts` intercepts every 403 `ACCOUNT_INACTIVE` response:
+   it shows a **"Your account is inactive" toast** and marks the session
+   inactive (`markAccountInactive()` in the auth store) — protected
+   routes then sign the user out of the UI immediately.
+2. `hooks/useAccountStatus.ts` (mounted in `MainLayout` and
+   `AdminRootLayout`) re-checks `GET /users/me` every 30 seconds and on
+   window focus, so a deactivation is picked up even if the user just
+   sits on a page.
+3. `hooks/useRestrictedAction.ts` guards restricted UI actions (Add to
+   Cart, Place Order, Add Product, wishlist). Unauthenticated and
+   inactive users get the "Your account is inactive" toast and the
+   action never fires; unauthenticated visitors are also sent to
+   `/login`.
+
+**Profile photo persistence:** the login/register/2FA/Google session
+payloads and `GET /users/me` include `avatarUrl` (plus `isActive`), so a
+photo uploaded once stays visible after logout + login — it is persisted
+in the database (Cloudinary URL on the user document), never only in
+client storage.
+
 ### Module Interaction Map
 
 ```
@@ -285,8 +330,9 @@ Route → Controller → Service → Repository → Model
 
 | Concern | Implementation |
 |---------|---------------|
-| **Authentication** | `authenticate` middleware: extracts Bearer token, verifies JWT, attaches `req.user` |
+| **Authentication** | `authenticate` middleware: extracts Bearer token, verifies JWT, re-loads the user from the database and attaches `req.user` (id, role, isActive) |
 | **Authorization** | `authorize(...roles)` middleware: checks `req.user.role` against allowed roles |
+| **Account status** | `authenticate` rejects deactivated accounts on **every** request with `403 ACCOUNT_INACTIVE` ("Your account is inactive"); deactivating a user also revokes all their refresh tokens (see §4.1) |
 | **Ownership** | Checked in service layer (e.g., `product.sellerId !== userId` → 403) |
 | **Validation** | Zod schemas validated by `validate(schema)` middleware before controller runs |
 | **Error Handling** | `AppError` class → `errorMiddleware` → standardized JSON error response |
