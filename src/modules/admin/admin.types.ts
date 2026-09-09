@@ -51,6 +51,24 @@ export interface AdminOrderResponse {
   createdAt: Date;
 }
 
+/*
+ * One entry of the audit ledger as exposed to the Super Admin
+ * console. `before`/`after`/`metadata` stay as free-form JSON: what
+ * they contain depends on the action that wrote the entry.
+ */
+export interface AdminAuditLogResponse {
+  id: string;
+  actorId: string;
+  actorRole: string;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  before: unknown;
+  after: unknown;
+  metadata: unknown;
+  createdAt: Date;
+}
+
 export interface AdminListResponse<T> {
   items: T[];
   page: number;

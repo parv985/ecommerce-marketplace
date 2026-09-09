@@ -11,6 +11,10 @@ import {
   Order,
   type IOrder,
 } from "../../models/Order.js";
+import {
+  AuditLog,
+  type IAuditLog,
+} from "../../models/AuditLog.js";
 
 export const listUsers = async (
   filter: Record<string, unknown>,
@@ -144,6 +148,33 @@ export const listAllOrders = async (
       .limit(limit)
       .exec(),
     Order.countDocuments(filter).exec(),
+  ]);
+
+  return { items, total };
+};
+
+/*
+ * Audit log listing for the Super Admin console. The ledger is
+ * append-only, so this is a pure read: filter + sort + paginate.
+ * Sorted reads are backed by the { actorId: 1, createdAt: -1 } and
+ * single-field indexes declared on the AuditLog model.
+ */
+export const listAuditLogs = async (
+  filter: Record<string, unknown>,
+  sort: Record<string, 1 | -1>,
+  page: number,
+  limit: number,
+): Promise<{
+  items: IAuditLog[];
+  total: number;
+}> => {
+  const [items, total] = await Promise.all([
+    AuditLog.find(filter)
+      .sort(sort)
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .exec(),
+    AuditLog.countDocuments(filter).exec(),
   ]);
 
   return { items, total };

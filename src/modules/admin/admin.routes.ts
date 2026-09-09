@@ -13,6 +13,7 @@ import {
   generateSettlementController,
   getCommissionSettingsController,
   getSettlementController,
+  listAuditLogsController,
   listOrdersController,
   listProductsController,
   listSellersController,
@@ -35,6 +36,7 @@ import {
 import {
   adminIdParamsSchema,
   listAdminOrdersQuerySchema,
+  listAuditLogsQuerySchema,
   listAdminProductsQuerySchema,
   listSellersQuerySchema,
   listUsersQuerySchema,
@@ -438,6 +440,175 @@ router.get(
   "/orders",
   validate(listAdminOrdersQuerySchema, "query"),
   asyncHandler(listOrdersController),
+);
+
+/**
+ * @openapi
+ * /api/v1/admin/audit-logs:
+ *   get:
+ *     tags:
+ *       - Admin
+ *     summary: List audit log entries
+ *     description: >-
+ *       Read-only, paginated view of the platform audit trail - every entry
+ *       written by the audit logging service (logins, order, product, seller,
+ *       payment, return, settlement, coupon, discount, notification and admin
+ *       actions). All filters are optional and combined with AND; entries are
+ *       returned newest first by default. SUPER_ADMIN only.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: actorId
+ *         in: query
+ *         description: Exact actor that performed the action - a user ObjectId, or a system actor such as "system" / "webhook"
+ *         schema:
+ *           type: string
+ *           maxLength: 100
+ *       - name: actorRole
+ *         in: query
+ *         description: "Exact actor role. Values recorded by the app: BUYER, SELLER, SUPER_ADMIN, SYSTEM"
+ *         schema:
+ *           type: string
+ *           maxLength: 50
+ *         example: SUPER_ADMIN
+ *       - name: action
+ *         in: query
+ *         description: "Exact action key. Values recorded by the app: ADMIN_BROADCAST, COMMISSION_RATE_CHANGED, COUPON_CREATED, COUPON_DEACTIVATED, COUPON_UPDATED, DISCOUNT_CREATED, DISCOUNT_DEACTIVATED, DISCOUNT_UPDATED, LOGIN, ORDER_CANCELLED, ORDER_CREATED, ORDER_STATUS_CHANGED, PAYMENT_CAPTURED, PAYMENT_INITIATED, PAYMENT_REFUNDED, PAYMENT_VERIFIED, PRODUCT_CREATED, PRODUCT_IMAGES_UPLOADED, PRODUCT_IMAGE_DELETED, PRODUCT_STATUS_CHANGED, PRODUCT_UPDATED, RETURN_REQUESTED, RETURN_STATUS_CHANGED, SELLER_DOCUMENT_DELETED, SELLER_DOCUMENT_UPLOADED, SELLER_PROFILE_UPDATED, SELLER_REGISTERED, SELLER_STATUS_UPDATE, SETTLEMENT_GENERATED, SETTLEMENT_REMINDER_SENT, SETTLEMENT_STATUS_CHANGED, USER_STATUS_UPDATE"
+ *         schema:
+ *           type: string
+ *           maxLength: 100
+ *         example: USER_STATUS_UPDATE
+ *       - name: entityType
+ *         in: query
+ *         description: "Exact entity type the action targeted. Values recorded by the app: COUPON, DISCOUNT, NOTIFICATION, ORDER, PLATFORM_SETTING, PRODUCT, RETURN, SELLER, SETTLEMENT, USER"
+ *         schema:
+ *           type: string
+ *           maxLength: 50
+ *         example: USER
+ *       - name: entityId
+ *         in: query
+ *         description: ObjectId of the affected entity. Entries logged without an entity never match this filter
+ *         schema:
+ *           type: string
+ *           pattern: "^[0-9a-fA-F]{24}$"
+ *       - name: fromDate
+ *         in: query
+ *         description: "Inclusive lower bound on createdAt. Accepts a date (YYYY-MM-DD, read as UTC midnight) or a full ISO-8601 timestamp"
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         example: "2026-01-01"
+ *       - name: toDate
+ *         in: query
+ *         description: "Inclusive upper bound on createdAt. A bare YYYY-MM-DD is widened to 23:59:59.999 UTC so a single-day range returns the whole day. Must be on or after fromDate"
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         example: "2026-01-31"
+ *       - name: sortBy
+ *         in: query
+ *         description: Field to sort by
+ *         schema:
+ *           type: string
+ *           enum: [createdAt, action, entityType, actorRole, actorId]
+ *           default: createdAt
+ *       - name: sortOrder
+ *         in: query
+ *         description: Sort direction - newest first by default
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *       - name: page
+ *         in: query
+ *         description: 1-based page number
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *       - name: limit
+ *         in: query
+ *         description: Page size (1-100)
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: Audit logs fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Audit logs fetched successfully
+ *                 data:
+ *                   $ref: "#/components/schemas/AuditLogList"
+ *             example:
+ *               success: true
+ *               message: Audit logs fetched successfully
+ *               data:
+ *                 items:
+ *                   - id: "65f1c2b0a1b2c3d4e5f60718"
+ *                     actorId: "65f1c2b0a1b2c3d4e5f60717"
+ *                     actorRole: SUPER_ADMIN
+ *                     action: USER_STATUS_UPDATE
+ *                     entityType: USER
+ *                     entityId: "65f1c2b0a1b2c3d4e5f60716"
+ *                     before:
+ *                       isActive: true
+ *                     after:
+ *                       isActive: false
+ *                     metadata: null
+ *                     createdAt: "2026-02-14T09:12:44.221Z"
+ *                 page: 1
+ *                 limit: 20
+ *                 total: 1
+ *                 totalPages: 1
+ *       400:
+ *         description: "Validation error - unknown query parameter, malformed ObjectId or date, limit above 100, or fromDate after toDate"
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ErrorResponse"
+ *             example:
+ *               success: false
+ *               message: Validation failed
+ *               code: VALIDATION_ERROR
+ *               errors: null
+ *       401:
+ *         description: Not authenticated - missing, malformed or expired access token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ErrorResponse"
+ *             example:
+ *               success: false
+ *               message: Authentication required
+ *               code: AUTHENTICATION_REQUIRED
+ *               errors: null
+ *       403:
+ *         description: Forbidden - BUYER and SELLER roles (and deactivated accounts) are rejected; SUPER_ADMIN only
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: "#/components/schemas/ErrorResponse"
+ *             example:
+ *               success: false
+ *               message: You do not have permission to perform this action
+ *               code: FORBIDDEN
+ *               errors: null
+ */
+router.get(
+  "/audit-logs",
+  validate(listAuditLogsQuerySchema, "query"),
+  asyncHandler(listAuditLogsController),
 );
 
 /**
