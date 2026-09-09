@@ -2,19 +2,53 @@
  * Homepage-only styles (imported exclusively by HomePage.tsx).
  * Everything is namespaced with `nc-home-` so nothing leaks into
  * other pages of the application.
+ *
+ * The homepage is a light, warm marketplace surface now — the dark hero
+ * wash, white-on-dark glows and coarse dark grid were replaced by a warm
+ * cream gradient, faint warm grid lines and soft terracotta glows at very
+ * low opacity. Dark ink is reserved for text; the terracotta brand color
+ * is the single accent.
  */
 
-/* Faint architectural grid used behind the hero content. */
-.nc-home-grid-bg {
+/* Warm cream hero wash (light). */
+.nc-home-hero {
+  background:
+    radial-gradient(52rem 30rem at 88% -12%, rgba(184, 62, 32, 0.07), transparent 62%),
+    radial-gradient(42rem 28rem at -10% 112%, rgba(184, 62, 32, 0.06), transparent 62%),
+    linear-gradient(180deg, #fcf9f3 0%, #f8f0e3 55%, #faf5ec 100%);
+}
+
+/* Faint warm grid used behind the hero content. */
+.nc-home-grid-warm {
   background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+    linear-gradient(to right, rgba(25, 24, 22, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(25, 24, 22, 0.03) 1px, transparent 1px);
   background-size: 44px 44px;
 }
 
-/* Soft terracotta glow accent. */
+/* Soft terracotta glow accents (very low opacity on the light hero). */
 .nc-home-glow {
-  background: radial-gradient(closest-side, rgba(184, 62, 32, 0.4), transparent);
+  background: radial-gradient(closest-side, rgba(184, 62, 32, 0.13), transparent);
+}
+
+.nc-home-glow-soft {
+  background: radial-gradient(closest-side, rgba(184, 62, 32, 0.08), transparent);
+}
+
+/* Faint warm-orange dot pattern for the light seller-CTA panel. */
+.nc-home-dots {
+  background-image: radial-gradient(rgba(184, 62, 32, 0.14) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+/* Warm cream wash for the seller-CTA panel (light, never black). */
+.nc-home-seller-panel {
+  background: linear-gradient(
+    115deg,
+    var(--surface-warm) 0%,
+    #fcf0e1 52%,
+    var(--surface-tint) 100%
+  );
 }
 
 /* Gentle one-shot entrance for hero content (subtle, not flashy). */
