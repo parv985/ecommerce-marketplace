@@ -48,7 +48,7 @@ type SellerRegisterForm = z.infer<typeof sellerRegisterSchema>
 
 // ── Component ────────────────────────────────────────────────────
 export default function AuthPage() {
-  const { setAuth } = useAuthStore()
+  const { setAuth, accountInactive } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname
@@ -472,6 +472,13 @@ export default function AuthPage() {
           <p className="text-sm text-[var(--muted)]">Sign in to your account to continue</p>
         </CardHeader>
         <CardContent>
+          {/* Shown when this session learned the account is deactivated
+              (failed login attempt or a deactivation detected mid-session). */}
+          {accountInactive && (
+            <div className="mb-4 rounded-[var(--radius)] border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
+              Your account is inactive. Please contact support for assistance.
+            </div>
+          )}
           <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
             <Input
               label="Email"

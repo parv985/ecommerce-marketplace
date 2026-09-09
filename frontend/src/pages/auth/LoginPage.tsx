@@ -19,7 +19,7 @@ const loginSchema = z.object({
 type LoginForm = z.infer<typeof loginSchema>
 
 export function LoginPage() {
-  const { setAuth } = useAuthStore()
+  const { setAuth, accountInactive } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
   const [loading, setLoading] = useState(false)
@@ -114,6 +114,11 @@ export function LoginPage() {
           <p className="text-sm text-[var(--muted)]">Sign in to your account to continue</p>
         </CardHeader>
         <CardContent>
+          {accountInactive && (
+            <div className="mb-4 rounded-[var(--radius)] border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
+              Your account is inactive. Please contact support for assistance.
+            </div>
+          )}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <Input
               label="Email"

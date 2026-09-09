@@ -6,8 +6,10 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'react-hot-toast'
 import { useCart } from '@/hooks/useCart'
+import { useRestrictedAction } from '@/hooks/useRestrictedAction'
 import { userService } from '@/services/user.service'
 import { orderService } from '@/services/order.service'
+import { isAccountInactiveError } from '@/services/api'
 import { formatPrice } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -30,6 +32,7 @@ type AddressForm = z.infer<typeof addressSchema>
 export function CheckoutPage() {
   const navigate = useNavigate()
   const { data: cart } = useCart()
+  const guardRestrictedAction = useRestrictedAction()
   const [selectedAddress, setSelectedAddress] = useState<string>('')
   const [paymentMethod, setPaymentMethod] = useState<'COD' | 'ONLINE'>('COD')
   const [couponCode, setCouponCode] = useState('')
@@ -69,7 +72,11 @@ export function CheckoutPage() {
         navigate('/orders')
       }
     },
-    onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to place order'),
+    onError: (err: any) => {
+      // Inactive-account errors are toasted + handled by the api interceptor.
+      if (isAccountInactiveError(err)) return
+      toast.error(err?.response?.data?.message || 'Failed to place order')
+    },
   })
 
   if (!cart || !cart.items || cart.items.length === 0) {
@@ -198,7 +205,12 @@ export function CheckoutPage() {
             className="w-full mt-4"
             size="lg"
             disabled={!selectedAddress || placeOrder.isPending}
-            onClick={() => placeOrder.mutate()}
+            onClick={() => {
+              // Buying is restricted: inactive/unauthenticated users are
+              // blocked with a "Your account is inactive" toast.
+              if (!guardRestrictedAction()) return
+              placeOrder.mutate()
+            }}
           >
             {placeOrder.isPending ? 'Placing Order...' : `Confirm & Place Order`}
           </Button>

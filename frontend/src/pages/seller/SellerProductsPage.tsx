@@ -15,6 +15,7 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'react-hot-toast'
 import { useSellerErrorHandler } from '@/hooks/useSellerErrorHandler'
+import { useRestrictedAction } from '@/hooks/useRestrictedAction'
 import { getChangedFields, notifyNoChanges } from '@/lib/formChanges'
 import type { Product } from '@/types/api'
 
@@ -177,7 +178,12 @@ export function SellerProductsPage() {
 
   const isSaving = createProduct.isPending || updateProduct.isPending
 
+  // Selling is a seller-specific action: inactive (or unauthenticated)
+  // users are blocked with a "Your account is inactive" toast.
+  const guardRestrictedAction = useRestrictedAction()
+
   function openCreateDialog() {
+    if (!guardRestrictedAction()) return
     reset()
     setPendingFiles([])
     setDialog({ productId: null, step: 'details', justCreated: false, originalValues: null })
@@ -198,6 +204,8 @@ export function SellerProductsPage() {
    * silently dropped, which is what the seller expects from "Save & Upload".
    */
   function submitDetails(values: ProductForm) {
+    if (!guardRestrictedAction()) return
+
     if (!productId) {
       createProduct.mutate(values)
       return

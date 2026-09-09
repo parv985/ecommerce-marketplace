@@ -14,8 +14,13 @@ interface ProductCardProps {
 export function ProductCard({ product }: ProductCardProps) {
   const [imageError, setImageError] = useState(false)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const accountInactive = useAuthStore((s) => s.accountInactive)
+  const isActive = useAuthStore((s) => s.user?.isActive !== false)
   const { isWishlisted, toggle, isToggling } = useWishlist()
   const liked = isWishlisted(product.id)
+  // Wishlist is a buyer-specific action — hide it for signed-out and
+  // inactive users (the backend rejects it too).
+  const canUseWishlist = isAuthenticated && isActive && !accountInactive
 
   const discount = product.compareAtPrice && product.compareAtPrice > product.price
     ? Math.round(((product.compareAtPrice - product.price) / product.compareAtPrice) * 100)
@@ -73,7 +78,7 @@ export function ProductCard({ product }: ProductCardProps) {
           )}
         </div>
       </div>
-      {isAuthenticated && product.stock > 0 && (
+      {canUseWishlist && product.stock > 0 && (
         <div className="px-3.5 pb-3 pt-0">
           <button
             onClick={(e) => {

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { wishlistService } from '@/services/wishlist.service'
 import { toast } from 'react-hot-toast'
 import { useAuthStore } from '@/stores/authStore'
+import { isAccountInactiveError } from '@/services/api'
 
 /**
  * Shared hook that fetches the current buyer's wishlist and provides
@@ -46,6 +47,8 @@ export function useWishlist() {
       queryClient.invalidateQueries({ queryKey: ['wishlist'] })
     },
     onError: (err: any) => {
+      // Inactive-account errors are toasted + handled by the api interceptor.
+      if (isAccountInactiveError(err)) return
       if (err?.response?.status === 409) {
         queryClient.invalidateQueries({ queryKey: ['wishlist'] })
       } else {

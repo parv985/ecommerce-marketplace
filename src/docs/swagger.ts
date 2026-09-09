@@ -1236,6 +1236,11 @@ const options: swaggerJSDoc.Options = {
             isEmailVerified: {
               type: "boolean",
             },
+            isActive: {
+              type: "boolean",
+              description:
+                "False when a Super Admin has deactivated the account.",
+            },
             createdAt: {
               type: "string",
               format: "date-time",
