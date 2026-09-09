@@ -1,0 +1,44 @@
+/*
+ * Homepage-only styles (imported exclusively by HomePage.tsx).
+ * Everything is namespaced with `nc-home-` so nothing leaks into
+ * other pages of the application.
+ */
+
+/* Faint architectural grid used behind the hero content. */
+.nc-home-grid-bg {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+/* Soft terracotta glow accent. */
+.nc-home-glow {
+  background: radial-gradient(closest-side, rgba(184, 62, 32, 0.4), transparent);
+}
+
+/* Gentle one-shot entrance for hero content (subtle, not flashy). */
+@keyframes nc-home-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.nc-home-rise {
+  animation: nc-home-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.nc-home-rise-1 { animation-delay: 0.05s; }
+.nc-home-rise-2 { animation-delay: 0.14s; }
+.nc-home-rise-3 { animation-delay: 0.23s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .nc-home-rise {
+    animation: none;
+  }
+}
