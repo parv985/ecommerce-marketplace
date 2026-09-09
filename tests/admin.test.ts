@@ -175,4 +175,137 @@ describe("Admin", () => {
     expect(res.status).toBe(200);
     expect(res.body.data.items).toBeDefined();
   });
+
+  it("requires authentication for audit logs", async () => {
+    const res = await api.get("/api/v1/admin/audit-logs");
+    expect(res.status).toBe(401);
+  });
+
+  it("blocks non-admins from audit logs", async () => {
+    const buyerEmail = `ad-audit${Date.now()}@test.com`;
+    await registerUser(buyerEmail);
+    const { token } = await login(buyerEmail);
+
+    const res = await api
+      .get("/api/v1/admin/audit-logs")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(403);
+  });
+
+  it("lists audit logs with pagination and filters", async () => {
+    const token = await adminLogin();
+    const buyerEmail = `ad-audit2${Date.now()}@test.com`;
+    await registerUser(buyerEmail);
+    await login(buyerEmail);
+
+    const users = await api
+      .get("/api/v1/admin/users?role=BUYER")
+      .set("Authorization", `Bearer ${token}`);
+    const user = users.body.data.items.find(
+      (u: { email: string }) => u.email === buyerEmail,
+    );
+
+    await api
+      .patch(`/api/v1/admin/users/${user.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ isActive: false });
+
+    const listed = await api
+      .get("/api/v1/admin/audit-logs")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(listed.status).toBe(200);
+    expect(listed.body.data.page).toBe(1);
+    expect(listed.body.data.limit).toBe(20);
+    expect(listed.body.data.items.length).toBeGreaterThan(0);
+    expect(listed.body.data.items[0].createdAt).toBeDefined();
+    expect(listed.body.data.items[0].action).toBeDefined();
+
+    const page1 = await api
+      .get("/api/v1/admin/audit-logs?page=1&limit=1")
+      .set("Authorization", `Bearer ${token}`);
+    expect(page1.status).toBe(200);
+    expect(page1.body.data.limit).toBe(1);
+    expect(page1.body.data.items).toHaveLength(1);
+    expect(page1.body.data.totalPages).toBeGreaterThanOrEqual(1);
+
+    const page2 = await api
+      .get("/api/v1/admin/audit-logs?page=2&limit=1")
+      .set("Authorization", `Bearer ${token}`);
+    expect(page2.status).toBe(200);
+    if (page2.body.data.total > 1) {
+      expect(page2.body.data.items[0].id).not.toBe(
+        page1.body.data.items[0].id,
+      );
+    }
+
+    const byAction = await api
+      .get("/api/v1/admin/audit-logs?action=USER_STATUS_UPDATE")
+      .set("Authorization", `Bearer ${token}`);
+    expect(byAction.status).toBe(200);
+    expect(byAction.body.data.items.length).toBeGreaterThan(0);
+    for (const log of byAction.body.data.items) {
+      expect(log.action).toBe("USER_STATUS_UPDATE");
+    }
+
+    const byRole = await api
+      .get("/api/v1/admin/audit-logs?actorRole=SUPER_ADMIN")
+      .set("Authorization", `Bearer ${token}`);
+    expect(byRole.status).toBe(200);
+    for (const log of byRole.body.data.items) {
+      expect(log.actorRole).toBe("SUPER_ADMIN");
+    }
+
+    const byEntityType = await api
+      .get("/api/v1/admin/audit-logs?entityType=USER")
+      .set("Authorization", `Bearer ${token}`);
+    expect(byEntityType.status).toBe(200);
+    for (const log of byEntityType.body.data.items) {
+      expect(log.entityType).toBe("USER");
+    }
+
+    const byEntityId = await api
+      .get(`/api/v1/admin/audit-logs?entityId=${user.id}`)
+      .set("Authorization", `Bearer ${token}`);
+    expect(byEntityId.status).toBe(200);
+    expect(byEntityId.body.data.items.length).toBeGreaterThan(0);
+    for (const log of byEntityId.body.data.items) {
+      expect(log.entityId).toBe(user.id);
+    }
+
+    const byActor = await api
+      .get(
+        `/api/v1/admin/audit-logs?actorId=${byAction.body.data.items[0].actorId}`,
+      )
+      .set("Authorization", `Bearer ${token}`);
+    expect(byActor.status).toBe(200);
+    for (const log of byActor.body.data.items) {
+      expect(log.actorId).toBe(byAction.body.data.items[0].actorId);
+    }
+
+    const from = new Date(Date.now() - 60_000).toISOString();
+    const to = new Date(Date.now() + 60_000).toISOString();
+    const byDate = await api
+      .get(
+        `/api/v1/admin/audit-logs?fromDate=${encodeURIComponent(from)}&toDate=${encodeURIComponent(to)}`,
+      )
+      .set("Authorization", `Bearer ${token}`);
+    expect(byDate.status).toBe(200);
+
+    const sortedAsc = await api
+      .get("/api/v1/admin/audit-logs?sortBy=createdAt&sortOrder=asc")
+      .set("Authorization", `Bearer ${token}`);
+    expect(sortedAsc.status).toBe(200);
+    const times = sortedAsc.body.data.items.map(
+      (l: { createdAt: string }) => new Date(l.createdAt).getTime(),
+    );
+    const sorted = [...times].sort((a, b) => a - b);
+    expect(times).toEqual(sorted);
+
+    const tooBig = await api
+      .get("/api/v1/admin/audit-logs?limit=101")
+      .set("Authorization", `Bearer ${token}`);
+    expect(tooBig.status).toBe(400);
+  });
 });
