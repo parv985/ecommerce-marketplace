@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { ShoppingCart, User, Search, Menu, X, Bell, LogOut, Package, LayoutDashboard, Shield } from 'lucide-react'
+import { ShoppingCart, User, Menu, X, Bell, LogOut, Package, LayoutDashboard, Shield } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { cn } from '@/lib/utils'
 import { authApi } from '@/services/auth.service'
 import { toast } from 'react-hot-toast'
 import { useCart } from '@/hooks/useCart'
+import { ProductSearchBar } from '@/components/ProductSearchBar'
 import { Button } from '@/components/ui/Button'
 import { APP_NAME, APP_TAGLINE } from '@/config/brand'
 
@@ -16,16 +17,6 @@ export function Header() {
   const { data: cart } = useCart()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (searchQuery.trim()) {
-      navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`)
-      setSearchQuery('')
-      setMobileOpen(false)
-    }
-  }
 
   const handleLogout = async () => {
     try {
@@ -62,19 +53,10 @@ export function Header() {
             {APP_NAME}<span className="text-[var(--primary)] font-black">.</span>
           </Link>
 
-          {/* Search - Desktop */}
-          <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-xl">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted)]" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search products, brands, or categories..."
-                className="w-full pl-9 pr-4 py-2 bg-[#f6f5f2] border border-[var(--border)] rounded-[var(--radius)] text-sm text-[var(--fg)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] focus:bg-white transition-all"
-              />
-            </div>
-          </form>
+          {/* Search - Desktop (products only, with live suggestions) */}
+          <div className="hidden md:block flex-1 max-w-xl">
+            <ProductSearchBar />
+          </div>
 
           {/* Nav links - Desktop */}
           <nav className="hidden md:flex items-center gap-1.5">
@@ -226,18 +208,7 @@ export function Header() {
       {mobileOpen && (
         <div className="md:hidden border-t border-[var(--border)] bg-white">
           <div className="p-4 space-y-3">
-            <form onSubmit={handleSearch}>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted)]" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search products..."
-                  className="w-full pl-9 pr-4 py-2 bg-[#f6f5f2] border border-[var(--border)] rounded-[var(--radius)] text-sm text-[var(--fg)] focus:outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)]"
-                />
-              </div>
-            </form>
+            <ProductSearchBar onNavigate={() => setMobileOpen(false)} />
             {!isSeller && !isAdmin && (
               <Link to="/products" className="block py-2 text-sm font-medium text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>Shop</Link>
             )}

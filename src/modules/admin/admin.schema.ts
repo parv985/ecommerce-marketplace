@@ -95,6 +95,94 @@ export const adminIdParamsSchema = z
   })
   .strict();
 
+/*
+ * Audit log listing (SUPER_ADMIN only).
+ *
+ * Every filter is optional and combined with AND. `actorId`,
+ * `actorRole`, `action` and `entityType` are matched exactly: the audit
+ * ledger is an append-only record of free-form strings, so the API does
+ * not constrain them to an enum - new actions/entity types recorded by
+ * future code are queryable immediately without a schema change.
+ * (The Swagger docs list the values currently written by the app.)
+ */
+export const auditLogSortFieldSchema = z.enum([
+  "createdAt",
+  "action",
+  "entityType",
+  "actorRole",
+  "actorId",
+]);
+
+export const auditLogSortOrderSchema = z.enum([
+  "asc",
+  "desc",
+]);
+
+export const listAuditLogsQuerySchema = z
+  .object({
+    actorId: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100)
+      .optional(),
+
+    actorRole: z
+      .string()
+      .trim()
+      .min(1)
+      .max(50)
+      .optional(),
+
+    action: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100)
+      .optional(),
+
+    entityType: z
+      .string()
+      .trim()
+      .min(1)
+      .max(50)
+      .optional(),
+
+    entityId: objectId.optional(),
+
+    /*
+     * Inclusive date range on createdAt. Accepts a date
+     * (YYYY-MM-DD) or a full ISO-8601 timestamp. A bare date is
+     * interpreted as UTC midnight for `fromDate` and, in the service
+     * layer, as the END of that UTC day for `toDate` so that picking
+     * a single day returns that whole day.
+     */
+    fromDate: z.coerce.date().optional(),
+    toDate: z.coerce.date().optional(),
+
+    sortBy: auditLogSortFieldSchema
+      .optional()
+      .default("createdAt"),
+
+    sortOrder: auditLogSortOrderSchema
+      .optional()
+      .default("desc"),
+
+    ...pagination,
+  })
+  .strict()
+  .refine(
+    (query) =>
+      !query.fromDate ||
+      !query.toDate ||
+      query.fromDate.getTime() <=
+        query.toDate.getTime(),
+    {
+      message: "fromDate must be on or before toDate",
+      path: ["fromDate"],
+    },
+  );
+
 export type ListUsersQuery = z.infer<
   typeof listUsersQuerySchema
 >;
@@ -106,6 +194,15 @@ export type ListAdminProductsQuery = z.infer<
 >;
 export type ListAdminOrdersQuery = z.infer<
   typeof listAdminOrdersQuerySchema
+>;
+export type ListAuditLogsQuery = z.infer<
+  typeof listAuditLogsQuerySchema
+>;
+export type AuditLogSortField = z.infer<
+  typeof auditLogSortFieldSchema
+>;
+export type AuditLogSortOrder = z.infer<
+  typeof auditLogSortOrderSchema
 >;
 export type UpdateUserStatusInput = z.infer<
   typeof updateUserStatusSchema

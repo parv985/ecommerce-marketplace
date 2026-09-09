@@ -528,6 +528,42 @@ export interface AdminUser extends UserSummary {
   createdAt: string
 }
 
+// Mirrors the backend `AdminAuditLogResponse` (src/modules/admin/admin.types.ts)
+// returned by GET /admin/audit-logs. `before`/`after`/`metadata` are free-form
+// JSON whose shape depends on the action that wrote the entry.
+export interface AuditLog {
+  id: string
+  actorId: string
+  actorRole: string
+  action: string
+  entityType: string
+  entityId: string | null
+  before: unknown
+  after: unknown
+  metadata: unknown
+  createdAt: string
+}
+
+// Query parameters accepted by GET /admin/audit-logs
+// (src/modules/admin/admin.schema.ts — listAuditLogsQuerySchema).
+export type AuditLogSortField = 'createdAt' | 'action' | 'entityType' | 'actorRole' | 'actorId'
+
+export interface AuditLogQuery {
+  actorId?: string
+  actorRole?: string
+  action?: string
+  entityType?: string
+  entityId?: string
+  /** Inclusive lower bound on createdAt (YYYY-MM-DD or ISO timestamp). */
+  fromDate?: string
+  /** Inclusive upper bound on createdAt (a bare date covers the whole UTC day). */
+  toDate?: string
+  sortBy?: AuditLogSortField
+  sortOrder?: 'asc' | 'desc'
+  page?: number
+  limit?: number
+}
+
 // Mirrors the backend `SettlementResponse` / `SettlementOrderResponse`
 // (src/modules/settlements/settlement.types.ts) returned by
 // GET /sellers/settlement, GET /admin/settlements and GET /admin/settlements/:id.

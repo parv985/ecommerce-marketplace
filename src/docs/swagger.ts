@@ -405,7 +405,10 @@ const options: swaggerJSDoc.Options = {
             },
             price: {
               type: "number",
-              exclusiveMinimum: 0,
+              /* OpenAPI 3.0: exclusiveMinimum is a boolean modifier
+                 on `minimum` (price must be > 0). */
+              minimum: 0,
+              exclusiveMinimum: true,
               maximum: 10000000,
               example: 499.5,
             },
@@ -463,7 +466,10 @@ const options: swaggerJSDoc.Options = {
             },
             price: {
               type: "number",
-              exclusiveMinimum: 0,
+              /* OpenAPI 3.0: exclusiveMinimum is a boolean modifier
+                 on `minimum` (price must be > 0). */
+              minimum: 0,
+              exclusiveMinimum: true,
               maximum: 10000000,
             },
             stock: {
@@ -2236,6 +2242,105 @@ const options: swaggerJSDoc.Options = {
             },
             totalPages: {
               type: "integer",
+            },
+          },
+        },
+
+        /*
+         * One entry of the audit ledger as returned by
+         * GET /api/v1/admin/audit-logs.
+         */
+        AuditLog: {
+          type: "object",
+          properties: {
+            id: {
+              type: "string",
+              description: "Audit log entry ObjectId",
+            },
+            actorId: {
+              type: "string",
+              description:
+                'User ObjectId, or a system actor ("system", "webhook")',
+            },
+            actorRole: {
+              type: "string",
+              description:
+                "Role recorded at write time: BUYER, SELLER, SUPER_ADMIN or SYSTEM",
+              example: "SUPER_ADMIN",
+            },
+            action: {
+              type: "string",
+              description:
+                "Action key, e.g. USER_STATUS_UPDATE, ORDER_CREATED, SELLER_REGISTERED",
+              example: "USER_STATUS_UPDATE",
+            },
+            entityType: {
+              type: "string",
+              description:
+                "Entity the action targeted, e.g. USER, ORDER, SELLER, PRODUCT, SETTLEMENT",
+              example: "USER",
+            },
+            entityId: {
+              type: "string",
+              nullable: true,
+              description:
+                "ObjectId of the affected entity, null when the entry has no entity",
+            },
+            before: {
+              type: "object",
+              nullable: true,
+              additionalProperties: true,
+              description:
+                "Free-form state before the action (shape depends on the action)",
+            },
+            after: {
+              type: "object",
+              nullable: true,
+              additionalProperties: true,
+              description:
+                "Free-form state after the action (shape depends on the action)",
+            },
+            metadata: {
+              type: "object",
+              nullable: true,
+              additionalProperties: true,
+              description:
+                "Free-form extra context (e.g. the reason supplied with a status change)",
+            },
+            createdAt: {
+              type: "string",
+              format: "date-time",
+            },
+          },
+        },
+
+        AuditLogList: {
+          type: "object",
+          properties: {
+            items: {
+              type: "array",
+              items: {
+                $ref: "#/components/schemas/AuditLog",
+              },
+            },
+            page: {
+              type: "integer",
+              description: "Current 1-based page",
+              example: 1,
+            },
+            limit: {
+              type: "integer",
+              description: "Page size that was applied",
+              example: 20,
+            },
+            total: {
+              type: "integer",
+              description:
+                "Total entries matching the filters (not just this page)",
+            },
+            totalPages: {
+              type: "integer",
+              description: "0 when nothing matches",
             },
           },
         },

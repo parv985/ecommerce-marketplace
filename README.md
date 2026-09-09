@@ -66,7 +66,7 @@ Swagger UI is served at:
 http://localhost:5000/api-docs/
 ```
 
-Every production endpoint is documented there (100 operations), grouped by tag: **Authentication, Sellers, Products, Categories, Users, Cart, Orders, Discounts, Coupons, Returns, Payments, Reviews, Notifications, Analytics, Admin, System**. Use the **Authorize** button to paste an access token and call protected endpoints interactively.
+Every production endpoint is documented there (118 operations), grouped by tag: **Authentication, Sellers, Products, Categories, Users, Cart, Orders, Discounts, Coupons, Returns, Payments, Reviews, Notifications, Analytics, Admin, System**. Use the **Authorize** button to paste an access token and call protected endpoints interactively.
 
 A ready-made **Postman collection** (generated from the OpenAPI spec, folder per tag, bearer auth preconfigured) lives at `docs/postman-collection.json`. Regenerate it with `npx tsx tests/generate-postman.ts`.
 
@@ -100,11 +100,13 @@ For comprehensive API testing instructions, see the [Postman Testing Guide](docs
 | Notifications | In-app + email notifications for orders, payments, returns, seller decisions, settlements and admin broadcasts; per-recipient preference model (`/notifications/preferences`); email is fire-and-forget with bounded retries |
 | Analytics   | Seller dashboard, sales series, top products, customers and revenue statistics — all MongoDB aggregations scoped to the authenticated seller |
 | Settlements | Configurable platform commission (default 10%, admin-adjustable, snapshotted per settlement so history is never recalculated). Admin generates monthly settlements (unique per seller+period — idempotent) and walks `PENDING → PROCESSING → PAID | FAILED | CANCELLED`; sellers view their own settlements |
-| Admin       | User activation/deactivation, seller approval/rejection, product moderation, order overview, settlement dashboard, commission settings, notification broadcasts — `SUPER_ADMIN` only |
+| Admin       | User activation/deactivation, seller approval/rejection, product moderation, order overview, settlement dashboard, commission settings, notification broadcasts, **filterable audit log viewer** — `SUPER_ADMIN` only |
 
 ## Audit Logging
 
 Every important action is written to the `auditlogs` collection through one reusable service: logins, order creation/cancellation/status changes, product/discount/coupon changes, return requests, seller registration/approval, payments (initiated/verified/captured/refunded), settlement actions and commission changes. Entries carry actor, action, entity, before/after values and metadata — passwords, tokens, TOTP secrets and recovery codes are never logged.
+
+The ledger is readable through **`GET /api/v1/admin/audit-logs`** (`SUPER_ADMIN` only), which paginates the existing entries (`page` default 1, `limit` default 20, max 100) and filters them by `actorId`, `actorRole`, `action`, `entityType`, `entityId` and an inclusive `fromDate`/`toDate` range on `createdAt`. Sorting is configurable via `sortBy` (`createdAt` | `action` | `entityType` | `actorRole` | `actorId`) and `sortOrder` (`asc` | `desc`), defaulting to newest first. The endpoint is a pure read — it never writes an audit entry itself — and is consumed by the admin console's **Audit Log** page (`/admin/audit`).
 
 ## Inventory Consistency
 

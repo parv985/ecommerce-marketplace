@@ -8,11 +8,13 @@ import type { UserDocument } from "../../models/User.js";
 import type { ISeller } from "../../models/Seller.js";
 import type { IProduct } from "../../models/Product.js";
 import type { IOrder } from "../../models/Order.js";
+import type { IAuditLog } from "../../models/AuditLog.js";
 import {
   findSellerById,
   findUserById,
   listAllOrders,
   listAllProducts,
+  listAuditLogs,
   listSellers,
   listUsers,
   updateProductStatusById,
@@ -22,6 +24,7 @@ import {
 import {
   listAdminOrdersQuerySchema,
   listAdminProductsQuerySchema,
+  listAuditLogsQuerySchema,
   listSellersQuerySchema,
   listUsersQuerySchema,
   updateProductStatusSchema,
@@ -29,6 +32,7 @@ import {
   updateUserStatusSchema,
   type ListAdminOrdersQuery,
   type ListAdminProductsQuery,
+  type ListAuditLogsQuery,
   type ListSellersQuery,
   type ListUsersQuery,
   type UpdateProductStatusInput,
@@ -36,6 +40,7 @@ import {
   type UpdateUserStatusInput,
 } from "./admin.schema.js";
 import type {
+  AdminAuditLogResponse,
   AdminListResponse,
   AdminOrderResponse,
   AdminProductResponse,
@@ -351,6 +356,116 @@ export const getAdminOrdersList = async (
 
   return {
     items: items.map(toAdminOrderResponse),
+    page: parsed.page,
+    limit: parsed.limit,
+    total,
+    totalPages:
+      Math.ceil(total / parsed.limit) || 0,
+  };
+};
+
+const toAdminAuditLogResponse = (
+  log: IAuditLog,
+): AdminAuditLogResponse => {
+  return {
+    id: log._id.toString(),
+    actorId: log.actorId,
+    actorRole: log.actorRole,
+    action: log.action,
+    entityType: log.entityType,
+    entityId: log.entityId
+      ? log.entityId.toString()
+      : null,
+    before: log.before ?? null,
+    after: log.after ?? null,
+    metadata: log.metadata ?? null,
+    createdAt: log.createdAt,
+  };
+};
+
+/*
+ * A `toDate` given as a bare date (YYYY-MM-DD) coerces to UTC
+ * midnight, which would silently exclude everything logged later that
+ * same day. When the timestamp carries no time component we widen it
+ * to the end of that UTC day so "from 2026-01-01 to 2026-01-31"
+ * really means "the whole of January".
+ */
+const toInclusiveUpperBound = (date: Date): Date => {
+  const hasTimeComponent =
+    date.getUTCHours() !== 0 ||
+    date.getUTCMinutes() !== 0 ||
+    date.getUTCSeconds() !== 0 ||
+    date.getUTCMilliseconds() !== 0;
+
+  if (hasTimeComponent) {
+    return date;
+  }
+
+  const endOfDay = new Date(date);
+  endOfDay.setUTCHours(23, 59, 59, 999);
+
+  return endOfDay;
+};
+
+export const getAuditLogsList = async (
+  query: unknown,
+): Promise<AdminListResponse<AdminAuditLogResponse>> => {
+  const parsed: ListAuditLogsQuery =
+    listAuditLogsQuerySchema.parse(query);
+
+  const filter: Record<string, unknown> = {};
+
+  if (parsed.actorId) {
+    filter.actorId = parsed.actorId;
+  }
+
+  if (parsed.actorRole) {
+    filter.actorRole = parsed.actorRole;
+  }
+
+  if (parsed.action) {
+    filter.action = parsed.action;
+  }
+
+  if (parsed.entityType) {
+    filter.entityType = parsed.entityType;
+  }
+
+  if (parsed.entityId) {
+    filter.entityId = parsed.entityId;
+  }
+
+  if (parsed.fromDate || parsed.toDate) {
+    const createdAt: Record<string, Date> = {};
+
+    if (parsed.fromDate) {
+      createdAt.$gte = parsed.fromDate;
+    }
+
+    if (parsed.toDate) {
+      createdAt.$lte = toInclusiveUpperBound(
+        parsed.toDate,
+      );
+    }
+
+    filter.createdAt = createdAt;
+  }
+
+  /* Default: newest first (createdAt desc). */
+  const sort: Record<string, 1 | -1> = {
+    [parsed.sortBy]:
+      parsed.sortOrder === "asc" ? 1 : -1,
+  };
+
+  const { items, total } = await listAuditLogs(
+    filter,
+    sort,
+    parsed.page,
+    parsed.limit,
+  );
+
+  return {
+    items: items.map(toAdminAuditLogResponse),
     page: parsed.page,
     limit: parsed.limit,
     total,

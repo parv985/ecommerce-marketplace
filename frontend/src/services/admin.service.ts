@@ -1,5 +1,15 @@
 import api from './api'
-import type { ApiResponse, PaginatedResponse, AdminUser, SellerProfile, Product, AdminOrder, Settlement } from '@/types/api'
+import type {
+  ApiResponse,
+  PaginatedResponse,
+  AdminUser,
+  SellerProfile,
+  Product,
+  AdminOrder,
+  Settlement,
+  AuditLog,
+  AuditLogQuery,
+} from '@/types/api'
 
 export const adminService = {
   // Users
@@ -26,6 +36,21 @@ export const adminService = {
   // Orders
   getOrders: (params?: { status?: string; page?: number; limit?: number }) =>
     api.get<ApiResponse<PaginatedResponse<AdminOrder>>>('/admin/orders', { params }).then(r => r.data.data),
+
+  // Audit logs (SUPER_ADMIN only)
+  // Empty values are dropped: the backend query schema is strict and rejects
+  // empty strings, and every filter is optional.
+  getAuditLogs: (params?: AuditLogQuery) => {
+    const clean: Record<string, string | number> = {}
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') clean[key] = value
+      })
+    }
+    return api
+      .get<ApiResponse<PaginatedResponse<AuditLog>>>('/admin/audit-logs', { params: clean })
+      .then(r => r.data.data)
+  },
 
   // Settlements
   getSettlements: (params?: { status?: string; sellerId?: string; month?: string; page?: number; limit?: number }) =>
