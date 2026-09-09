@@ -51,19 +51,6 @@ export interface AdminOrderResponse {
   createdAt: Date;
 }
 
-export interface AdminAuditLogResponse {
-  id: string;
-  actorId: string;
-  actorRole: string;
-  action: string;
-  entityType: string;
-  entityId: string | null;
-  before: unknown;
-  after: unknown;
-  metadata: unknown;
-  createdAt: Date;
-}
-
 export interface AdminListResponse<T> {
   items: T[];
   page: number;

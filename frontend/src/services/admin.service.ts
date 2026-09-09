@@ -1,5 +1,5 @@
 import api from './api'
-import type { ApiResponse, PaginatedResponse, AdminUser, SellerProfile, Product, AdminOrder, Settlement, AuditLog } from '@/types/api'
+import type { ApiResponse, PaginatedResponse, AdminUser, SellerProfile, Product, AdminOrder, Settlement } from '@/types/api'
 
 export const adminService = {
   // Users
@@ -60,21 +60,6 @@ export const adminService = {
     api.patch<ApiResponse<{ rate: number }>>('/admin/settings/commission', { rate }).then(r => r.data.data),
 
   // Notifications
-  getAuditLogs: (params?: {
-    actorId?: string
-    actorRole?: string
-    action?: string
-    entityType?: string
-    entityId?: string
-    fromDate?: string
-    toDate?: string
-    sortBy?: string
-    sortOrder?: 'asc' | 'desc'
-    page?: number
-    limit?: number
-  }) =>
-    api.get<ApiResponse<PaginatedResponse<AuditLog>>>('/admin/audit-logs', { params }).then(r => r.data.data),
-
   broadcast: (data: {
     title: string
     message: string

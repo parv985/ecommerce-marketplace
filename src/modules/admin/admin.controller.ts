@@ -8,7 +8,6 @@ import { sendSuccess } from "../../utils/apiResponse.js";
 import {
   getAdminOrdersList,
   getAdminProductsList,
-  getAuditLogsList,
   getSellersList,
   getUsersList,
   setProductStatus,
@@ -290,19 +289,6 @@ export const getCommissionSettingsController =
       { rate },
     );
   };
-
-export const listAuditLogsController = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
-  const result = await getAuditLogsList(req.query);
-
-  sendSuccess(
-    res,
-    "Audit logs fetched successfully",
-    result,
-  );
-};
 
 export const updateCommissionSettingsController =
   async (

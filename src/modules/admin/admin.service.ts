@@ -13,7 +13,6 @@ import {
   findUserById,
   listAllOrders,
   listAllProducts,
-  listAuditLogs,
   listSellers,
   listUsers,
   updateProductStatusById,
@@ -23,7 +22,6 @@ import {
 import {
   listAdminOrdersQuerySchema,
   listAdminProductsQuerySchema,
-  listAuditLogsQuerySchema,
   listSellersQuerySchema,
   listUsersQuerySchema,
   updateProductStatusSchema,
@@ -31,7 +29,6 @@ import {
   updateUserStatusSchema,
   type ListAdminOrdersQuery,
   type ListAdminProductsQuery,
-  type ListAuditLogsQuery,
   type ListSellersQuery,
   type ListUsersQuery,
   type UpdateProductStatusInput,
@@ -39,14 +36,12 @@ import {
   type UpdateUserStatusInput,
 } from "./admin.schema.js";
 import type {
-  AdminAuditLogResponse,
   AdminListResponse,
   AdminOrderResponse,
   AdminProductResponse,
   AdminSellerResponse,
   AdminUserResponse,
 } from "./admin.types.js";
-import type { IAuditLog } from "../../models/AuditLog.js";
 
 const toAdminUserResponse = (
   user: UserDocument,
@@ -356,75 +351,6 @@ export const getAdminOrdersList = async (
 
   return {
     items: items.map(toAdminOrderResponse),
-    page: parsed.page,
-    limit: parsed.limit,
-    total,
-    totalPages:
-      Math.ceil(total / parsed.limit) || 0,
-  };
-};
-
-const toAdminAuditLogResponse = (
-  log: IAuditLog,
-): AdminAuditLogResponse => {
-  return {
-    id: log._id.toString(),
-    actorId: log.actorId,
-    actorRole: log.actorRole,
-    action: log.action,
-    entityType: log.entityType,
-    entityId: log.entityId ? log.entityId.toString() : null,
-    before: log.before ?? null,
-    after: log.after ?? null,
-    metadata: log.metadata ?? null,
-    createdAt: log.createdAt,
-  };
-};
-
-export const getAuditLogsList = async (
-  query: unknown,
-): Promise<AdminListResponse<AdminAuditLogResponse>> => {
-  const parsed: ListAuditLogsQuery =
-    listAuditLogsQuerySchema.parse(query);
-
-  const filter: Record<string, unknown> = {};
-
-  if (parsed.actorId) {
-    filter.actorId = parsed.actorId;
-  }
-  if (parsed.actorRole) {
-    filter.actorRole = parsed.actorRole;
-  }
-  if (parsed.action) {
-    filter.action = parsed.action;
-  }
-  if (parsed.entityType) {
-    filter.entityType = parsed.entityType;
-  }
-  if (parsed.entityId) {
-    filter.entityId = parsed.entityId;
-  }
-  if (parsed.fromDate || parsed.toDate) {
-    const createdAt: Record<string, Date> = {};
-    if (parsed.fromDate) {
-      createdAt.$gte = parsed.fromDate;
-    }
-    if (parsed.toDate) {
-      createdAt.$lte = parsed.toDate;
-    }
-    filter.createdAt = createdAt;
-  }
-
-  const { items, total } = await listAuditLogs(
-    filter,
-    parsed.page,
-    parsed.limit,
-    parsed.sortBy,
-    parsed.sortOrder,
-  );
-
-  return {
-    items: items.map(toAdminAuditLogResponse),
     page: parsed.page,
     limit: parsed.limit,
     total,

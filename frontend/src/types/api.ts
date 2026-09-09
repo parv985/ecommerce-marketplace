@@ -528,19 +528,6 @@ export interface AdminUser extends UserSummary {
   createdAt: string
 }
 
-export interface AuditLog {
-  id: string
-  actorId: string
-  actorRole: string
-  action: string
-  entityType: string
-  entityId: string | null
-  before: unknown
-  after: unknown
-  metadata: unknown
-  createdAt: string
-}
-
 // Mirrors the backend `SettlementResponse` / `SettlementOrderResponse`
 // (src/modules/settlements/settlement.types.ts) returned by
 // GET /sellers/settlement, GET /admin/settlements and GET /admin/settlements/:id.

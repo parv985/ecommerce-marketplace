@@ -1,11 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { ShoppingCart, User, Search, Menu, X, Bell, LogOut, Package, LayoutDashboard, Shield } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
-import { cn, formatPrice } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { authApi } from '@/services/auth.service'
-import { productService } from '@/services/product.service'
-import type { Product } from '@/types/api'
 import { toast } from 'react-hot-toast'
 import { useCart } from '@/hooks/useCart'
 import { Button } from '@/components/ui/Button'
@@ -19,98 +17,14 @@ export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [suggestions, setSuggestions] = useState<Product[]>([])
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const [searching, setSearching] = useState(false)
-  const searchBoxRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const q = searchQuery.trim()
-    if (q.length < 1) {
-      setSuggestions([])
-      setSearching(false)
-      return
-    }
-
-    setSearching(true)
-    const handle = window.setTimeout(() => {
-      productService
-        .browse({ search: q, limit: 8, page: 1 })
-        .then((res) => {
-          setSuggestions(res.items ?? [])
-          setShowSuggestions(true)
-        })
-        .catch(() => setSuggestions([]))
-        .finally(() => setSearching(false))
-    }, 250)
-
-    return () => window.clearTimeout(handle)
-  }, [searchQuery])
-
-  useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      if (searchBoxRef.current && !searchBoxRef.current.contains(e.target as Node)) {
-        setShowSuggestions(false)
-      }
-    }
-    document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (searchQuery.trim()) {
       navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`)
       setSearchQuery('')
-      setSuggestions([])
-      setShowSuggestions(false)
       setMobileOpen(false)
     }
-  }
-
-  const goToProduct = (id: string) => {
-    navigate(`/products/${id}`)
-    setSearchQuery('')
-    setSuggestions([])
-    setShowSuggestions(false)
-    setMobileOpen(false)
-  }
-
-  const renderSuggestions = () => {
-    if (!showSuggestions || searchQuery.trim().length < 1) return null
-    return (
-      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[var(--border)] rounded-[var(--radius)] shadow-[var(--shadow-lg)] z-50 max-h-80 overflow-y-auto">
-        {searching && suggestions.length === 0 && (
-          <p className="px-3 py-2 text-sm text-[var(--muted)]">Searching…</p>
-        )}
-        {!searching && suggestions.length === 0 && (
-          <p className="px-3 py-2 text-sm text-[var(--muted)]">No products found</p>
-        )}
-        {suggestions.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            onClick={() => goToProduct(p.id)}
-            className="w-full text-left px-3 py-2.5 hover:bg-[var(--accent)] flex items-center gap-3 border-b border-[var(--border-subtle)] last:border-b-0"
-          >
-            {p.images?.[0]?.url ? (
-              <img src={p.images[0].url} alt="" className="h-10 w-10 rounded object-cover shrink-0" />
-            ) : (
-              <div className="h-10 w-10 rounded bg-[var(--bg-subtle)] shrink-0" />
-            )}
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium truncate">{p.name}</p>
-              <p className="text-xs text-[var(--muted)]">{formatPrice(p.price)}</p>
-            </div>
-            {p.stock < 5 && (
-              <span className="text-[10px] font-medium text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded shrink-0">
-                Only {p.stock} left
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-    )
   }
 
   const handleLogout = async () => {
@@ -150,18 +64,15 @@ export function Header() {
 
           {/* Search - Desktop */}
           <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-xl">
-            <div className="relative w-full" ref={searchBoxRef}>
+            <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted)]" />
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true) }}
-                onFocus={() => searchQuery.trim() && setShowSuggestions(true)}
-                placeholder="Search products..."
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search products, brands, or categories..."
                 className="w-full pl-9 pr-4 py-2 bg-[#f6f5f2] border border-[var(--border)] rounded-[var(--radius)] text-sm text-[var(--fg)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] focus:bg-white transition-all"
-                autoComplete="off"
               />
-              {renderSuggestions()}
             </div>
           </form>
 
@@ -321,13 +232,10 @@ export function Header() {
                 <input
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true) }}
-                  onFocus={() => searchQuery.trim() && setShowSuggestions(true)}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search products..."
                   className="w-full pl-9 pr-4 py-2 bg-[#f6f5f2] border border-[var(--border)] rounded-[var(--radius)] text-sm text-[var(--fg)] focus:outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)]"
-                  autoComplete="off"
                 />
-                {renderSuggestions()}
               </div>
             </form>
             {!isSeller && !isAdmin && (
