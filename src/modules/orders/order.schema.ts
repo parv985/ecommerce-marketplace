@@ -63,8 +63,24 @@ export const listOrdersQuerySchema = z
   })
   .strict();
 
+export const previewOrderSchema = z
+  .object({
+    couponCode: z
+      .string()
+      .trim()
+      .min(3)
+      .max(30)
+      .transform((value) =>
+        value.toUpperCase(),
+      )
+      .optional(),
+  })
+  .strict();
+
 export type CreateOrderInput =
   z.infer<typeof createOrderSchema>;
+export type PreviewOrderInput =
+  z.infer<typeof previewOrderSchema>;
 export type UpdateOrderStatusInput =
   z.infer<typeof updateOrderStatusSchema>;
 export type ListOrdersQuery =

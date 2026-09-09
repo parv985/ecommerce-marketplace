@@ -9,6 +9,7 @@ import { UserRole } from "../../constants/roles.js";
 import { AppError } from "../../errors/AppError.js";
 import type { IOrder } from "../../models/Order.js";
 import type { IProduct } from "../../models/Product.js";
+import type { ICart } from "../../models/Cart.js";
 import { findAddressByIdAndUser } from "../users/user.repository.js";
 import {
   claimCartForCheckout,
@@ -57,12 +58,15 @@ import {
 import {
   createOrderSchema,
   listOrdersQuerySchema,
+  previewOrderSchema,
   updateOrderStatusSchema,
   type CreateOrderInput,
   type ListOrdersQuery,
+  type PreviewOrderInput,
   type UpdateOrderStatusInput,
 } from "./order.schema.js";
 import type {
+  CheckoutPreviewResponse,
   OrderResponse,
   PaginatedOrders,
 } from "./order.types.js";
@@ -214,6 +218,267 @@ const toOrderResponse = async (
   };
 };
 
+/* ---------------------------------------------------------------------
+ * Checkout computation shared by order creation and the no-side-effect
+ * checkout preview (POST /orders/preview).
+ *
+ * Both paths MUST agree exactly on the money:
+ *  - prices come from the database, never from the client;
+ *  - live sales discounts are resolved once through the shared pricing
+ *    service (product discount beats category discount, highest
+ *    percentage wins, never stacked);
+ *  - cart lines are grouped per seller (one order per seller);
+ *  - an optional coupon is applied AFTER the sales discount, only to the
+ *    order of the seller that owns the coupon.
+ * ---------------------------------------------------------------------
+ */
+
+interface SellerOrderDraftItem {
+  productId: Types.ObjectId;
+  name: string;
+  price: number;
+  quantity: number;
+  subtotal: number;
+  discountAmount: number;
+  categoryId?: string | null;
+}
+
+interface SellerOrderDraft {
+  items: SellerOrderDraftItem[];
+  itemsTotal: number;
+  discountTotal: number;
+}
+
+interface CheckoutCouponPlan {
+  couponId: string;
+  couponCode: string;
+  discountAmount: number;
+  sellerId: string;
+}
+
+/**
+ * Builds the per-seller order drafts (with live sales discounts) and the
+ * coupon plan for a cart. Pure computation - performs no writes, claims
+ * no coupon usage slots and decrements no stock. Throws the same
+ * errors as checkout for unavailable products, insufficient stock or an
+ * unusable coupon.
+ */
+const buildCheckoutPlan = async (
+  cart: ICart,
+  couponCode: string | null | undefined,
+  userId: string,
+): Promise<{
+  productMap: Map<string, IProduct>;
+  orderDrafts: Map<string, SellerOrderDraft>;
+  couponPlan: CheckoutCouponPlan | null;
+}> => {
+  const productIds = cart.items.map((item) =>
+    item.productId.toString(),
+  );
+
+  const products =
+    await findActiveProductsByIds(productIds);
+
+  const productMap = new Map<
+    string,
+    IProduct
+  >();
+
+  for (const product of products) {
+    productMap.set(
+      product._id.toString(),
+      product,
+    );
+  }
+
+  /*
+   * Validate every line before anything else so a partially unavailable
+   * cart fails fast with a clear message.
+   */
+  for (const item of cart.items) {
+    const product = productMap.get(
+      item.productId.toString(),
+    );
+
+    if (!product) {
+      throw new AppError(
+        "Some products in your cart are no longer available",
+        400,
+        "PRODUCT_UNAVAILABLE",
+      );
+    }
+
+    if (item.quantity > product.stock) {
+      throw new AppError(
+        `Insufficient stock for ${product.name}`,
+        400,
+        "INSUFFICIENT_STOCK",
+      );
+    }
+  }
+
+  const discountMap =
+    await resolveDiscountsForProducts(
+      cart.items.map((item) => {
+        const product = productMap.get(
+          item.productId.toString(),
+        )!;
+
+        return {
+          id: product._id.toString(),
+          categoryId: product.category
+            ? product.category.toString()
+            : null,
+          price: product.price,
+        };
+      }),
+    );
+
+  /*
+   * Group cart lines by seller so each order belongs to exactly one
+   * seller (a marketplace checkout can produce several orders).
+   */
+  const bySeller = new Map<
+    string,
+    Array<{
+      product: IProduct;
+      quantity: number;
+    }>
+  >();
+
+  for (const item of cart.items) {
+    const product = productMap.get(
+      item.productId.toString(),
+    )!;
+
+    const sellerId =
+      product.sellerId.toString();
+
+    const lines = bySeller.get(sellerId) ?? [];
+
+    lines.push({
+      product,
+      quantity: item.quantity,
+    });
+
+    bySeller.set(sellerId, lines);
+  }
+
+  const orderDrafts = new Map<
+    string,
+    SellerOrderDraft
+  >();
+
+  for (const [sellerId, lines] of bySeller) {
+    const items = lines.map(
+      (line): SellerOrderDraftItem => {
+        const discount = discountMap.get(
+          line.product._id.toString(),
+        );
+
+        const subtotal = roundMoney(
+          line.product.price * line.quantity,
+        );
+
+        const discountAmount = discount
+          ? roundMoney(
+              discount.discountAmount *
+                line.quantity,
+            )
+          : 0;
+
+        return {
+          productId: line.product._id,
+          name: line.product.name,
+          price: line.product.price,
+          quantity: line.quantity,
+          subtotal,
+          discountAmount,
+          categoryId: line.product.category
+            ? line.product.category.toString()
+            : null,
+        };
+      },
+    );
+
+    const itemsTotal = items.reduce(
+      (sum, item) => sum + item.subtotal,
+      0,
+    );
+
+    const discountTotal = items.reduce(
+      (sum, item) => sum + item.discountAmount,
+      0,
+    );
+
+    orderDrafts.set(sellerId, {
+      items,
+      itemsTotal,
+      discountTotal,
+    });
+  }
+
+  /*
+   * Coupon evaluation (no side effects - the usage slot is reserved by
+   * the caller only when an actual order is about to be persisted). The
+   * code must belong to one of the sellers in the cart; it applies to
+   * that seller's order AFTER the sales discount.
+   */
+  let couponPlan: CheckoutCouponPlan | null =
+    null;
+
+  if (couponCode) {
+    const coupon =
+      await findCouponByCode(couponCode);
+
+    if (
+      !coupon ||
+      !bySeller.has(
+        coupon.sellerId.toString(),
+      )
+    ) {
+      throw new AppError(
+        "Coupon is not valid for the items in your cart",
+        400,
+        "COUPON_NOT_APPLICABLE",
+      );
+    }
+
+    const couponSellerId =
+      coupon.sellerId.toString();
+    const draft = orderDrafts.get(
+      couponSellerId,
+    )!;
+
+    const evaluation =
+      await evaluateCouponForOrder({
+        code: couponCode,
+        userId,
+        itemsTotal: draft.itemsTotal,
+        discountTotal: draft.discountTotal,
+        items: draft.items.map((item) => ({
+          productId:
+            item.productId.toString(),
+          categoryId:
+            item.categoryId ?? null,
+        })),
+      });
+
+    couponPlan = {
+      couponId: evaluation.coupon._id.toString(),
+      couponCode,
+      discountAmount: evaluation.discountAmount,
+      sellerId: evaluation.sellerId,
+    };
+  }
+
+  return {
+    productMap,
+    orderDrafts,
+    couponPlan,
+  };
+};
+
 export const createOrderFromCart = async (
   user: { id: string; role: UserRole },
   input: unknown,
@@ -268,362 +533,146 @@ export const createOrderFromCart = async (
   let created: IOrder[] = [];
 
   try {
-  const productIds = cart.items.map((item) =>
-    item.productId.toString(),
-  );
-
-  const products =
-    await findActiveProductsByIds(productIds);
-
-  const productMap = new Map<
-    string,
-    IProduct
-  >();
-
-  for (const product of products) {
-    productMap.set(
-      product._id.toString(),
-      product,
-    );
-  }
-
-  /*
-   * Validate every line before touching any stock so a partially
-   * unavailable cart fails fast with a clear message.
-   */
-  for (const item of cart.items) {
-    const product = productMap.get(
-      item.productId.toString(),
-    );
-
-    if (!product) {
-      throw new AppError(
-        "Some products in your cart are no longer available",
-        400,
-        "PRODUCT_UNAVAILABLE",
+    const { productMap, orderDrafts, couponPlan } =
+      await buildCheckoutPlan(
+        cart,
+        data.couponCode,
+        userId,
       );
-    }
 
-    if (item.quantity > product.stock) {
-      throw new AppError(
-        `Insufficient stock for ${product.name}`,
-        400,
-        "INSUFFICIENT_STOCK",
-      );
-    }
-  }
+    /*
+     * Atomic stock decrement with a $gte guard for every line.
+     * If any decrement fails (race/oversell), roll back the ones
+     * already applied so a failed checkout never leaks inventory.
+     */
+    const applied: Array<{
+      productId: string;
+      quantity: number;
+    }> = [];
 
-  /*
-   * Atomic stock decrement with a $gte guard for every line.
-   * If any decrement fails (race/oversell), roll back the ones
-   * already applied so a failed checkout never leaks inventory.
-   */
-  const applied: Array<{
-    productId: string;
-    quantity: number;
-  }> = [];
-
-  try {
-    for (const item of cart.items) {
-      const product = productMap.get(
-        item.productId.toString(),
-      )!;
-
-      const previousStock = product.stock;
-
-      const ok =
-        await decrementProductStock(
-          item.productId.toString(),
-          item.quantity,
-        );
-
-      if (!ok) {
-        throw new AppError(
-          "Insufficient stock for one or more products",
-          400,
-          "INSUFFICIENT_STOCK",
-        );
-      }
-
-      await recordStockChange({
-        productId: item.productId.toString(),
-        sellerId: product.sellerId.toString(),
-        type: InventoryTransactionType.STOCK_DECREMENT,
-        quantity: -item.quantity,
-        previousStock,
-        actorId: user.id,
-        actorRole: user.role,
-        reason: "Order placed",
-      });
-
-      applied.push({
-        productId: item.productId.toString(),
-        quantity: item.quantity,
-      });
-    }
-  } catch (error) {
-    for (const entry of applied) {
-      await incrementProductStock(
-        entry.productId,
-        entry.quantity,
-      );
-    }
-
-    throw error;
-  }
-
-  /*
-   * Resolve live sales discounts once for the whole cart through the
-   * shared pricing service (product discount beats category discount,
-   * highest percentage wins, never stacked). Prices and discount
-   * amounts are always derived server-side - the client never sends
-   * totals.
-   */
-  const discountMap =
-    await resolveDiscountsForProducts(
-      cart.items.map((item) => {
+    try {
+      for (const item of cart.items) {
         const product = productMap.get(
           item.productId.toString(),
         )!;
 
-        return {
-          id: product._id.toString(),
-          categoryId: product.category
-            ? product.category.toString()
-            : null,
-          price: product.price,
-        };
-      }),
-    );
+        const previousStock = product.stock;
 
-  /*
-   * Group cart lines by seller so each order belongs to exactly
-   * one seller (a marketplace checkout can produce several orders).
-   */
-  const bySeller = new Map<
-    string,
-    Array<{
-      product: IProduct;
-      quantity: number;
-    }>
-  >();
-
-  for (const item of cart.items) {
-    const product = productMap.get(
-      item.productId.toString(),
-    )!;
-
-    const sellerId =
-      product.sellerId.toString();
-
-    const lines =
-      bySeller.get(sellerId) ?? [];
-
-    lines.push({
-      product,
-      quantity: item.quantity,
-    });
-
-    bySeller.set(sellerId, lines);
-  }
-
-  /*
-   * Build per-seller order drafts first (items, sales-discount totals)
-   * so a coupon can be evaluated against the exact order it would
-   * apply to before anything is persisted. categoryId is kept for the
-   * coupon restriction check and stripped before saving.
-   */
-  const orderDrafts = new Map<
-    string,
-    {
-      items: Array<{
-        productId: Types.ObjectId;
-        name: string;
-        price: number;
-        quantity: number;
-        subtotal: number;
-        discountAmount: number;
-        categoryId?: string | null;
-      }>;
-      itemsTotal: number;
-      discountTotal: number;
-    }
-  >();
-
-  for (const [sellerId, lines] of bySeller) {
-    const items = lines.map((line) => {
-      const discount = discountMap.get(
-        line.product._id.toString(),
-      );
-
-      const subtotal = roundMoney(
-        line.product.price * line.quantity,
-      );
-
-      const discountAmount = discount
-        ? roundMoney(
-            discount.discountAmount *
-              line.quantity,
-          )
-        : 0;
-
-      return {
-        productId: line.product._id,
-        name: line.product.name,
-        price: line.product.price,
-        quantity: line.quantity,
-        subtotal,
-        discountAmount,
-        categoryId: line.product.category
-          ? line.product.category.toString()
-          : null,
-      };
-    });
-
-    const itemsTotal = items.reduce(
-      (sum, item) => sum + item.subtotal,
-      0,
-    );
-
-    const discountTotal = items.reduce(
-      (sum, item) => sum + item.discountAmount,
-      0,
-    );
-
-    orderDrafts.set(sellerId, {
-      items,
-      itemsTotal,
-      discountTotal,
-    });
-  }
-
-  /*
-   * Coupon evaluation (no side effects). The code must belong to one
-   * of the sellers in the cart; it applies to that seller's order
-   * AFTER the sales discount - the single documented rule. The usage
-   * slot is reserved only after this evaluation succeeds.
-   */
-  let couponPlan: {
-    couponId: string;
-    couponCode: string;
-    discountAmount: number;
-    sellerId: string;
-    reservedPerUserLimit: number | null;
-  } | null = null;
-
-  if (data.couponCode) {
-    const coupon =
-      await findCouponByCode(data.couponCode);
-
-    if (
-      !coupon ||
-      !bySeller.has(
-        coupon.sellerId.toString(),
-      )
-    ) {
-      throw new AppError(
-        "Coupon is not valid for the items in your cart",
-        400,
-        "COUPON_NOT_APPLICABLE",
-      );
-    }
-
-    const couponSellerId =
-      coupon.sellerId.toString();
-    const draft = orderDrafts.get(
-      couponSellerId,
-    )!;
-
-    const evaluation =
-      await evaluateCouponForOrder({
-        code: data.couponCode,
-        userId,
-        itemsTotal: draft.itemsTotal,
-        discountTotal: draft.discountTotal,
-        items: draft.items.map((item) => ({
-          productId:
+        const ok =
+          await decrementProductStock(
             item.productId.toString(),
-          categoryId:
-            item.categoryId ?? null,
-        })),
-      });
+            item.quantity,
+          );
+
+        if (!ok) {
+          throw new AppError(
+            "Insufficient stock for one or more products",
+            400,
+            "INSUFFICIENT_STOCK",
+          );
+        }
+
+        await recordStockChange({
+          productId: item.productId.toString(),
+          sellerId: product.sellerId.toString(),
+          type: InventoryTransactionType.STOCK_DECREMENT,
+          quantity: -item.quantity,
+          previousStock,
+          actorId: user.id,
+          actorRole: user.role,
+          reason: "Order placed",
+        });
+
+        applied.push({
+          productId: item.productId.toString(),
+          quantity: item.quantity,
+        });
+      }
+    } catch (error) {
+      for (const entry of applied) {
+        await incrementProductStock(
+          entry.productId,
+          entry.quantity,
+        );
+      }
+
+      throw error;
+    }
 
     /*
-     * Reserve the usage slot atomically before persisting the order so
-     * an exhausted coupon can never be applied.
+     * Reserve the coupon usage slot atomically before persisting the
+     * order so an exhausted coupon can never be applied. Reservation
+     * happens only after every stock decrement succeeded.
      */
-    const claimed = await reserveCouponSlot(
-      evaluation.coupon._id.toString(),
-    );
+    let reservedPerUserLimit: number | null = null;
 
-    couponPlan = {
-      couponId: evaluation.coupon._id.toString(),
-      couponCode: data.couponCode,
-      discountAmount: evaluation.discountAmount,
-      sellerId: evaluation.sellerId,
-      reservedPerUserLimit:
-        claimed.perUserLimit ?? null,
-    };
-  }
-
-  const ordersToCreate: Array<
-    Record<string, unknown>
-  > = [];
-
-  for (const [sellerId, draft] of orderDrafts) {
-    const isCouponOrder =
-      couponPlan !== null &&
-      couponPlan.sellerId === sellerId;
-
-    const couponDiscount = isCouponOrder
-      ? couponPlan!.discountAmount
-      : 0;
-
-    const total = roundMoney(
-      draft.itemsTotal -
-        draft.discountTotal -
-        couponDiscount,
-    );
-
-    ordersToCreate.push({
-      orderNumber: generateOrderNumber(),
-      userId,
-      sellerId,
-      items: draft.items.map(
-        ({ categoryId: _categoryId, ...item }) =>
-          item,
-      ),
-      shippingAddress:
-        toAddressSnapshot(address),
-      itemsTotal: draft.itemsTotal,
-      discountTotal: draft.discountTotal,
-      couponId: isCouponOrder
-        ? couponPlan!.couponId
-        : null,
-      couponCode: isCouponOrder
-        ? couponPlan!.couponCode
-        : null,
-      couponDiscount,
-      total,
-      paymentMethod:
-        data.paymentMethod ??
-        PaymentMethod.CASH_ON_DELIVERY,
-      paymentStatus: PaymentStatus.PENDING,
-      status: OrderStatus.PENDING,
-    });
-  }
-
-  try {
-    created = await createOrders(ordersToCreate);
-  } catch (error) {
     if (couponPlan) {
-      await releaseCouponSlotOnly(
+      const claimed = await reserveCouponSlot(
         couponPlan.couponId,
       );
+
+      reservedPerUserLimit =
+        claimed.perUserLimit ?? null;
     }
 
-    throw error;
-  }
+    const ordersToCreate: Array<
+      Record<string, unknown>
+    > = [];
+
+    for (const [sellerId, draft] of orderDrafts) {
+      const isCouponOrder =
+        couponPlan !== null &&
+        couponPlan.sellerId === sellerId;
+
+      const couponDiscount = isCouponOrder
+        ? couponPlan!.discountAmount
+        : 0;
+
+      const total = roundMoney(
+        draft.itemsTotal -
+          draft.discountTotal -
+          couponDiscount,
+      );
+
+      ordersToCreate.push({
+        orderNumber: generateOrderNumber(),
+        userId,
+        sellerId,
+        items: draft.items.map(
+          ({ categoryId: _categoryId, ...item }) =>
+            item,
+        ),
+        shippingAddress:
+          toAddressSnapshot(address),
+        itemsTotal: draft.itemsTotal,
+        discountTotal: draft.discountTotal,
+        couponId: isCouponOrder
+          ? couponPlan!.couponId
+          : null,
+        couponCode: isCouponOrder
+          ? couponPlan!.couponCode
+          : null,
+        couponDiscount,
+        total,
+        paymentMethod:
+          data.paymentMethod ??
+          PaymentMethod.CASH_ON_DELIVERY,
+        paymentStatus: PaymentStatus.PENDING,
+        status: OrderStatus.PENDING,
+      });
+    }
+
+    try {
+      created = await createOrders(ordersToCreate);
+    } catch (error) {
+      if (couponPlan) {
+        await releaseCouponSlotOnly(
+          couponPlan.couponId,
+        );
+      }
+
+      throw error;
+    }
 
   /*
    * Record the coupon usage against the created order. If recording
@@ -647,7 +696,7 @@ export const createOrderFromCart = async (
           discountAmount:
             couponPlan.discountAmount,
           perUserLimit:
-            couponPlan.reservedPerUserLimit,
+            reservedPerUserLimit,
         });
       } catch (error) {
         await resetOrderCoupon(
@@ -688,6 +737,86 @@ export const createOrderFromCart = async (
       toOrderResponse(order),
     ),
   );
+};
+
+/*
+ * No-side-effect checkout preview. Validates the buyer's cart and (when
+ * supplied) a coupon code, and returns the exact totals that would be
+ * charged when the order is placed - subtotal, product/category sales
+ * discounts, coupon discount and final payable. Used by the checkout
+ * page to show real discount amounts before the order is submitted.
+ */
+export const previewCheckoutFromCart = async (
+  user: { id: string; role: UserRole },
+  input: unknown,
+): Promise<CheckoutPreviewResponse> => {
+  const userId = user.id;
+  const data: PreviewOrderInput =
+    previewOrderSchema.parse(input);
+
+  const cart = await findCartByUserId(userId);
+
+  if (!cart || cart.items.length === 0) {
+    throw new AppError(
+      "Cart is empty",
+      400,
+      "EMPTY_CART",
+    );
+  }
+
+  const { orderDrafts, couponPlan } =
+    await buildCheckoutPlan(
+      cart,
+      data.couponCode,
+      userId,
+    );
+
+  const orders = Array.from(
+    orderDrafts.entries(),
+  ).map(([sellerId, draft]) => {
+    const isCouponOrder =
+      couponPlan !== null &&
+      couponPlan.sellerId === sellerId;
+
+    const couponDiscount = isCouponOrder
+      ? couponPlan!.discountAmount
+      : 0;
+
+    return {
+      sellerId,
+      itemsTotal: draft.itemsTotal,
+      discountTotal: draft.discountTotal,
+      couponDiscount,
+      total: roundMoney(
+        draft.itemsTotal -
+          draft.discountTotal -
+          couponDiscount,
+      ),
+    };
+  });
+
+  return {
+    itemsTotal: orders.reduce(
+      (sum, order) => sum + order.itemsTotal,
+      0,
+    ),
+    discountTotal: orders.reduce(
+      (sum, order) => sum + order.discountTotal,
+      0,
+    ),
+    couponCode: couponPlan
+      ? couponPlan.couponCode
+      : null,
+    couponDiscount: orders.reduce(
+      (sum, order) => sum + order.couponDiscount,
+      0,
+    ),
+    total: orders.reduce(
+      (sum, order) => sum + order.total,
+      0,
+    ),
+    orders,
+  };
 };
 
 export const getOrderDetails = async (

@@ -7,6 +7,8 @@ export interface UserProfileResponse {
   role: UserRole;
   avatarUrl: string | null;
   isEmailVerified: boolean;
+  /** False when a Super Admin has deactivated the account. */
+  isActive: boolean;
   createdAt: Date;
 }
 

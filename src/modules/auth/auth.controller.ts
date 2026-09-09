@@ -86,13 +86,28 @@ export const refresh = async (
     payload.userId,
   );
 
-  if (!user || !user.isActive) {
+  if (!user) {
     clearRefreshTokenCookie(res);
 
     throw new AppError(
       "Invalid or expired refresh token",
       401,
       "INVALID_REFRESH_TOKEN",
+    );
+  }
+
+  /*
+   * Deactivated accounts are told so explicitly (403 ACCOUNT_INACTIVE)
+   * instead of a generic 401, so the frontend can show "Your account
+   * is inactive" rather than silently bouncing to the login page.
+   */
+  if (!user.isActive) {
+    clearRefreshTokenCookie(res);
+
+    throw new AppError(
+      "Your account is inactive",
+      403,
+      "ACCOUNT_INACTIVE",
     );
   }
 

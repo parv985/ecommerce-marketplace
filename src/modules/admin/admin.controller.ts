@@ -48,6 +48,7 @@ export const updateUserStatusController = async (
   res: Response,
 ): Promise<void> => {
   const user = await setUserActiveStatus(
+    req.user!.id,
     req.params.id,
     req.body,
   );

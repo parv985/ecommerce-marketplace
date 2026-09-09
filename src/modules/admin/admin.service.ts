@@ -1,7 +1,9 @@
 import { AppError } from "../../errors/AppError.js";
 import { SellerStatus } from "../../constants/sellerStatus.js";
+import { getCacheKey, invalidateCache } from "../../config/redis.js";
 import { logAudit } from "../../services/audit.service.js";
 import { notifySellerDecision } from "../notifications/notification.service.js";
+import { revokeAllRefreshTokensForUser } from "../auth/auth.repository.js";
 import type { UserDocument } from "../../models/User.js";
 import type { ISeller } from "../../models/Seller.js";
 import type { IProduct } from "../../models/Product.js";
@@ -131,6 +133,7 @@ export const getUsersList = async (
 };
 
 export const setUserActiveStatus = async (
+  actorId: string,
   userId: string,
   input: unknown,
 ): Promise<AdminUserResponse> => {
@@ -159,6 +162,29 @@ export const setUserActiveStatus = async (
       "USER_NOT_FOUND",
     );
   }
+
+  /*
+   * Deactivation must be enforced IMMEDIATELY, not when the current
+   * access token eventually expires: revoke every live refresh token
+   * so no new access token can be minted from an existing session.
+   * (The authenticate middleware additionally re-checks isActive on
+   * every request, so still-valid access tokens are rejected too.)
+   */
+  if (!data.isActive) {
+    await revokeAllRefreshTokensForUser(
+      userId,
+    );
+  }
+
+  await logAudit({
+    actorId,
+    actorRole: "SUPER_ADMIN",
+    action: "USER_STATUS_UPDATE",
+    entityType: "USER",
+    entityId: userId,
+    before: { isActive: user.isActive },
+    after: { isActive: updated.isActive },
+  });
 
   return toAdminUserResponse(updated);
 };
@@ -297,6 +323,10 @@ export const setProductStatus = async (
       "PRODUCT_NOT_FOUND",
     );
   }
+
+  /* Invalidate product catalog cache so the public browse endpoint
+     reflects the status change immediately. */
+  await invalidateCache(getCacheKey("products", "*"));
 
   return toAdminProductResponse(updated);
 };

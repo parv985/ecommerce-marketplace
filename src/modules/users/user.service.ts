@@ -34,6 +34,7 @@ const toUserProfileResponse = (
     role: user.role,
     avatarUrl: user.avatarUrl ?? null,
     isEmailVerified: user.isEmailVerified,
+    isActive: user.isActive,
     createdAt: user.createdAt,
   };
 };
@@ -244,7 +245,7 @@ export const deleteUserAvatar = async (
     );
   }
 
-  if (!user.avatarPublicId) {
+  if (!user.avatarPublicId && !user.avatarUrl) {
     throw new AppError(
       "No avatar to delete",
       400,
@@ -252,7 +253,12 @@ export const deleteUserAvatar = async (
     );
   }
 
-  await deleteByPublicId(user.avatarPublicId);
+  // Only Cloudinary-uploaded avatars have a publicId (e.g. Google OAuth
+  // avatars are external URLs) — skip the Cloudinary delete when absent,
+  // but still clear the profile so the UI falls back to the name initial.
+  if (user.avatarPublicId) {
+    await deleteByPublicId(user.avatarPublicId);
+  }
 
   await updateUserById(userId, {
     avatarUrl: null,

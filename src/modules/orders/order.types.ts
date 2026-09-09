@@ -52,3 +52,26 @@ export interface PaginatedOrders {
   total: number;
   totalPages: number;
 }
+
+/*
+ * Mirrors the exact math `createOrderFromCart` performs when an order is
+ * placed: one row per seller in the cart, sales discounts resolved from
+ * live data, and (when supplied) a coupon applied to the seller order it
+ * belongs to. No side effects - purely a checkout preview.
+ */
+export interface CheckoutPreviewOrder {
+  sellerId: string;
+  itemsTotal: number;
+  discountTotal: number;
+  couponDiscount: number;
+  total: number;
+}
+
+export interface CheckoutPreviewResponse {
+  itemsTotal: number;
+  discountTotal: number;
+  couponCode: string | null;
+  couponDiscount: number;
+  total: number;
+  orders: CheckoutPreviewOrder[];
+}

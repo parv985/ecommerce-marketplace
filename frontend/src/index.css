@@ -1,0 +1,352 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  --color-brand: #b83e20;
+  --color-brand-hover: #9c3217;
+  --color-brand-active: #822810;
+  --color-brand-subtle: #fcf5f2;
+
+  --color-canvas: #faf9f6;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f4f3ef;
+
+  --color-ink: #191816;
+  --color-ink-secondary: #55534e;
+  --color-ink-muted: #78756f;
+
+  --color-hairline: #e5e3dc;
+  --color-hairline-subtle: #eeedea;
+  --color-hairline-strong: #cdc9be;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+}
+
+@layer base {
+  :root {
+    --bg: #faf9f6;
+    --bg-card: #ffffff;
+    --bg-subtle: #f4f3ef;
+    --fg: #191816;
+    --fg-secondary: #55534e;
+    --muted: #78756f;
+    --border: #e5e3dc;
+    --border-subtle: #eeedea;
+    --border-strong: #cdc9be;
+
+    /* Single deliberate brand color — Warm Terracotta */
+    --primary: #b83e20;
+    --primary-hover: #9c3217;
+    --primary-active: #822810;
+    --primary-fg: #ffffff;
+    --primary-subtle: #fcf5f2;
+
+    --accent: #f4f3ef;
+    --accent-hover: #eae8e1;
+
+    --destructive: #b91c1c;
+    --destructive-fg: #ffffff;
+    --destructive-subtle: #fef2f2;
+
+    --success: #15803d;
+    --success-bg: #f0fdf4;
+    --warning: #b45309;
+    --warning-bg: #fffbeb;
+    --info: #1d4ed8;
+    --info-bg: #eff6ff;
+
+    --ring: #b83e20;
+
+    --shadow-sm: 0 1px 2px rgba(25, 24, 22, 0.04);
+    --shadow-md: 0 4px 12px rgba(25, 24, 22, 0.06);
+    --shadow-lg: 0 12px 32px rgba(25, 24, 22, 0.09);
+
+    /* Clean, non-pill radius scale */
+    --radius-sm: 0.25rem;   /* 4px for badges/chips */
+    --radius: 0.375rem;      /* 6px for controls, buttons, inputs */
+    --radius-lg: 0.625rem;   /* 10px for cards, panels, modals */
+  }
+
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Focus styles using crisp brand ring */
+  *:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: var(--radius);
+  }
+}
+
+@layer components {
+  /* Card component */
+  .card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Product card with signature framing */
+  .product-card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .product-card:hover {
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+  }
+
+  /* Button base — architectural and intentional */
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--primary);
+    color: var(--primary-fg);
+    padding: 0.5625rem 1.25rem;
+    border-radius: var(--radius);
+    font-weight: 500;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+  }
+  .btn-primary:hover {
+    background-color: var(--primary-hover);
+  }
+  .btn-primary:active {
+    background-color: var(--primary-active);
+    transform: scale(0.99);
+  }
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #ffffff;
+    color: var(--fg);
+    border: 1px solid var(--border);
+    padding: 0.5625rem 1.25rem;
+    border-radius: var(--radius);
+    font-weight: 500;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    transition: all 0.15s ease;
+  }
+  .btn-secondary:hover {
+    background-color: var(--accent);
+    border-color: var(--border-strong);
+  }
+  .btn-secondary:active {
+    transform: scale(0.99);
+  }
+  .btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--fg-secondary);
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius);
+    font-weight: 500;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+  .btn-ghost:hover {
+    background-color: var(--accent);
+    color: var(--fg);
+  }
+  .btn-ghost:active {
+    background-color: var(--accent-hover);
+  }
+
+  .btn-danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--destructive);
+    color: var(--destructive-fg);
+    padding: 0.5625rem 1.25rem;
+    border-radius: var(--radius);
+    font-weight: 500;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+  }
+  .btn-danger:hover {
+    background-color: #991b1b;
+  }
+  .btn-danger:active {
+    transform: scale(0.99);
+  }
+  .btn-danger:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Form Input */
+  .input-field {
+    width: 100%;
+    padding: 0.5625rem 0.875rem;
+    background-color: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: var(--fg);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .input-field::placeholder {
+    color: var(--muted);
+  }
+  .input-field:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 1px var(--primary);
+  }
+
+  /* Crisp rectangular badge system (NO rounded-full pills) */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+  .badge-success {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 500;
+    background-color: #f0fdf4;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+  }
+  .badge-warning {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 500;
+    background-color: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fde68a;
+  }
+  .badge-error {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 500;
+    background-color: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+  }
+  .badge-info {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 500;
+    background-color: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+  }
+
+  /* Section heading with deliberate weight */
+  .section-heading {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+    font-weight: 600;
+    color: var(--fg);
+    letter-spacing: -0.02em;
+  }
+
+  /* Clean skeleton placeholder */
+  .skeleton {
+    background-color: #eeedea;
+    border-radius: var(--radius-sm);
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
+
+@layer utilities {
+  .container-app {
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+    max-width: 80rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  @media (min-width: 640px) {
+    .container-app {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+  @media (min-width: 1024px) {
+    .container-app {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}

@@ -124,6 +124,7 @@ export const loginWithGoogle = async (idToken: string) => {
       role: user.role,
       isEmailVerified: user.isEmailVerified,
       avatarUrl: user.avatarUrl ?? null,
+      isActive: user.isActive,
     },
   };
 };

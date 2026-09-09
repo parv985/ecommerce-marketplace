@@ -50,7 +50,7 @@ const envSchema = z.object({
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().optional(),
 
-  /* Redis (optional) */
+  /* Redis (optional) */  
   REDIS_URL: z.string().optional(),
 });
 export const env = envSchema.parse(process.env);

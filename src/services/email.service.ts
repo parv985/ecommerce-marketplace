@@ -13,6 +13,7 @@ let transporterPromise: Transporter | undefined;
 const isSmtpConfigured = (): boolean => {
   return Boolean(
     process.env.SMTP_HOST && process.env.SMTP_PORT,
+    
   );
 };
 

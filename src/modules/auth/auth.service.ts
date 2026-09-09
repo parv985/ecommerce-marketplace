@@ -179,6 +179,13 @@ const issueSession = async (
       email: user.email,
       role: user.role,
       isEmailVerified: user.isEmailVerified,
+      /*
+       * Included so the frontend can show the saved profile photo
+       * immediately after login (it persists in the database even
+       * after logout) and knows the account status up front.
+       */
+      avatarUrl: user.avatarUrl ?? null,
+      isActive: user.isActive,
     },
   };
 };
@@ -210,6 +217,8 @@ export const registerUser = async (
         email: user.email,
         role: user.role,
         isEmailVerified: user.isEmailVerified,
+        avatarUrl: user.avatarUrl ?? null,
+        isActive: user.isActive,
     };
 };
 

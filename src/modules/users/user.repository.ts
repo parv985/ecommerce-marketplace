@@ -10,7 +10,11 @@ import {
 export const findUserById = async (
   userId: string,
 ): Promise<UserDocument | null> => {
-  return User.findById(userId).exec();
+  // `avatarPublicId` is `select: false` in the User schema, so it must be
+  // explicitly selected — avatar upload/delete rely on it to remove the
+  // previous Cloudinary image. Without this, deletes always fail with
+  // "No avatar to delete" and old Cloudinary images are never cleaned up.
+  return User.findById(userId).select("+avatarPublicId").exec();
 };
 
 export const updateUserById = async (
