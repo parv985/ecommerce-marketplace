@@ -11,6 +11,10 @@ import {
   Order,
   type IOrder,
 } from "../../models/Order.js";
+import {
+  AuditLog,
+  type IAuditLog,
+} from "../../models/AuditLog.js";
 
 export const listUsers = async (
   filter: Record<string, unknown>,
