@@ -36,9 +36,17 @@ export function OrderListPage() {
 
   return (
     <div className="container-app py-8">
-      <h1 className="text-2xl font-bold tracking-tight text-[var(--fg)] mb-6 pb-4 border-b border-[var(--border)]">
-        My Orders
-      </h1>
+      <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--border)] gap-3">
+        <h1 className="text-2xl font-bold tracking-tight text-[var(--fg)]">
+          My Orders
+        </h1>
+        <Link
+          to="/returns"
+          className="text-sm font-medium text-[var(--primary)] hover:underline shrink-0"
+        >
+          My Returns
+        </Link>
+      </div>
       <div className="flex gap-2 mb-6 flex-wrap">
         {['', 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'].map(s => (
           <button

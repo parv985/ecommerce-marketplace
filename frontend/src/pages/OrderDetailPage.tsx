@@ -1,16 +1,27 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Star } from 'lucide-react'
+import { ArrowLeft, Star, RotateCcw } from 'lucide-react'
 import { orderService } from '@/services/order.service'
+import { returnService } from '@/services/return.service'
 import { reviewService } from '@/services/review.service'
+import { extractErrorMessage } from '@/services/api'
 import { formatPrice, formatDate, formatDateFull } from '@/lib/utils'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { ReviewDialog } from '@/components/reviews/ReviewDialog'
+import { ReturnRequestDialog } from '@/components/returns/ReturnRequestDialog'
+import {
+  returnStatusColors,
+  returnStatusLabels,
+  isWithinReturnWindow,
+  daysLeftInReturnWindow,
+  ACTIVE_RETURN_STATUSES,
+} from '@/lib/returnStatus'
+import { RETURN_WINDOW_DAYS } from '@/types/api'
 import { toast } from 'react-hot-toast'
-import type { OrderItem, Review } from '@/types/api'
+import type { OrderItem, Review, ReturnRequest } from '@/types/api'
 
 const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error' | 'secondary'> = {
   PENDING: 'warning',
@@ -25,6 +36,7 @@ export function OrderDetailPage() {
   const queryClient = useQueryClient()
   const [reviewingItem, setReviewingItem] = useState<OrderItem | null>(null)
   const [existingReview, setExistingReview] = useState<Review | null>(null)
+  const [showReturnDialog, setShowReturnDialog] = useState(false)
 
   const { data: order, isLoading } = useQuery({
     queryKey: ['order', id],
@@ -44,13 +56,29 @@ export function OrderDetailPage() {
     enabled: !!id && order?.status === 'DELIVERED',
   })
 
+  // Load the buyer's returns and find any linked to this order (active or recent).
+  const { data: returnsData } = useQuery({
+    queryKey: ['returns', 'for-order', id],
+    queryFn: () => returnService.list({ page: 1, limit: 100 }),
+    enabled: !!id && order?.status === 'DELIVERED',
+  })
+
+  const orderReturn: ReturnRequest | undefined = returnsData?.items?.find(
+    (r) => r.orderId === id,
+  )
+  // Prefer the active return if multiple exist (e.g. previous CANCELLED + new PENDING)
+  const activeOrderReturn =
+    returnsData?.items?.find(
+      (r) => r.orderId === id && ACTIVE_RETURN_STATUSES.includes(r.status),
+    ) ?? orderReturn
+
   const cancelOrder = useMutation({
     mutationFn: () => orderService.cancel(id!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['order', id] })
       toast.success('Order cancelled')
     },
-    onError: (err: any) => toast.error(err?.response?.data?.message || 'Cannot cancel'),
+    onError: (err: unknown) => toast.error(extractErrorMessage(err) || 'Cannot cancel'),
   })
 
   const markPaid = useMutation({
@@ -59,7 +87,7 @@ export function OrderDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['order', id] })
       toast.success('Payment recorded')
     },
-    onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed'),
+    onError: (err: unknown) => toast.error(extractErrorMessage(err) || 'Failed'),
   })
 
   const handleOpenReview = async (item: OrderItem) => {
@@ -87,6 +115,15 @@ export function OrderDetailPage() {
   const canCancel = ['PENDING', 'CONFIRMED'].includes(order.status)
   const canPay = order.paymentMethod === 'COD' && order.paymentStatus === 'UNPAID' && order.status === 'DELIVERED'
   const isDelivered = order.status === 'DELIVERED'
+
+  const deliveredAt =
+    tracking?.deliveredAt ?? invoice?.deliveredAt ?? null
+  const withinWindow = isWithinReturnWindow(deliveredAt)
+  const daysLeft = daysLeftInReturnWindow(deliveredAt)
+  const hasActiveReturn =
+    !!activeOrderReturn && ACTIVE_RETURN_STATUSES.includes(activeOrderReturn.status)
+  const canRequestReturn =
+    isDelivered && withinWindow && !hasActiveReturn
 
   return (
     <div className="container-app py-8">
@@ -252,6 +289,70 @@ export function OrderDetailPage() {
             </p>
           </div>
 
+          {/* Return status / request */}
+          {isDelivered && (
+            <div className="border border-[var(--border)] rounded-[var(--radius-lg)] bg-white p-5 shadow-[var(--shadow-sm)]">
+              <div className="flex items-center gap-2 mb-2">
+                <RotateCcw size={16} className="text-[var(--primary)]" />
+                <h2 className="font-semibold">Returns</h2>
+              </div>
+              {activeOrderReturn ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm text-[var(--muted)]">Status</span>
+                    <Badge variant={returnStatusColors[activeOrderReturn.status]}>
+                      {returnStatusLabels[activeOrderReturn.status]}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-[var(--fg-secondary)] line-clamp-3">
+                    {activeOrderReturn.reason}
+                  </p>
+                  {activeOrderReturn.statusReason && (
+                    <p className="text-xs text-rose-700">
+                      Seller: {activeOrderReturn.statusReason}
+                    </p>
+                  )}
+                  <Link to={`/returns/${activeOrderReturn.id}`}>
+                    <Button variant="outline" size="sm" className="w-full">
+                      View return details
+                    </Button>
+                  </Link>
+                  {/* Allow re-request after CANCELLED / REJECTED if still in window */}
+                  {!hasActiveReturn && withinWindow && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setShowReturnDialog(true)}
+                    >
+                      Request return again
+                    </Button>
+                  )}
+                </div>
+              ) : canRequestReturn ? (
+                <div className="space-y-3">
+                  <p className="text-xs text-[var(--muted)]">
+                    {daysLeft != null
+                      ? `${daysLeft} day${daysLeft === 1 ? '' : 's'} left to request a return`
+                      : `Returns accepted within ${RETURN_WINDOW_DAYS} days of delivery`}
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="w-full gap-1.5"
+                    onClick={() => setShowReturnDialog(true)}
+                  >
+                    <RotateCcw size={14} /> Request Return
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-xs text-[var(--muted)]">
+                  {withinWindow
+                    ? 'A return is not available for this order.'
+                    : `The ${RETURN_WINDOW_DAYS}-day return window has expired.`}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Actions */}
           <div className="space-y-2">
             {canCancel && (
@@ -287,6 +388,18 @@ export function OrderDetailPage() {
           }}
         />
       )}
+
+      {/* Return Request Dialog */}
+      <ReturnRequestDialog
+        open={showReturnDialog}
+        onClose={() => setShowReturnDialog(false)}
+        orderId={order.id}
+        orderNumber={order.orderNumber}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['returns'] })
+          queryClient.invalidateQueries({ queryKey: ['returns', 'for-order', id] })
+        }}
+      />
     </div>
   )
 }

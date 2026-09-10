@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { ShoppingCart, User, Menu, X, Bell, LogOut, Package, LayoutDashboard, Shield } from 'lucide-react'
+import { ShoppingCart, User, Menu, X, Bell, LogOut, Package, LayoutDashboard, Shield, RotateCcw } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { cn } from '@/lib/utils'
 import { authApi } from '@/services/auth.service'
@@ -155,6 +155,9 @@ export function Header() {
                             <Link to="/orders" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)] hover:bg-[var(--accent)] transition-colors">
                               <Package size={15} strokeWidth={1.75} /> My Orders
                             </Link>
+                            <Link to="/returns" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)] hover:bg-[var(--accent)] transition-colors">
+                              <RotateCcw size={15} strokeWidth={1.75} /> My Returns
+                            </Link>
                           </>
                         )}
 
@@ -220,6 +223,7 @@ export function Header() {
                       {cart?.items?.length ? <span className="bg-[var(--primary)] text-white text-xs px-2 py-0.5 rounded-[var(--radius-sm)] font-medium">{cart.items.length}</span> : null}
                     </Link>
                     <Link to="/orders" className="block py-2 text-sm text-[var(--fg-secondary)]" onClick={() => setMobileOpen(false)}>My Orders</Link>
+                    <Link to="/returns" className="block py-2 text-sm text-[var(--fg-secondary)]" onClick={() => setMobileOpen(false)}>My Returns</Link>
                     <Link to="/notifications" className="block py-2 text-sm text-[var(--fg-secondary)]" onClick={() => setMobileOpen(false)}>Notifications</Link>
                   </>
                 )}
