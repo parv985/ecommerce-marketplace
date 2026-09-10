@@ -709,4 +709,162 @@ describe("GET /api/v1/admin/audit-logs", () => {
       expect(res.body.code).toBe("VALIDATION_ERROR");
     });
   });
+
+  describe("free-text search", () => {
+    const entityObjectId = new mongoose.Types.ObjectId().toString();
+
+    beforeEach(async () => {
+      await seedAuditLog({
+        actorId: seededActorId,
+        actorRole: "SUPER_ADMIN",
+        action: "USER_STATUS_UPDATE",
+        entityType: "USER",
+        entityId: entityObjectId,
+        createdAt: daysAgo(4),
+      });
+      await seedAuditLog({
+        actorId: "64b000000000000000000aaa",
+        actorRole: "BUYER",
+        action: "ORDER_CREATED",
+        entityType: "ORDER",
+        entityId: entityObjectId,
+        createdAt: daysAgo(3),
+      });
+      await seedAuditLog({
+        actorId: "system",
+        actorRole: "SYSTEM",
+        action: "PAYMENT_CAPTURED",
+        entityType: "ORDER",
+        entityId: null,
+        createdAt: daysAgo(2),
+      });
+    });
+
+    it("matches an action case-insensitively and partially", async () => {
+      const res = await getLogs(adminToken, { search: "status_update" });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.total).toBe(1);
+      expect(res.body.data.items[0].action).toBe("USER_STATUS_UPDATE");
+    });
+
+    it("matches a partial actorId", async () => {
+      const res = await getLogs(adminToken, {
+        search: seededActorId.slice(0, 10),
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.total).toBe(1);
+      expect(res.body.data.items[0].actorId).toBe(seededActorId);
+    });
+
+    it("matches a full entityId", async () => {
+      const res = await getLogs(adminToken, { search: entityObjectId });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.total).toBe(2);
+      expect(
+        res.body.data.items.every(
+          (item: { entityId: string | null }) =>
+            item.entityId === entityObjectId,
+        ),
+      ).toBe(true);
+    });
+
+    it("matches a hex fragment of an entityId", async () => {
+      const fragment = entityObjectId.slice(8, 16);
+      const res = await getLogs(adminToken, { search: fragment });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.total).toBe(2);
+      expect(
+        res.body.data.items.every(
+          (item: { entityId: string | null }) =>
+            item.entityId === entityObjectId,
+        ),
+      ).toBe(true);
+    });
+
+    it("searches across fields with OR", async () => {
+      // "system" is an actorId, "captured" is part of an action —
+      // each term matches a different entry on its own.
+      const byActor = await getLogs(adminToken, { search: "system" });
+      const byAction = await getLogs(adminToken, { search: "captured" });
+
+      expect(byActor.status).toBe(200);
+      expect(byActor.body.data.total).toBe(1);
+      expect(byActor.body.data.items[0].actorId).toBe("system");
+      expect(byAction.status).toBe(200);
+      expect(byAction.body.data.total).toBe(1);
+      expect(byAction.body.data.items[0].action).toBe("PAYMENT_CAPTURED");
+    });
+
+    it("does not treat ordinary words as ObjectId fragments", async () => {
+      // "zzzz" is not hex and matches nothing — the important part is
+      // that the query still succeeds.
+      const res = await getLogs(adminToken, { search: "zzzz" });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.total).toBe(0);
+    });
+
+    it("combines search with the other filters using AND", async () => {
+      const res = await getLogs(adminToken, {
+        search: entityObjectId,
+        actorRole: "BUYER",
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.total).toBe(1);
+      expect(res.body.data.items[0].action).toBe("ORDER_CREATED");
+    });
+
+    it("rejects an empty search term", async () => {
+      const res = await getLogs(adminToken, { search: "   " });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe("VALIDATION_ERROR");
+    });
+  });
+
+  describe("actor identity decoration", () => {
+    it("resolves name and email for real user actors only", async () => {
+      const email = `actor-${Date.now()}@example.test`;
+      const registered = await registerUser(email, "Riya Sharma");
+      const userId = registered.body.data.user.id as string;
+
+      await seedAuditLog({
+        actorId: userId,
+        actorRole: "BUYER",
+        action: "LOGIN",
+        entityType: "USER",
+        entityId: null,
+        createdAt: daysAgo(1),
+      });
+      await seedAuditLog({
+        actorId: "webhook",
+        actorRole: "SYSTEM",
+        action: "PAYMENT_CAPTURED",
+        entityType: "ORDER",
+        entityId: null,
+        createdAt: daysAgo(1),
+      });
+
+      const res = await getLogs(adminToken, {
+        action: "LOGIN",
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.data.total).toBe(1);
+      expect(res.body.data.items[0].actorName).toBe("Riya Sharma");
+      expect(res.body.data.items[0].actorEmail).toBe(email);
+
+      const systemRes = await getLogs(adminToken, {
+        search: "webhook",
+      });
+      expect(systemRes.status).toBe(200);
+      expect(systemRes.body.data.total).toBe(1);
+      expect(systemRes.body.data.items[0].actorName).toBeNull();
+      expect(systemRes.body.data.items[0].actorEmail).toBeNull();
+    });
+  });
 });

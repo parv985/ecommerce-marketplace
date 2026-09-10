@@ -2262,6 +2262,20 @@ const options: swaggerJSDoc.Options = {
               description:
                 'User ObjectId, or a system actor ("system", "webhook")',
             },
+            actorName: {
+              type: "string",
+              nullable: true,
+              description:
+                "Actor's name resolved from the Users collection at read time; null for system actors and deleted users",
+              example: "Parv Admin",
+            },
+            actorEmail: {
+              type: "string",
+              nullable: true,
+              description:
+                "Actor's email resolved from the Users collection at read time; null for system actors and deleted users",
+              example: "admin@nexcart.test",
+            },
             actorRole: {
               type: "string",
               description:

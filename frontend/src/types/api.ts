@@ -543,9 +543,13 @@ export interface AdminUser extends UserSummary {
 // Mirrors the backend `AdminAuditLogResponse` (src/modules/admin/admin.types.ts)
 // returned by GET /admin/audit-logs. `before`/`after`/`metadata` are free-form
 // JSON whose shape depends on the action that wrote the entry.
+// `actorName`/`actorEmail` are resolved server-side from the Users collection
+// (null for system actors such as "system"/"webhook" and deleted users).
 export interface AuditLog {
   id: string
   actorId: string
+  actorName: string | null
+  actorEmail: string | null
   actorRole: string
   action: string
   entityType: string
@@ -566,6 +570,8 @@ export interface AuditLogQuery {
   action?: string
   entityType?: string
   entityId?: string
+  /** Case-insensitive server-side search across actorId, action and entityId. */
+  search?: string
   /** Inclusive lower bound on createdAt (YYYY-MM-DD or ISO timestamp). */
   fromDate?: string
   /** Inclusive upper bound on createdAt (a bare date covers the whole UTC day). */

@@ -42,6 +42,21 @@ export const findUserById = async (
   return User.findById(id).exec();
 };
 
+/*
+ * Batched lookup used to decorate audit-log entries with the actor's
+ * human-readable name/email. One query per page (at most `limit`
+ * actors) instead of one per row.
+ */
+export const findUsersByIds = async (
+  ids: string[],
+): Promise<UserDocument[]> => {
+  if (ids.length === 0) return [];
+
+  return User.find({ _id: { $in: ids } })
+    .select("name email")
+    .exec();
+};
+
 export const updateUserById = async (
   id: string,
   data: Record<string, unknown>,

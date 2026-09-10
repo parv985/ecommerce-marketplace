@@ -485,6 +485,17 @@ router.get(
  *           type: string
  *           maxLength: 50
  *         example: USER
+ *       - name: search
+ *         in: query
+ *         description: >-
+ *           Free-text search across actorId, action and entityId. actorId/action match
+ *           case-insensitively and partially; a full 24-char ObjectId also matches entityId
+ *           exactly, and a hex fragment matches stored ObjectIds containing it. Combined with
+ *           the other filters using AND.
+ *         schema:
+ *           type: string
+ *           maxLength: 100
+ *         example: USER_STATUS
  *       - name: entityId
  *         in: query
  *         description: ObjectId of the affected entity. Entries logged without an entity never match this filter
