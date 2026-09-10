@@ -105,6 +105,7 @@ export const uploadSellerDocumentController =
         file.buffer,
         file.originalname,
         documentType,
+        file.size,
       );
 
     sendSuccess(
