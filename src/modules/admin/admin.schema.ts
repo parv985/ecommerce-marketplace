@@ -148,6 +148,21 @@ export const listAuditLogsQuerySchema = z
       .max(50)
       .optional(),
 
+    /*
+     * Free-text search across the fields an admin is most likely to
+     * have on hand: actorId, action and entityId. String fields match
+     * case-insensitively and partially; a full 24-char ObjectId also
+     * matches entityId exactly, and a hex fragment matches stored
+     * ObjectIds containing it. Evaluated entirely server-side so the
+     * frontend never needs the whole ledger to search it.
+     */
+    search: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100)
+      .optional(),
+
     entityId: objectId.optional(),
 
     /*

@@ -55,10 +55,17 @@ export interface AdminOrderResponse {
  * One entry of the audit ledger as exposed to the Super Admin
  * console. `before`/`after`/`metadata` stay as free-form JSON: what
  * they contain depends on the action that wrote the entry.
+ *
+ * `actorName`/`actorEmail` are a read-time decoration resolved from
+ * the Users collection (null for system actors such as "system" or
+ * "webhook", and for users deleted since the entry was written) so
+ * the console can show a human-readable actor alongside the id.
  */
 export interface AdminAuditLogResponse {
   id: string;
   actorId: string;
+  actorName: string | null;
+  actorEmail: string | null;
   actorRole: string;
   action: string;
   entityType: string;
