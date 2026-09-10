@@ -75,6 +75,7 @@ export function HomeProductCard({ product, priority = false }: HomeProductCardPr
             src={imageUrl}
             alt={product.name}
             loading={priority ? 'eager' : 'lazy'}
+            decoding="async"
             onLoad={() => setImageState('loaded')}
             onError={() => setImageState('error')}
             className={cn(

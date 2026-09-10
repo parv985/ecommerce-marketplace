@@ -10,7 +10,7 @@ import { productService } from '@/services/product.service'
 import { sellerService } from '@/services/seller.service'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { HeroShowcase } from '@/components/home/HeroShowcase'
-import { HomeProductCard } from '@/components/home/HomeProductCard'
+import { ProductCarousel } from '@/components/home/ProductCarousel'
 import { SectionHeader } from '@/components/home/SectionHeader'
 import { TrustSection } from '@/components/home/TrustSection'
 import { SellerCtaSection } from '@/components/home/SellerCtaSection'
@@ -22,25 +22,20 @@ import type { Category } from '@/types/api'
 import '@/components/home/home.css'
 
 /*
- * Homepage — Announcement bar (header) → Hero → Categories → New Arrivals →
- * Best Deals → Trust → Become-a-Seller CTA → Footer.
+ * Homepage — Announcement bar (header) → Hero → Categories → New Arrivals (Carousel) →
+ * Best Deals (Carousel) → Trust → Become-a-Seller CTA → Footer.
  *
  * Everything is rendered from the LIVE catalog: one browse query feeds the
- * hero showcase, the New Arrivals grid and the Best Deals row (products with
+ * hero showcase, the New Arrivals carousel and the Best Deals carousel (products with
  * a live seller discount, ranked by discount). No mock products anywhere.
- *
- * Visual language: light and premium — warm cream hero, white product
- * surfaces, soft-gray trust band, warm-orange tints reserved for the deals
- * highlight and the seller CTA. Dark ink only for text; the terracotta
- * brand color is the accent.
  */
 
-/** Products shown in the New Arrivals grid. */
-const NEW_ARRIVALS_COUNT = 8
+/** Products shown in the New Arrivals carousel. */
+const NEW_ARRIVALS_COUNT = 12
 /** Upper bound fetched once and shared by hero + both product sections. */
 const HOME_CATALOG_LIMIT = 24
-/** Deals shown in the Best Deals row. */
-const BEST_DEALS_COUNT = 4
+/** Deals shown in the Best Deals carousel. */
+const BEST_DEALS_COUNT = 8
 
 export function HomePage() {
   const navigate = useNavigate()
@@ -196,63 +191,45 @@ export function HomePage() {
         )
       )}
 
-      {/* ── New Arrivals ── */}
+      {/* ── New Arrivals Automatic Carousel ── */}
       <section
         className="border-y border-[var(--border-subtle)] bg-white py-9 md:py-12"
         aria-labelledby="home-new-arrivals-title"
       >
         <div className="container-app">
-          <SectionHeader
+          <ProductCarousel
+            products={newArrivals}
+            isLoading={productsLoading}
             eyebrow="Just dropped"
             title="New Arrivals"
             titleId="home-new-arrivals-title"
             subtitle="The latest inspected items added by verified merchants"
             linkTo="/products?sort=newest"
+            linkLabel="View all"
+            autoPlayInterval={2500}
+            priorityFirst
           />
-          {productsLoading ? (
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <ProductCardSkeleton key={`product-skeleton-${i}`} />
-              ))}
-            </div>
-          ) : newArrivals.length > 0 ? (
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
-              {newArrivals.map((product, index) => (
-                <HomeProductCard
-                  key={product.id}
-                  product={product}
-                  priority={index < 4}
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="rounded-[var(--radius-lg)] border border-dashed border-[var(--border)] bg-[var(--bg)] px-5 py-10 text-center text-sm text-[var(--muted)]">
-              No products in the catalog yet — check back soon.
-            </p>
-          )}
         </div>
       </section>
 
-      {/* ── Best Deals (only when live seller discounts exist) ── */}
-      {!productsLoading && bestDeals.length > 0 && (
+      {/* ── Best Deals Automatic Carousel (when live seller discounts exist) ── */}
+      {(!productsLoading || bestDeals.length > 0) && (
         <section
           className="border-y border-[var(--border)] bg-[var(--surface-tint)] py-9 md:py-12"
           aria-labelledby="home-best-deals-title"
         >
           <div className="container-app">
-            <SectionHeader
+            <ProductCarousel
+              products={bestDeals}
+              isLoading={productsLoading}
               eyebrow="Limited time"
               title="Best Deals"
               titleId="home-best-deals-title"
               subtitle="Live seller discounts across the marketplace — ranked by savings"
               linkTo="/products?sort=price_asc"
               linkLabel="Shop all deals"
+              autoPlayInterval={2500}
             />
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
-              {bestDeals.map((product) => (
-                <HomeProductCard key={product.id} product={product} />
-              ))}
-            </div>
           </div>
         </section>
       )}
@@ -269,10 +246,7 @@ export function HomePage() {
 // ── Homepage-local building blocks ──
 
 /**
- * Category card with a proper visual: the Category API has no imagery, so
- * each category name is mapped to a curated lucide glyph (see
- * categoryVisual.tsx) presented in an interactive tile — no more bare
- * letter placeholders.
+ * Category card with visual icon.
  */
 function CategoryCard({ category }: { category: Category }) {
   return (
@@ -297,19 +271,5 @@ function CategoryCard({ category }: { category: Category }) {
         </span>
       </span>
     </Link>
-  )
-}
-
-/** Loading placeholder matching the HomeProductCard geometry. */
-function ProductCardSkeleton() {
-  return (
-    <div className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white">
-      <Skeleton className="aspect-square w-full rounded-none" />
-      <div className="space-y-2.5 p-3.5 md:p-4">
-        <Skeleton className="h-3 w-1/3" />
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-4 w-1/2" />
-      </div>
-    </div>
   )
 }

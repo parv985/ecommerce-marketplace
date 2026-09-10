@@ -9,9 +9,10 @@ import { toast } from 'react-hot-toast'
 
 interface ProductCardProps {
   product: Product
+  priority?: boolean
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, priority = false }: ProductCardProps) {
   const [imageError, setImageError] = useState(false)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const accountInactive = useAuthStore((s) => s.accountInactive)
@@ -39,11 +40,16 @@ export function ProductCard({ product }: ProductCardProps) {
   return (
     <div className="group border border-[var(--border)] rounded-[var(--radius-lg)] overflow-hidden bg-white transition-all duration-200 hover:border-neutral-300 hover:shadow-[var(--shadow-md)] flex flex-col justify-between">
       <div>
-        <Link to={`/products/${product.id}`} className="block relative aspect-square bg-[#f6f5f2] overflow-hidden border-b border-[var(--border-subtle)]">
+        <Link
+          to={`/products/${product.id}`}
+          className="block relative aspect-square bg-[#f6f5f2] overflow-hidden border-b border-[var(--border-subtle)]"
+        >
           {product.images?.[0]?.url && !imageError ? (
             <img
               src={product.images[0].url}
               alt={product.name}
+              loading={priority ? 'eager' : 'lazy'}
+              decoding="async"
               className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
               onError={() => setImageError(true)}
             />
