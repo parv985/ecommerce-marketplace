@@ -1,5 +1,6 @@
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ShoppingCart, Package, DollarSign, TrendingDown } from 'lucide-react'
+import { ShoppingCart, Package, DollarSign, TrendingDown, RotateCcw } from 'lucide-react'
 import { sellerService } from '@/services/seller.service'
 import { formatPrice } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/Card'
@@ -19,7 +20,7 @@ export function SellerDashboardPage() {
     { label: 'Delivered', value: dashboard.orders.delivered, icon: Package },
     { label: 'Cancelled', value: dashboard.orders.cancelled, icon: TrendingDown },
     { label: 'Low Stock', value: dashboard.products.lowStock, icon: Package },
-    { label: 'Pending Returns', value: dashboard.returns.pending, icon: TrendingDown },
+    { label: 'Pending Returns', value: dashboard.returns.pending, icon: RotateCcw, href: '/seller/returns' },
   ] : []
 
   if (isLoading) {
@@ -38,8 +39,8 @@ export function SellerDashboardPage() {
         Seller Dashboard
       </h1>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map(s => (
-          <Card key={s.label}>
+        {stats.map(s => {
+          const content = (
             <CardContent className="flex items-center gap-3.5 p-4.5">
               <div className="p-2.5 rounded-[var(--radius)] bg-[#f6f5f2] border border-[var(--border)] shrink-0 text-[var(--fg)]">
                 <s.icon size={18} strokeWidth={1.75} />
@@ -49,8 +50,19 @@ export function SellerDashboardPage() {
                 <p className="text-xl font-bold tracking-tight text-[var(--fg)] truncate mt-0.5">{s.value}</p>
               </div>
             </CardContent>
-          </Card>
-        ))}
+          )
+          return (
+            <Card key={s.label}>
+              {'href' in s && s.href ? (
+                <Link to={s.href} className="block hover:opacity-90 transition-opacity">
+                  {content}
+                </Link>
+              ) : (
+                content
+              )}
+            </Card>
+          )
+        })}
       </div>
     </div>
   )

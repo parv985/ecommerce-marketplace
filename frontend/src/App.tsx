@@ -22,6 +22,8 @@ const CartPage = lazy(() => import('@/pages/CartPage').then(m => ({ default: m.C
 const CheckoutPage = lazy(() => import('@/pages/CheckoutPage').then(m => ({ default: m.CheckoutPage })))
 const OrderListPage = lazy(() => import('@/pages/OrderListPage').then(m => ({ default: m.OrderListPage })))
 const OrderDetailPage = lazy(() => import('@/pages/OrderDetailPage').then(m => ({ default: m.OrderDetailPage })))
+const ReturnListPage = lazy(() => import('@/pages/ReturnListPage').then(m => ({ default: m.ReturnListPage })))
+const ReturnDetailPage = lazy(() => import('@/pages/ReturnDetailPage').then(m => ({ default: m.ReturnDetailPage })))
 const PaymentPage = lazy(() => import('@/pages/PaymentPage').then(m => ({ default: m.PaymentPage })))
 const AccountPage = lazy(() => import('@/pages/AccountPage').then(m => ({ default: m.AccountPage })))
 const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then(m => ({ default: m.NotificationsPage })))
@@ -33,6 +35,7 @@ const PendingApprovalPage = lazy(() => import('@/pages/seller/PendingApprovalPag
 const SellerDashboardPage = lazy(() => import('@/pages/seller/SellerDashboardPage').then(m => ({ default: m.SellerDashboardPage })))
 const SellerProductsPage = lazy(() => import('@/pages/seller/SellerProductsPage').then(m => ({ default: m.SellerProductsPage })))
 const SellerOrdersPage = lazy(() => import('@/pages/seller/SellerOrdersPage').then(m => ({ default: m.SellerOrdersPage })))
+const SellerReturnsPage = lazy(() => import('@/pages/seller/SellerReturnsPage').then(m => ({ default: m.SellerReturnsPage })))
 const SellerInventoryPage = lazy(() => import('@/pages/seller/SellerInventoryPage').then(m => ({ default: m.SellerInventoryPage })))
 const SellerDiscountsPage = lazy(() => import('@/pages/seller/SellerDiscountsPage').then(m => ({ default: m.SellerDiscountsPage })))
 const SellerCouponsPage = lazy(() => import('@/pages/seller/SellerCouponsPage').then(m => ({ default: m.SellerCouponsPage })))
@@ -133,6 +136,16 @@ export default function App() {
                   <PaymentPage />
                 </ProtectedRoute>
               } />
+              <Route path="/returns" element={
+                <ProtectedRoute roles={['BUYER']}>
+                  <ReturnListPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/returns/:id" element={
+                <ProtectedRoute roles={['BUYER']}>
+                  <ReturnDetailPage />
+                </ProtectedRoute>
+              } />
               <Route path="/account" element={
                 <ProtectedRoute roles={['BUYER']}>
                   <AccountPage />
@@ -171,6 +184,7 @@ export default function App() {
                 <Route path="dashboard" element={<SellerDashboardPage />} />
                 <Route path="products" element={<SellerProductsPage />} />
                 <Route path="orders" element={<SellerOrdersPage />} />
+                <Route path="returns" element={<SellerReturnsPage />} />
                 <Route path="inventory" element={<SellerInventoryPage />} />
                 <Route path="discounts" element={<SellerDiscountsPage />} />
                 <Route path="coupons" element={<SellerCouponsPage />} />

@@ -433,18 +433,36 @@ export interface ProductReviews {
 }
 
 // Returns
+// Mirrors the backend `ReturnResponse` (src/modules/returns/return.types.ts)
+// and `ReturnStatus` (src/constants/returnStatus.ts).
+// Lifecycle: PENDING → APPROVED → COMPLETED | PENDING → REJECTED | PENDING → CANCELLED
 export type ReturnStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'COMPLETED'
+
+/** Buyers may request a return within this many days of delivery (backend constant). */
+export const RETURN_WINDOW_DAYS = 7
 
 export interface ReturnRequest {
   id: string
-  order: Order | string
-  buyer: UserSummary | string
-  seller: SellerProfile | string
+  orderId: string
+  userId: string
+  sellerId: string
   reason: string
   status: ReturnStatus
-  rejectionReason?: string
+  /** Present when a seller/admin rejects the return. */
+  statusReason: string | null
   createdAt: string
   updatedAt: string
+}
+
+export interface CreateReturnInput {
+  orderId: string
+  reason: string
+}
+
+export interface UpdateReturnStatusInput {
+  status: 'APPROVED' | 'REJECTED' | 'COMPLETED'
+  /** Required by the API when status is REJECTED. */
+  reason?: string
 }
 
 // Notifications

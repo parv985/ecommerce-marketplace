@@ -1,5 +1,5 @@
 import { NavLink, Outlet, Navigate } from 'react-router-dom'
-import { LayoutDashboard, Package, ShoppingCart, Truck, Percent, Ticket, Users, BarChart3, Bell, User, DollarSign } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingCart, Truck, Percent, Ticket, Users, BarChart3, Bell, User, DollarSign, RotateCcw } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { cn } from '@/lib/utils'
 import { useEffect, useState } from 'react'
@@ -9,6 +9,7 @@ const navItems = [
   { to: '/seller/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/seller/products', label: 'Products', icon: Package },
   { to: '/seller/orders', label: 'Orders', icon: ShoppingCart },
+  { to: '/seller/returns', label: 'Returns', icon: RotateCcw },
   { to: '/seller/inventory', label: 'Inventory', icon: Truck },
   { to: '/seller/discounts', label: 'Discounts', icon: Percent },
   { to: '/seller/coupons', label: 'Coupons', icon: Ticket },
