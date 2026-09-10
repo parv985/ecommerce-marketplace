@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { sellerService } from '@/services/seller.service'
 import { Badge } from '@/components/ui/Badge'
@@ -6,10 +6,12 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { ProfileAvatar } from '@/components/ui/ProfileAvatar'
+import { DocumentUpload } from '@/components/ui/DocumentUpload'
 import { useForm } from 'react-hook-form'
 import { toast } from 'react-hot-toast'
 import { getChangedFields, notifyNoChanges } from '@/lib/formChanges'
-import type { SellerProfile } from '@/types/api'
+import type { SellerProfile, SellerDocumentType } from '@/types/api'
+import { getDocumentTypeLabel } from '@/lib/sellerDocuments'
 
 const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error'> = {
   APPROVED: 'success', PENDING: 'warning', REJECTED: 'error', PAUSED: 'default', SUSPENDED: 'error',
@@ -89,6 +91,41 @@ export function SellerProfilePage() {
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
   })
 
+  // ---- Business documents (Cloudinary via backend) ----
+  const [deletingPublicId, setDeletingPublicId] = useState<string | null>(null)
+
+  const uploadDocument = useMutation({
+    mutationFn: ({ file, type }: { file: File; type: SellerDocumentType }) =>
+      sellerService.uploadDocument(file, type),
+    onSuccess: async (_res, vars) => {
+      await queryClient.invalidateQueries({ queryKey: ['seller-profile'] })
+      toast.success(`${getDocumentTypeLabel(vars.type)} uploaded`)
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to upload document. Please try again.'),
+  })
+
+  const deleteDocument = useMutation({
+    mutationFn: (publicId: string) => sellerService.deleteDocument(publicId),
+    onMutate: (publicId) => setDeletingPublicId(publicId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['seller-profile'] })
+      toast.success('Document deleted')
+    },
+    onError: (e: any) => {
+      const code = e.response?.data?.code
+      const message = e.response?.data?.message
+      if (code === 'CLOUDINARY_DELETE_FAILED' || e.response?.status === 502) {
+        toast.error(message || 'Could not remove the file from storage. Nothing was changed — please try again.')
+      } else if (code === 'DOCUMENT_NOT_FOUND' || e.response?.status === 404) {
+        toast.error('This document no longer exists. Refreshing your documents…')
+        queryClient.invalidateQueries({ queryKey: ['seller-profile'] })
+      } else {
+        toast.error(message || 'Failed to delete document. Please try again.')
+      }
+    },
+    onSettled: () => setDeletingPublicId(null),
+  })
+
   const onSubmit = (data: SellerFormValues) => {
     if (!profile) return
 
@@ -130,6 +167,8 @@ export function SellerProfilePage() {
   // Backend reports the decision reason as `statusReason`
   // (`rejectionReason` kept as a legacy fallback).
   const decisionReason = profile.statusReason ?? profile.rejectionReason ?? null
+  // Suspended sellers are read-only for KYC documents.
+  const documentsLocked = profile.status === 'SUSPENDED'
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -189,6 +228,25 @@ export function SellerProfilePage() {
               {update.isPending ? 'Updating...' : 'Update Profile'}
             </Button>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Business Documents</CardTitle></CardHeader>
+        <CardContent>
+          {/* Uploads go through POST /sellers/me/documents (backend → Cloudinary
+              "raw"); deletions through DELETE /sellers/me/documents/:publicId,
+              which removes the Cloudinary asset before dropping the DB
+              reference. Credentials never reach the browser. */}
+          <DocumentUpload
+            existingDocuments={profile.documents ?? []}
+            onUpload={(file, type) => uploadDocument.mutateAsync({ file, type })}
+            onDelete={(publicId) => deleteDocument.mutateAsync(publicId)}
+            disabled={documentsLocked}
+            disabledReason={documentsLocked ? 'Your seller account is suspended. Document uploads and deletions are disabled — please contact support.' : undefined}
+            isUploading={uploadDocument.isPending}
+            deletingPublicId={deletingPublicId}
+          />
         </CardContent>
       </Card>
     </div>

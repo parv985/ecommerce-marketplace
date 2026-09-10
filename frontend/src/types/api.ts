@@ -105,10 +105,23 @@ export interface SellerProfile {
   updatedAt?: string
 }
 
+/**
+ * Canonical seller document types used by the frontend. The backend stores
+ * whatever string is sent, and older records may use the short aliases
+ * `GST` / `PAN` — see `normalizeDocumentType` in `@/lib/sellerDocuments`.
+ */
+export type SellerDocumentType = 'GST_CERTIFICATE' | 'PAN_CARD' | 'BANK_STATEMENT' | 'OTHER'
+
 export interface SellerDocument {
-  type: string
+  /** Document type — canonical `SellerDocumentType` or a legacy alias (`GST`, `PAN`). */
+  type: SellerDocumentType | string
   url: string
+  /** Cloudinary public_id (e.g. `seller-documents/doc_..`) — used for deletion. */
   publicId: string
+  /** Original file name (present on newer uploads). */
+  fileName?: string
+  /** File size in bytes (present on newer uploads). */
+  size?: number
 }
 
 // Products

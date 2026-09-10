@@ -25,6 +25,8 @@ export interface SellerRegistrationInput {
     type: string;
     url: string;
     publicId: string;
+    fileName?: string;
+    size?: number;
   }[];
 }
 
@@ -66,6 +68,8 @@ export interface SellerProfileResponse {
     type: string;
     url: string;
     publicId: string;
+    fileName?: string;
+    size?: number;
   }[];
   status: SellerStatus;
   statusReason?: string | null;

@@ -1,5 +1,5 @@
 import api from './api'
-import type { ApiResponse, SellerProfile, PaginatedResponse, DashboardData, SalesPoint, TopProduct, CategoryPerformance, CustomerInfo, RevenueData, Settlement } from '@/types/api'
+import type { ApiResponse, SellerProfile, SellerDocument, PaginatedResponse, DashboardData, SalesPoint, TopProduct, CategoryPerformance, CustomerInfo, RevenueData, Settlement } from '@/types/api'
 
 export const sellerService = {
   register: (data: {
@@ -33,14 +33,16 @@ export const sellerService = {
     const formData = new FormData()
     formData.append('document', file)
     formData.append('documentType', documentType)
-    return api.post<ApiResponse<{ type: string; url: string; publicId: string }>>(
+    return api.post<ApiResponse<SellerDocument>>(
       '/sellers/me/documents', formData,
       { headers: { 'Content-Type': 'multipart/form-data' } }
     ).then(r => r.data)
   },
 
-  deleteDocument: (documentId: string) =>
-    api.delete<ApiResponse<null>>(`/sellers/me/documents/${documentId}`).then(r => r.data),
+  /** Deletes a document by its Cloudinary publicId (which contains a `/`,
+      so it must be URL-encoded to survive the `:documentId` route param). */
+  deleteDocument: (publicId: string) =>
+    api.delete<ApiResponse<null>>(`/sellers/me/documents/${encodeURIComponent(publicId)}`).then(r => r.data),
 
   // Dashboard & Analytics
   getDashboard: () =>
