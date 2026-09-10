@@ -1,20 +1,15 @@
-import { BadgeCheck, Headset, LockKeyhole, Truck } from 'lucide-react'
+import { BadgeCheck, Headset, LockKeyhole } from 'lucide-react'
 import { SectionHeader } from './SectionHeader'
 
 /**
  * "Why NexCart" trust band — light theme.
  *
- * Four platform guarantees presented as subtle white cards on a soft-gray
+ * Three platform guarantees presented as subtle white cards on a soft-gray
  * band. Copy reflects real platform behaviour: sellers are admin-approved
- * before listing, free shipping over ₹999, Razorpay-protected checkout
- * with COD, and a 7-day return window.
+ * before listing, Razorpay-protected checkout with COD, and a 7-day
+ * return window.
  */
 const TRUST_ITEMS = [
-  {
-    icon: Truck,
-    title: 'Free Shipping',
-    desc: 'Free delivery on orders over ₹999, shipped to pin codes across India.',
-  },
   {
     icon: BadgeCheck,
     title: 'Verified Sellers',
@@ -45,7 +40,7 @@ export function TrustSection() {
           titleId="home-trust-title"
           subtitle="Platform promises backed by real policies — every guarantee below is enforced end-to-end."
         />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4 md:gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 md:gap-4">
           {TRUST_ITEMS.map((item) => (
             <div
               key={item.title}

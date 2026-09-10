@@ -13,6 +13,7 @@ import {
   registerSellerController,
   updateSellerProfileController,
   uploadSellerDocumentController,
+  getSellerCountController,
 } from "./seller.controller.js";
 import {
   sellerRegistrationSchema,
@@ -20,6 +21,38 @@ import {
 } from "./seller.schema.js";
 
 const router = Router();
+
+/**
+ * @openapi
+ * /api/v1/sellers/count:
+ *   get:
+ *     tags:
+ *       - Sellers
+ *     summary: Get approved seller count
+ *     description: Public endpoint returning the count of approved (registered) sellers. No authentication required.
+ *     responses:
+ *       200:
+ *         description: Seller count fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     count:
+ *                       type: integer
+ *                       example: 42
+ */
+router.get(
+  "/count",
+  asyncHandler(getSellerCountController),
+);
 
 /**
  * @openapi

@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 export function MainLayout() {
   const { isAuthenticated, isLoading, user, setLoading, logout } = useAuthStore()
   const location = useLocation()
+  const isSeller = isAuthenticated && user?.role === 'SELLER'
 
   // Re-check the account status on an interval and on window focus, so a
   // Super Admin deactivation is enforced without a page refresh.
@@ -105,7 +106,7 @@ export function MainLayout() {
       <main className="flex-1">
         <Outlet />
       </main>
-      <Footer />
+      {!isSeller && <Footer />}
     </div>
   )
 }

@@ -9,6 +9,19 @@ import {
 } from "../../models/Seller.js";
 
 import { UserRole } from "../../constants/roles.js";
+import { SellerStatus } from "../../constants/sellerStatus.js";
+
+
+/**
+ * Count approved sellers — used by the public marketplace stats
+ * endpoint so the homepage can display the real seller count.
+ */
+export const countApprovedSellers =
+  async (): Promise<number> => {
+    return Seller.countDocuments({
+      status: SellerStatus.APPROVED,
+    }).exec();
+  };
 
 
 export const findUserByEmail = async (

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { MouseEvent, ReactNode } from 'react'
 import { toast } from 'react-hot-toast'
-import { BadgeCheck, LockKeyhole, Truck } from 'lucide-react'
+import { BadgeCheck, LockKeyhole } from 'lucide-react'
 import { APP_NAME, APP_DESCRIPTION, APP_TAGLINE, APP_COPYRIGHT } from '@/config/brand'
 import { useAuthStore } from '@/stores/authStore'
 import { PolicyModal, type FooterPolicy } from './footer/PolicyModal'
@@ -52,13 +52,15 @@ const LEGAL_LINKS: FooterItem[] = [
 ]
 
 const BRAND_MARKS = [
-  { icon: Truck, text: 'Free shipping over ₹999' },
   { icon: BadgeCheck, text: 'Admin-verified sellers' },
   { icon: LockKeyhole, text: 'Secure Razorpay checkout' },
 ] as const
 
 export function Footer() {
   const [policy, setPolicy] = useState<FooterPolicy | null>(null)
+
+  const { isAuthenticated, user } = useAuthStore()
+  const isBuyer = isAuthenticated && user?.role === 'BUYER'
 
   /*
    * Sellers and buyers cannot use the seller registration funnel. Show
@@ -107,7 +109,9 @@ export function Footer() {
 
           <FooterColumn title="Shop" items={SHOP_LINKS} />
           <FooterColumn title="Account" items={ACCOUNT_LINKS} />
-          <FooterColumn title="For Sellers" items={SELLER_LINKS} onLinkClick={handleBecomeSeller} />
+          {!isBuyer && (
+            <FooterColumn title="For Sellers" items={SELLER_LINKS} onLinkClick={handleBecomeSeller} />
+          )}
           <FooterColumn title="Customer Support" items={SUPPORT_LINKS} onPolicyOpen={setPolicy} />
           <FooterColumn title="Legal" items={LEGAL_LINKS} onPolicyOpen={setPolicy} />
         </div>

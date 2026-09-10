@@ -19,6 +19,10 @@ export const sellerService = {
     phone?: string
   }) => api.post<ApiResponse<null>>('/sellers/register', data).then(r => r.data),
 
+  /** Public: get the count of approved marketplace sellers. */
+  getCount: () =>
+    api.get<ApiResponse<{ count: number }>>('/sellers/count').then(r => r.data.data),
+
   getProfile: () =>
     api.get<ApiResponse<SellerProfile>>('/sellers/me').then(r => r.data.data),
 
