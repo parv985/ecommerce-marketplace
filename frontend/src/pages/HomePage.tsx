@@ -4,10 +4,10 @@ import {
   ArrowRight,
   BadgeCheck,
   LockKeyhole,
-  Truck,
 } from 'lucide-react'
 import { categoryService } from '@/services/category.service'
 import { productService } from '@/services/product.service'
+import { sellerService } from '@/services/seller.service'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { HeroShowcase } from '@/components/home/HeroShowcase'
 import { HomeProductCard } from '@/components/home/HomeProductCard'
@@ -17,7 +17,6 @@ import { SellerCtaSection } from '@/components/home/SellerCtaSection'
 import { CategoryIcon } from '@/components/home/categoryVisual'
 import { formatCategoryLabel } from '@/lib/categoryLabel'
 import { useAuthStore } from '@/stores/authStore'
-import { toast } from 'react-hot-toast'
 import { APP_NAME } from '@/config/brand'
 import type { Category } from '@/types/api'
 import '@/components/home/home.css'
@@ -47,6 +46,8 @@ export function HomePage() {
   const navigate = useNavigate()
   const { isAuthenticated, user } = useAuthStore()
 
+  const isBuyer = isAuthenticated && user?.role === 'BUYER'
+
   const { data: categories, isLoading: categoriesLoading } = useQuery({
     queryKey: ['categories'],
     queryFn: categoryService.list,
@@ -56,6 +57,14 @@ export function HomePage() {
     queryKey: ['products', { limit: HOME_CATALOG_LIMIT, sort: 'newest' }],
     queryFn: () => productService.browse({ limit: HOME_CATALOG_LIMIT, sort: 'newest' }),
   })
+
+  /* Live seller count — fetched once from the public endpoint. */
+  const { data: sellerCountData } = useQuery({
+    queryKey: ['sellerCount'],
+    queryFn: sellerService.getCount,
+    staleTime: 5 * 60 * 1000,
+  })
+  const sellerCount = sellerCountData?.count ?? 0
 
   const newestItems = catalog?.items ?? []
   const newArrivals = newestItems.slice(0, NEW_ARRIVALS_COUNT)
@@ -70,13 +79,9 @@ export function HomePage() {
 
   const handleSellClick = () => {
     if (!isAuthenticated) {
-      toast.error('Please login as a seller to sell products.')
+      navigate('/seller/register')
     } else if (user?.role === 'SELLER') {
       navigate('/seller/dashboard')
-    } else if (user?.role === 'BUYER') {
-      toast.error('Buyers cannot sell products.')
-    } else {
-      toast.error('Admin accounts cannot sell on this platform')
     }
   }
 
@@ -98,7 +103,7 @@ export function HomePage() {
           <div>
             <div className="nc-home-rise inline-flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border)] bg-white/80 px-2.5 py-1 text-xs font-medium tracking-tight text-[var(--fg-secondary)] backdrop-blur-sm">
               <span className="h-1.5 w-1.5 rounded-full bg-[var(--primary)]" aria-hidden />
-              Verified Marketplace · 10,000+ Indian Sellers
+              Verified Marketplace · {sellerCount > 0 ? `${sellerCount.toLocaleString('en-IN')}+ Indian Sellers` : 'Indian Sellers'}
             </div>
 
             <h1 className="nc-home-rise nc-home-rise-1 mt-4 text-[1.85rem] font-bold leading-[1.18] tracking-tight text-[var(--fg)] sm:text-4xl lg:text-[2.6rem]">
@@ -119,21 +124,19 @@ export function HomePage() {
                 Browse Products
                 <ArrowRight size={15} aria-hidden />
               </Link>
-              <button
-                type="button"
-                onClick={handleSellClick}
-                className="inline-flex items-center rounded-[var(--radius)] border border-[var(--border-strong)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--fg)] transition-colors duration-150 hover:border-[var(--primary)] hover:text-[var(--primary)] active:bg-[var(--primary-subtle)]"
-              >
-                Sell on {APP_NAME}
-              </button>
+              {!isBuyer && (
+                <button
+                  type="button"
+                  onClick={handleSellClick}
+                  className="inline-flex items-center rounded-[var(--radius)] border border-[var(--border-strong)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--fg)] transition-colors duration-150 hover:border-[var(--primary)] hover:text-[var(--primary)] active:bg-[var(--primary-subtle)]"
+                >
+                  Sell on {APP_NAME}
+                </button>
+              )}
             </div>
 
             {/* Compact trust markers — the facts that matter before the first scroll */}
             <ul className="nc-home-rise nc-home-rise-3 mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-[var(--border)] pt-5 text-xs font-medium text-[var(--fg-secondary)]">
-              <li className="flex items-center gap-1.5">
-                <Truck size={14} className="text-[var(--primary)]" aria-hidden />
-                Free shipping over ₹999
-              </li>
               <li className="flex items-center gap-1.5">
                 <BadgeCheck size={14} className="text-[var(--primary)]" aria-hidden />
                 7-day easy returns
@@ -257,8 +260,8 @@ export function HomePage() {
       {/* ── Trust / Why NexCart ── */}
       <TrustSection />
 
-      {/* ── Become a Seller CTA ── */}
-      <SellerCtaSection />
+      {/* ── Become a Seller CTA (hidden for authenticated buyers) ── */}
+      {!isBuyer && <SellerCtaSection />}
     </div>
   )
 }

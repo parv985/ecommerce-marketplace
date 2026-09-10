@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { ShoppingCart, User, Menu, X, Bell, LogOut, Package, LayoutDashboard, Shield, Truck } from 'lucide-react'
+import { ShoppingCart, User, Menu, X, Bell, LogOut, Package, LayoutDashboard, Shield } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { cn } from '@/lib/utils'
 import { authApi } from '@/services/auth.service'
@@ -36,11 +36,7 @@ export function Header() {
     <header className="sticky top-0 z-50 bg-white border-b border-[var(--border)] shadow-[var(--shadow-sm)]">
       {/* Announcement bar — light & subtle */}
       <div className="hidden md:block border-b border-[var(--border-subtle)] bg-[var(--surface-warm)] text-xs text-[var(--fg-secondary)]">
-        <div className="container-app flex items-center justify-between py-2">
-          <span className="inline-flex items-center gap-1.5 font-medium text-[var(--fg)]">
-            <Truck size={13} className="text-[var(--primary)]" aria-hidden />
-            Free Shipping on Orders Over ₹999
-          </span>
+        <div className="container-app flex items-center justify-end py-2">
           <span className="text-[var(--muted)]">{APP_TAGLINE}</span>
         </div>
       </div>

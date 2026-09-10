@@ -22,7 +22,7 @@ interface PolicyDefinition {
  * The application has no dedicated legal pages (and routes must not be
  * added by the homepage/footer redesign), so these summaries live inside
  * the footer component itself. Copy reflects real platform behaviour —
- * admin-approved sellers, ₹999 free-shipping threshold, Razorpay checkout
+ * admin-approved sellers, Razorpay checkout
  * with COD, and the 7-day return window enforced by the returns module.
  * They are summaries, not legal advice — swap in reviewed legal copy when
  * the business finalises it.
@@ -33,10 +33,6 @@ const POLICIES: Record<FooterPolicy, PolicyDefinition> = {
     intro:
       `${APP_NAME} connects you with multiple verified sellers, so each order is packed and dispatched by the seller you bought from.`,
     sections: [
-      {
-        heading: 'Free shipping over ₹999',
-        body: 'Orders above ₹999 ship free. A shipping fee may apply to smaller orders and certain remote pin codes, and is always shown before you pay.',
-      },
       {
         heading: 'Dispatch & delivery',
         body: 'Sellers dispatch within a few working days of order confirmation. Delivery timelines vary by pin code — typical metro deliveries land in 2–5 business days, other regions within about a week.',

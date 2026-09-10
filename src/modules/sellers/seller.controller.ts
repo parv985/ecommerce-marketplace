@@ -12,6 +12,7 @@ import {
   updateSellerProfile,
   uploadSellerDocument,
 } from "./seller.service.js";
+import { countApprovedSellers } from "./seller.repository.js";
 
 
 export const registerSellerController =
@@ -127,6 +128,25 @@ export const deleteSellerDocumentController =
       res,
       "Document deleted successfully",
       null,
+    );
+  };
+
+/**
+ * Public endpoint: returns the count of approved sellers.
+ * No authentication required — used by the homepage to display
+ * the live marketplace seller count.
+ */
+export const getSellerCountController =
+  async (
+    _req: Request,
+    res: Response,
+  ): Promise<void> => {
+    const count = await countApprovedSellers();
+
+    sendSuccess(
+      res,
+      "Seller count fetched",
+      { count },
     );
   };
 

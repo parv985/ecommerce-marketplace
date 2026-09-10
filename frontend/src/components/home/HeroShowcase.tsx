@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { BadgeCheck, Flame, ShoppingBag } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
@@ -16,19 +16,44 @@ interface HeroShowcaseProps {
   isLoading: boolean
 }
 
+/** Auto-slide interval in ms. */
+const SLIDE_INTERVAL = 2500
+
 /**
  * Right-hand showcase of the homepage hero (light theme).
  *
  * Built entirely from LIVE catalog data: the newest products returned by
  * `productService.browse` — one featured item plus two supporting tiles.
+ * The showcase auto-slides through available products every 2.5 seconds.
  * While loading it renders matching skeletons; if the catalog has no
  * imaged products yet it degrades to a branded panel that surfaces the
  * real categories instead (never fake product imagery).
  */
 export function HeroShowcase({ products, categories, isLoading }: HeroShowcaseProps) {
   const withImages = (products ?? []).filter((p) => p.images?.[0]?.url)
-  const featured = withImages[0]
-  const secondary = withImages.slice(1, 3)
+  const totalSlides = withImages.length
+
+  /* Current starting index for the 3-product window (featured + 2 secondary). */
+  const [slideIndex, setSlideIndex] = useState(0)
+
+  /* Auto-slide: advance every SLIDE_INTERVAL ms when there are >3 products. */
+  const advanceSlide = useCallback(() => {
+    if (totalSlides <= 3) return
+    setSlideIndex((prev) => (prev + 1) % totalSlides)
+  }, [totalSlides])
+
+  useEffect(() => {
+    if (totalSlides <= 3) return
+    const timer = setInterval(advanceSlide, SLIDE_INTERVAL)
+    return () => clearInterval(timer)
+  }, [advanceSlide, totalSlides])
+
+  /* Derive the current featured + secondary products from the sliding window. */
+  const featured = withImages[slideIndex]
+  const secondary = [
+    withImages[(slideIndex + 1) % totalSlides],
+    withImages[(slideIndex + 2) % totalSlides],
+  ].filter(Boolean)
 
   /* ── Loading: skeleton collage with the same geometry ── */
   if (isLoading) {
@@ -65,6 +90,25 @@ export function HeroShowcase({ products, categories, isLoading }: HeroShowcasePr
             </>
           )}
         </div>
+
+        {/* Slide indicators — shown only when there are enough products to slide */}
+        {totalSlides > 3 && (
+          <div className="absolute -bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1">
+            {Array.from({ length: Math.min(totalSlides, 8) }).map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                aria-label={`Go to slide ${i + 1}`}
+                onClick={() => setSlideIndex(i)}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  i === slideIndex % Math.min(totalSlides, 8)
+                    ? 'w-5 bg-[var(--primary)]'
+                    : 'w-1.5 bg-[var(--border-strong)] hover:bg-[var(--muted)]'
+                }`}
+              />
+            ))}
+          </div>
+        )}
 
         <div className="grid gap-3 sm:grid-cols-5 sm:grid-rows-[196px_196px] lg:grid-rows-[216px_216px]">
           {/* Featured product */}
