@@ -72,7 +72,7 @@ export function CartPage() {
             <div key={item.productId} className="flex gap-4 p-4 border border-[var(--border)] bg-white rounded-[var(--radius-lg)] shadow-[var(--shadow-sm)]">
               <Link to={`/products/${item.productId}`} className="shrink-0 w-20 h-20 bg-[#f6f5f2] border border-[var(--border-subtle)] rounded-[var(--radius)] overflow-hidden">
                 {product.images?.[0]?.url ? (
-                  <img src={product.images[0].url} alt="" className="w-full h-full object-cover" />
+                  <img src={product.images[0].url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-neutral-400 text-xs">No img</div>
                 )}

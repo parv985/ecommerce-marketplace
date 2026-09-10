@@ -389,22 +389,34 @@ export interface Coupon {
 }
 
 // Reviews
+// Mirrors the backend `ReviewResponse` (src/modules/reviews/review.types.ts)
 export interface Review {
   id: string
-  user: UserSummary | string
-  product: string
+  userId: string
+  userName: string
+  userAvatar?: string | null
+  productId: string
   rating: number
-  comment?: string
+  comment?: string | null
   createdAt: string
   updatedAt: string
+  /** Legacy aliases for backwards compatibility */
+  user?: UserSummary | string
+  product?: string
 }
 
 export interface ProductReviews {
-  reviews: Review[]
+  productId: string
   averageRating: number
-  totalReviews: number
+  reviewCount: number
+  items: Review[]
   page: number
+  limit: number
+  total: number
   totalPages: number
+  /** Legacy aliases for backwards compatibility */
+  reviews?: Review[]
+  totalReviews?: number
 }
 
 // Returns
