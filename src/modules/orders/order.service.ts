@@ -992,11 +992,28 @@ export const updateOrderStatus = async (
     await releaseCouponUsage(orderId);
   }
 
+  /*
+   * Cash-on-delivery orders are settled in cash at the doorstep: the
+   * moment the order is marked DELIVERED the payment has been
+   * collected, so the same atomic update flips the payment status to
+   * PAID. The database can never hold DELIVERED + PENDING for a COD
+   * order. Online (Razorpay) payments are untouched — they settle
+   * through the payment gateway verification flow.
+   */
+  const codPaidOnDelivery =
+    data.status === OrderStatus.DELIVERED &&
+    order.paymentMethod ===
+      PaymentMethod.CASH_ON_DELIVERY &&
+    order.paymentStatus !== PaymentStatus.PAID;
+
   const updated = await updateOrderStatusById(
     orderId,
     data.status,
     data.status === OrderStatus.DELIVERED
       ? new Date()
+      : undefined,
+    codPaidOnDelivery
+      ? PaymentStatus.PAID
       : undefined,
   );
 
@@ -1022,13 +1039,22 @@ export const updateOrderStatus = async (
     entityType: "ORDER",
     entityId: orderId,
     before: { status: order.status },
-    after: { status: updated.status },
+    after: {
+      status: updated.status,
+      ...(codPaidOnDelivery && {
+        paymentStatus: updated.paymentStatus,
+      }),
+    },
   });
 
   await notifyOrderStatusChange(
     updated,
     updated.status,
   );
+
+  if (codPaidOnDelivery) {
+    await notifyPaymentReceived(updated);
+  }
 
   return toOrderResponse(updated);
 };

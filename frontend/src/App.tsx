@@ -35,6 +35,7 @@ const PendingApprovalPage = lazy(() => import('@/pages/seller/PendingApprovalPag
 const SellerDashboardPage = lazy(() => import('@/pages/seller/SellerDashboardPage').then(m => ({ default: m.SellerDashboardPage })))
 const SellerProductsPage = lazy(() => import('@/pages/seller/SellerProductsPage').then(m => ({ default: m.SellerProductsPage })))
 const SellerOrdersPage = lazy(() => import('@/pages/seller/SellerOrdersPage').then(m => ({ default: m.SellerOrdersPage })))
+const SellerOrderDetailPage = lazy(() => import('@/pages/seller/SellerOrderDetailPage').then(m => ({ default: m.SellerOrderDetailPage })))
 const SellerReturnsPage = lazy(() => import('@/pages/seller/SellerReturnsPage').then(m => ({ default: m.SellerReturnsPage })))
 const SellerInventoryPage = lazy(() => import('@/pages/seller/SellerInventoryPage').then(m => ({ default: m.SellerInventoryPage })))
 const SellerDiscountsPage = lazy(() => import('@/pages/seller/SellerDiscountsPage').then(m => ({ default: m.SellerDiscountsPage })))
@@ -186,6 +187,7 @@ export default function App() {
                 <Route path="dashboard" element={<SellerDashboardPage />} />
                 <Route path="products" element={<SellerProductsPage />} />
                 <Route path="orders" element={<SellerOrdersPage />} />
+                <Route path="orders/:id" element={<SellerOrderDetailPage />} />
                 <Route path="returns" element={<SellerReturnsPage />} />
                 <Route path="inventory" element={<SellerInventoryPage />} />
                 <Route path="discounts" element={<SellerDiscountsPage />} />

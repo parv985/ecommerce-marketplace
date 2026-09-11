@@ -83,7 +83,12 @@ export function OrderListPage() {
                   <span className="font-semibold text-sm text-[var(--fg)]">Order #{order.orderNumber}</span>
                   <span className="text-xs text-[var(--muted)] ml-2.5">{formatDate(order.createdAt)}</span>
                 </div>
-                <Badge variant={statusColors[order.status]}>{order.status}</Badge>
+                <div className="flex items-center gap-1.5">
+                  <Badge variant={order.paymentStatus === 'PAID' ? 'success' : 'warning'}>
+                    {order.paymentStatus}
+                  </Badge>
+                  <Badge variant={statusColors[order.status]}>{order.status}</Badge>
+                </div>
               </div>
               <div className="text-xs text-[var(--fg-secondary)]">
                 {order.items.length} item{order.items.length === 1 ? '' : 's'} • <span className="font-semibold text-[var(--fg)]">{formatPrice(order.total)}</span>

@@ -20,6 +20,7 @@ import {
 } from "./product.controller.js";
 import {
   createProductSchema,
+  listMyProductsQuerySchema,
   listProductsQuerySchema,
   productIdParamsSchema,
   updateProductSchema,
@@ -160,9 +161,17 @@ router.get(
  *     tags:
  *       - Products
  *     summary: List my products
- *     description: Returns every product owned by the authenticated seller, including drafts and inactive products.
+ *     description: Returns the products owned by the authenticated seller, including drafts and inactive products. An optional free-text `search` term filters name/description server-side; results are always scoped to the authenticated seller.
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - name: search
+ *         in: query
+ *         required: false
+ *         description: Free text search on product name and description (seller-scoped)
+ *         schema:
+ *           type: string
+ *           maxLength: 100
  *     responses:
  *       200:
  *         description: Products fetched successfully
@@ -226,6 +235,7 @@ router.get(
   "/my",
   authenticate,
   authorize(UserRole.SELLER),
+  validate(listMyProductsQuerySchema, "query"),
   asyncHandler(listMyProductsController),
 );
 

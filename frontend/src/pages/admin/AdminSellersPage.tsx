@@ -99,7 +99,6 @@ export function AdminSellersPage() {
                 {(s.status === 'APPROVED' || s.status === 'PAUSED') && <Button size="sm" variant="destructive" onClick={() => setActionDialog({ id: s.id, action: 'SUSPENDED', name: s.businessName })}>Suspend</Button>}
               </div>
             </div>
-            {s.statusReason && <p className="text-xs text-red-600 mt-1">Reason: {s.statusReason}</p>}
           </div>
         ))}
         {data && <Pagination currentPage={page} totalPages={data.totalPages} onPageChange={setPage} />}

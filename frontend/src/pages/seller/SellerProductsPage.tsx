@@ -17,6 +17,7 @@ import { toast } from 'react-hot-toast'
 import { useSellerErrorHandler } from '@/hooks/useSellerErrorHandler'
 import { useRestrictedAction } from '@/hooks/useRestrictedAction'
 import { getChangedFields, notifyNoChanges } from '@/lib/formChanges'
+import { SellerProductSearch } from '@/components/seller/SellerProductSearch'
 import type { Product } from '@/types/api'
 
 /** Mirrors the backend limit: `POST /products/:id/images` takes 8 files and the service rejects more. */
@@ -72,7 +73,18 @@ export function SellerProductsPage() {
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [deletingPublicId, setDeletingPublicId] = useState<string | null>(null)
 
-  const { data: products, isLoading } = useQuery({ queryKey: ['my-products'], queryFn: productService.getMyProducts })
+  /*
+   * Seller Panel product search: the term is sent to `GET /products/my`
+   * and filtered server-side, scoped to the authenticated seller's own
+   * products (never another seller's). An empty term lists everything.
+   */
+  const [searchTerm, setSearchTerm] = useState('')
+  const listQueryKey = ['my-products', searchTerm] as const
+
+  const { data: products, isLoading } = useQuery({
+    queryKey: listQueryKey,
+    queryFn: () => productService.getMyProducts(searchTerm || undefined),
+  })
   const { data: categories } = useQuery({ queryKey: ['categories'], queryFn: categoryService.list })
   const { register, handleSubmit, reset, formState: { errors } } = useForm<ProductForm>({ resolver: zodResolver(productSchema) })
 
@@ -93,7 +105,7 @@ export function SellerProductsPage() {
 
   /* Patches the list cache so an upload/delete shows instantly, before the refetch lands. */
   function patchImages(targetId: string, apply: (images: Product['images']) => Product['images']) {
-    queryClient.setQueryData<Product[]>(['my-products'], (old) =>
+    queryClient.setQueryData<Product[]>(listQueryKey, (old) =>
       old?.map(p => (p.id === targetId ? { ...p, images: apply(p.images ?? []) } : p)),
     )
   }
@@ -140,7 +152,7 @@ export function SellerProductsPage() {
         return
       }
       /* Seed the list with the created product so the image step has data immediately. */
-      queryClient.setQueryData<Product[]>(['my-products'], (old) => {
+      queryClient.setQueryData<Product[]>(listQueryKey, (old) => {
         const list = old ?? []
         return list.some(p => p.id === created.id)
           ? list.map(p => (p.id === created.id ? { ...p, ...created } : p))
@@ -268,10 +280,29 @@ export function SellerProductsPage() {
         <Button onClick={openCreateDialog}><Plus size={16} className="mr-1" /> Add Product</Button>
       </div>
 
+      {/* Seller-scoped product search — suggestions and results only ever
+          contain this seller's own products (enforced by the backend). */}
+      <div className="max-w-md mb-4">
+        <SellerProductSearch
+          value={searchTerm}
+          onApply={setSearchTerm}
+          onSelect={(product) => openEditDialog(product)}
+        />
+        {searchTerm && (
+          <p className="mt-2 text-xs text-[var(--muted)]">
+            Showing your products matching “{searchTerm}” ({products?.length ?? 0})
+          </p>
+        )}
+      </div>
+
       {isLoading ? (
         <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-20 bg-zinc-100 rounded animate-pulse" />)}</div>
       ) : !products?.length ? (
-        <div className="text-center py-12 text-[var(--muted)]">No products yet. Add your first product!</div>
+        searchTerm ? (
+          <div className="text-center py-12 text-[var(--muted)]">No products of yours match “{searchTerm}”.</div>
+        ) : (
+          <div className="text-center py-12 text-[var(--muted)]">No products yet. Add your first product!</div>
+        )
       ) : (
         <div className="space-y-3">
           {products.map(p => (

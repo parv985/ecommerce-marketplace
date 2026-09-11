@@ -28,7 +28,7 @@ export function SellerInventoryPage() {
    */
   const { data: products } = useQuery({
     queryKey: ['my-products'],
-    queryFn: productService.getMyProducts,
+    queryFn: () => productService.getMyProducts(),
   })
 
   const productNames = useMemo(() => {

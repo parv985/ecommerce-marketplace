@@ -57,7 +57,7 @@ export function SellerOrdersPage() {
           <div key={order.id} className="border rounded-lg p-4">
             <div className="flex items-center justify-between mb-2">
               <div>
-                <Link to={`/orders/${order.id}`} className="font-medium text-sm hover:underline">#{order.orderNumber}</Link>
+                <Link to={`/seller/orders/${order.id}`} className="font-medium text-sm hover:underline">#{order.orderNumber}</Link>
                 <span className="text-xs text-[var(--muted)] ml-2">{formatDate(order.createdAt)}</span>
               </div>
               <Badge variant={statusColors[order.status]}>{order.status}</Badge>
