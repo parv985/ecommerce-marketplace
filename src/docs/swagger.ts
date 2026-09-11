@@ -749,6 +749,8 @@ const options: swaggerJSDoc.Options = {
             status: {
               type: "string",
               enum: ["ACTIVE", "INACTIVE"],
+              description:
+                "Derived status, never stale: ACTIVE only while the manual switch is enabled, the current date is inside [startAt, endAt] and the usage limit has not been reached (expired or fully-used coupons are automatically INACTIVE).",
             },
             createdAt: {
               type: "string",
@@ -831,6 +833,8 @@ const options: swaggerJSDoc.Options = {
               type: "string",
               enum: ["ACTIVE", "INACTIVE"],
               default: "ACTIVE",
+              description:
+                "Manual switch only. The status returned by the API is derived from this flag, the coupon dates and the remaining usage limit.",
             },
           },
         },
@@ -892,6 +896,8 @@ const options: swaggerJSDoc.Options = {
             status: {
               type: "string",
               enum: ["ACTIVE", "INACTIVE"],
+              description:
+                "Manual switch only (re-enable a deactivated coupon). Expired or fully-used coupons always come back as INACTIVE.",
             },
           },
         },

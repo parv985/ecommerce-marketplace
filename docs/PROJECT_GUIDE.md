@@ -848,7 +848,7 @@ The frontend knows the role from the stored `user` object and uses it for (a) ro
 | `OrderTimeline` | Audit trail of order status changes | `orderId`, `status`, `actorId/actorRole`, `reason`, `createdAt` → powers the tracking endpoint |
 | `Payment` | One payment record per order | `orderId`, `gateway` (RAZORPAY/MOCK), `gatewayOrderId`, `paymentId`, `amount`, `status` (PENDING/PAID/FAILED/REFUNDED), `refundStatus`, `webhookEventId` (sparse unique — idempotency), refund fields |
 | `Discount` | Seller sales discount | `sellerId`, `name`, `type` (PRODUCT xor CATEGORY), `productId|categoryId`, `percentage` (1–100), `startDate/endDate`, `status` (ACTIVE/INACTIVE) |
-| `Coupon` | Seller coupon code | `sellerId`, `code` (unique per seller), `type` (PERCENTAGE/FIXED), `value`, `minOrderValue`, `maxDiscount`, scope (product/category), `usageLimit`, `perUserLimit`, `usageCount`, `startDate/endDate`, `status` |
+| `Coupon` | Seller coupon code | `sellerId`, `code` (unique per seller), `type` (PERCENTAGE/FIXED), `value`, `minOrderValue`, `maxDiscount`, scope (product/category), `usageLimit`, `perUserLimit`, `usageCount`, `startDate/endDate`, `status` (manual switch — the API returns the **derived** status: manual ACTIVE ∧ inside the date window ∧ usage limit not reached) |
 | `CouponUsage` | Who used which coupon on which order | `couponId`+`userId` (partial unique for per-user limit), `orderId`, `released` (flag on cancellation) |
 | `Review` | One per user per product | `productId`, `userId`, `orderId`, `rating` (1–5), `comment`; unique `(productId,userId)` |
 | `ReturnRequest` | Return lifecycle | `orderId`, `userId`, `productId`, `reason`, `status` (PENDING→APPROVED→COMPLETED \| REJECTED \| CANCELLED), `refundAmount`; partial unique index on active `orderId` |
@@ -970,7 +970,8 @@ PENDING ──▶ CONFIRMED ──▶ SHIPPED ──▶ DELIVERED
 ### 11.11 Coupons
 
 - Seller creates a code (PERCENTAGE or FIXED) with min order value, max discount cap, optional product/category scope, total usage limit, per-user limit, date window.
-- Buyer applies the code at checkout; the preview endpoint validates it before the order is placed.
+- **Status is derived, never stale:** the stored `status` is only the seller's manual switch. A coupon is **Active** only while it is manually enabled **and** the current date is inside `[startAt, endAt]` **and** the usage limit is not reached; otherwise it is **Inactive** (`resolveCouponStatus` in `coupons/coupon.service.ts`). The seller panel and the `?status=` list filter use the same rule, so an expired or fully-used coupon flips to Inactive automatically — and a released slot (cancelled order) makes it Active again.
+- Buyer applies the code at checkout; the preview endpoint validates it before the order is placed. An expired coupon returns `400 COUPON_EXPIRED` and a fully-used one `400 COUPON_USAGE_LIMIT_REACHED` — both with the buyer-facing message **"Coupon code expired"**, never a generic "invalid coupon" (deactivated or not-yet-started coupons keep `COUPON_INACTIVE`).
 - Usage is reserved **atomically** (total limit + per-user slot); the 101st concurrent claim fails. Usage is recorded per order and **released when the order is cancelled**.
 
 ### 11.12 Inventory

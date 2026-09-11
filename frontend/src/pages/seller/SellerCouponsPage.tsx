@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { couponService } from '@/services/coupon.service'
 import { productService } from '@/services/product.service'
 import { formatDate } from '@/lib/utils'
+import { couponInactiveReasons, getCouponState } from '@/lib/couponStatus'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -39,9 +40,17 @@ export function SellerCouponsPage() {
   const [showCreate, setShowCreate] = useState(false)
   const queryClient = useQueryClient()
 
+  /*
+   * `status` comes back derived from the current date and the remaining
+   * usage limit, and the list is re-fetched periodically so a coupon
+   * that expires (or hits its usage limit) while the page is open flips
+   * to Inactive on its own.
+   */
   const { data } = useQuery({
     queryKey: ['coupons', page],
     queryFn: () => couponService.list({ page }),
+    staleTime: 0,
+    refetchInterval: 60_000,
   })
 
   const { data: sellerProducts } = useQuery({
@@ -104,7 +113,15 @@ export function SellerCouponsPage() {
         <Button onClick={() => setShowCreate(true)}>Create Coupon</Button>
       </div>
       <div className="space-y-3">
-        {(data?.items ?? []).map(c => (
+        {(data?.items ?? []).map(c => {
+          /*
+           * Status is derived (never stale): a coupon whose end date has
+           * passed or whose usage limit is exhausted shows as Inactive
+           * without the seller having to deactivate it manually.
+           */
+          const state = getCouponState(c)
+          const active = state === 'ACTIVE'
+          return (
           <div key={c.id} className="border rounded-lg p-4 flex items-center justify-between">
             <div>
               <span className="font-mono font-bold">{c.code}</span>
@@ -118,11 +135,19 @@ export function SellerCouponsPage() {
                 ({formatDate(c.startAt)} - {formatDate(c.endAt)})
               </span>
             </div>
-            <Badge variant={c.status === 'ACTIVE' ? 'success' : 'default'}>
-              {c.status === 'ACTIVE' ? 'Active' : 'Inactive'}
-            </Badge>
+            <div className="flex items-center gap-2 shrink-0">
+              {!active && (
+                <span className="text-xs text-[var(--muted)]">
+                  {couponInactiveReasons[state]}
+                </span>
+              )}
+              <Badge variant={active ? 'success' : 'default'}>
+                {active ? 'Active' : 'Inactive'}
+              </Badge>
+            </div>
           </div>
-        ))}
+          )
+        })}
         {!data?.items?.length && (
           <p className="text-center text-[var(--muted)] py-8">No coupons yet.</p>
         )}
