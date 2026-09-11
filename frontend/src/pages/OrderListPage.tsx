@@ -9,12 +9,13 @@ import { Pagination } from '@/components/ui/Pagination'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
 
-const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error' | 'secondary'> = {
+const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error' | 'secondary' | 'brand'> = {
   PENDING: 'warning',
   CONFIRMED: 'secondary',
   SHIPPED: 'secondary',
   DELIVERED: 'success',
   CANCELLED: 'error',
+  RETURNED: 'brand',
 }
 
 export function OrderListPage() {
@@ -48,7 +49,7 @@ export function OrderListPage() {
         </Link>
       </div>
       <div className="flex gap-2 mb-6 flex-wrap">
-        {['', 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'].map(s => (
+        {['', 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'RETURNED'].map(s => (
           <button
             key={s}
             onClick={() => { setStatus(s); setPage(1); }}

@@ -23,12 +23,13 @@ import { RETURN_WINDOW_DAYS } from '@/types/api'
 import { toast } from 'react-hot-toast'
 import type { OrderItem, Review, ReturnRequest } from '@/types/api'
 
-const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error' | 'secondary'> = {
+const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error' | 'secondary' | 'brand'> = {
   PENDING: 'warning',
   CONFIRMED: 'secondary',
   SHIPPED: 'secondary',
   DELIVERED: 'success',
   CANCELLED: 'error',
+  RETURNED: 'brand',
 }
 
 export function OrderDetailPage() {

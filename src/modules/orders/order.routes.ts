@@ -80,7 +80,7 @@ router.use(authenticate);
  *         description: Filter by order status
  *         schema:
  *           type: string
- *           enum: [PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED]
+ *           enum: [PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED, RETURNED]
  *       - name: page
  *         in: query
  *         description: Page number
@@ -269,7 +269,7 @@ router.get(
  *             properties:
  *               status:
  *                 type: string
- *                 enum: [PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED]
+ *                 enum: [PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED, RETURNED]
  *     responses:
  *       200:
  *         description: Order status updated

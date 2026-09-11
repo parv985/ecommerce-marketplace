@@ -6,8 +6,8 @@ import { formatPrice, formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/Badge'
 import { Pagination } from '@/components/ui/Pagination'
 
-const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error' | 'secondary'> = {
-  PENDING: 'warning', CONFIRMED: 'secondary', SHIPPED: 'secondary', DELIVERED: 'success', CANCELLED: 'error',
+const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error' | 'secondary' | 'brand'> = {
+  PENDING: 'warning', CONFIRMED: 'secondary', SHIPPED: 'secondary', DELIVERED: 'success', CANCELLED: 'error', RETURNED: 'brand',
 }
 
 export function AdminOrdersPage() {
@@ -23,7 +23,7 @@ export function AdminOrdersPage() {
     <div>
       <h1 className="text-2xl font-bold mb-6">All Orders</h1>
       <div className="flex gap-2 mb-4 flex-wrap">
-        {['', 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'].map(s => (
+        {['', 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'RETURNED'].map(s => (
           <button key={s} onClick={() => { setStatus(s); setPage(1); }}
             className={`px-3 py-1 text-sm rounded ${status === s ? 'bg-slate-900 text-white' : 'bg-slate-100 hover:bg-slate-200'}`}>
             {s || 'All'}

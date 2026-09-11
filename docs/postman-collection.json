@@ -6,6 +6,191 @@
   },
   "item": [
     {
+      "name": "Wishlist",
+      "item": [
+        {
+          "name": "Get my wishlist",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/wishlist",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "wishlist"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns the authenticated user's wishlist with live product prices and stock resolved from the database."
+          }
+        },
+        {
+          "name": "Clear my wishlist",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/wishlist",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "wishlist"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Removes every item from the authenticated user's wishlist."
+          }
+        },
+        {
+          "name": "Add item to wishlist",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/wishlist/items",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "wishlist",
+                "items"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Adds a product to the authenticated user's wishlist. The product must be active."
+          }
+        },
+        {
+          "name": "Check if product is in wishlist",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/wishlist/items/:productId",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "wishlist",
+                "items",
+                ":productId"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns whether a specific product is in the authenticated user's wishlist."
+          }
+        },
+        {
+          "name": "Remove item from wishlist",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/wishlist/items/:productId",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "wishlist",
+                "items",
+                ":productId"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Removes a single product from the authenticated user's wishlist."
+          }
+        }
+      ]
+    },
+    {
       "name": "Users",
       "item": [
         {
@@ -234,21 +419,24 @@
           "name": "Upload avatar",
           "request": {
             "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "image",
-                  "type": "file",
-                  "src": []
-                }
-              ]
-            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "http://localhost:5000/api/v1/users/me/avatar",
-              "host": ["http://localhost:5000"],
-              "path": ["api", "v1", "users", "me", "avatar"],
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "avatar"
+              ],
               "query": []
             },
             "auth": {
@@ -261,7 +449,7 @@
                 }
               ]
             },
-            "description": "Uploads or replaces the authenticated user's avatar image. Previous avatar is deleted from Cloudinary. Field: 'image' (File, JPEG/PNG/WebP/GIF, max 5 MB)."
+            "description": "Uploads or replaces the authenticated user's avatar image. Previous avatar is deleted from Cloudinary."
           }
         },
         {
@@ -276,8 +464,16 @@
             ],
             "url": {
               "raw": "http://localhost:5000/api/v1/users/me/avatar",
-              "host": ["http://localhost:5000"],
-              "path": ["api", "v1", "users", "me", "avatar"],
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "avatar"
+              ],
               "query": []
             },
             "auth": {
@@ -337,6 +533,42 @@
               ]
             },
             "description": "Returns the authenticated seller's settlement for the given month (defaults to the current month). Returns null when no settlement exists for the period. Settlements are generated by an admin during the monthly payout window (1st-7th)."
+          }
+        },
+        {
+          "name": "Get approved seller count",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/sellers/count",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sellers",
+                "count"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Public endpoint returning the count of approved (registered) sellers. No authentication required."
           }
         },
         {
@@ -451,26 +683,24 @@
           "name": "Upload seller document",
           "request": {
             "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "document",
-                  "type": "file",
-                  "src": []
-                },
-                {
-                  "key": "documentType",
-                  "value": "GST",
-                  "type": "text"
-                }
-              ]
-            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "http://localhost:5000/api/v1/sellers/me/documents",
-              "host": ["http://localhost:5000"],
-              "path": ["api", "v1", "sellers", "me", "documents"],
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sellers",
+                "me",
+                "documents"
+              ],
               "query": []
             },
             "auth": {
@@ -483,7 +713,7 @@
                 }
               ]
             },
-            "description": "Uploads a KYC document (GST certificate, PAN card, etc.) to Cloudinary. Fields: 'document' (File, JPEG/PNG/PDF, max 10 MB), 'documentType' (Text, e.g. GST/PAN/BANK_STATEMENT)."
+            "description": "Uploads a KYC document (GST certificate, PAN card, etc.) to Cloudinary."
           }
         },
         {
@@ -498,8 +728,17 @@
             ],
             "url": {
               "raw": "http://localhost:5000/api/v1/sellers/me/documents/:documentId",
-              "host": ["http://localhost:5000"],
-              "path": ["api", "v1", "sellers", "me", "documents", ":documentId"],
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sellers",
+                "me",
+                "documents",
+                ":documentId"
+              ],
               "query": []
             },
             "auth": {
@@ -512,7 +751,7 @@
                 }
               ]
             },
-            "description": "Removes a document from Cloudinary and the seller profile. Replace :documentId with the Cloudinary publicId returned from upload."
+            "description": "Removes a document from Cloudinary and the seller profile."
           }
         }
       ]
@@ -831,7 +1070,7 @@
                 }
               ]
             },
-            "description": "Advances a return through PENDING -> APPROVED -> COMPLETED or rejects it (a reason is required for rejection). Only the order's seller or an admin can update. Completing a return restores the committed stock."
+            "description": "Advances a return through PENDING -> APPROVED -> COMPLETED or rejects it (a reason is required for rejection). Only the order's seller or an admin can update.\n\n**Approving a return processes the refund and every rollback atomically:**\n- the eligible amount (`order.total`, i.e. net of discounts and coupons) is refunded to the buyer - through the payment gateway for online orders, or recorded as an offline COD refund on the return;\n- the order becomes `RETURNED` and its payment status `REFUNDED`;\n- the returned units are credited back to the seller's inventory (with inventory transactions);\n- any coupon usage is released and the coupon's usage counter is decremented;\n- the order is reversed out of the seller's settlement, giving back the platform commission and the seller payable;\n- the refund, the order timeline and the audit log are written in the same transaction.\n\nThe call is idempotent: approving twice (or retrying after a partial failure) never issues a second refund. COMPLETED only records that the goods are back with the seller - it never restores stock a second time.\n\nOn success the buyer receives the notification \"Your return has been approved and your refund has been processed successfully.\"\n"
           }
         },
         {
@@ -1160,21 +1399,24 @@
           "name": "Upload product images",
           "request": {
             "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "images",
-                  "type": "file",
-                  "src": []
-                }
-              ]
-            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "http://localhost:5000/api/v1/products/:id/images",
-              "host": ["http://localhost:5000"],
-              "path": ["api", "v1", "products", ":id", "images"],
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                ":id",
+                "images"
+              ],
               "query": []
             },
             "auth": {
@@ -1187,7 +1429,7 @@
                 }
               ]
             },
-            "description": "Uploads one or more images to a product owned by the authenticated seller. Appends to existing images (max 8 total). Field: 'images' (File, JPEG/PNG/WebP/GIF, max 5 MB each). Replace :id with the product ObjectId."
+            "description": "Uploads one or more images to a product owned by the authenticated seller. Appends to existing images (max 8 total)."
           }
         },
         {
@@ -1202,8 +1444,17 @@
             ],
             "url": {
               "raw": "http://localhost:5000/api/v1/products/:id/images/:imageId",
-              "host": ["http://localhost:5000"],
-              "path": ["api", "v1", "products", ":id", "images", ":imageId"],
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "products",
+                ":id",
+                "images",
+                ":imageId"
+              ],
               "query": []
             },
             "auth": {
@@ -1216,7 +1467,7 @@
                 }
               ]
             },
-            "description": "Removes a single image from a product and deletes it from Cloudinary. Replace :id with the product ObjectId and :imageId with the Cloudinary publicId."
+            "description": "Removes a single image from a product and deletes it from Cloudinary."
           }
         }
       ]
@@ -1464,6 +1715,42 @@
           }
         },
         {
+          "name": "Preview checkout totals (no side effects)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/orders/preview",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                "preview"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Validates the authenticated user's cart and an optional coupon code and returns the exact totals checkout will charge - items subtotal, product/category sales discounts, coupon discount and final payable - without placing an order, claiming the coupon or decrementing stock. Coupons are evaluated server-side with the same rules used when the order is actually placed."
+          }
+        },
+        {
           "name": "Get order by id",
           "request": {
             "method": "GET",
@@ -1608,6 +1895,80 @@
               ]
             },
             "description": "Marks a cash-on-delivery order as paid. Only the order's seller or an admin can do this, and only after the order has been delivered. Client-supplied payment status is never trusted."
+          }
+        },
+        {
+          "name": "Get order invoice",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/orders/:id/invoice",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                ":id",
+                "invoice"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns structured invoice data for the order including buyer, seller, items, quantities, prices, discounts, taxes, and totals. Buyers can only view their own invoices, sellers only for their orders, admins any order."
+          }
+        },
+        {
+          "name": "Get order tracking timeline",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/orders/:id/tracking",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "orders",
+                ":id",
+                "tracking"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns the chronological order-status timeline with timestamps, actors, and reasons. Buyers can only view their own orders, sellers only for their orders, admins any order."
           }
         }
       ]
@@ -1842,6 +2203,139 @@
               ]
             },
             "description": "Marks one of the authenticated user's notifications as read."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inventory",
+      "item": [
+        {
+          "name": "List my inventory transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/inventory",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inventory"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": ""
+                },
+                {
+                  "key": "limit",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns a paginated list of inventory transactions for the authenticated seller's products."
+          }
+        },
+        {
+          "name": "List inventory transactions for a product",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/inventory/product/:productId",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inventory",
+                "product",
+                ":productId"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": ""
+                },
+                {
+                  "key": "limit",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns a paginated list of inventory transactions for a specific product."
+          }
+        },
+        {
+          "name": "Adjust product stock",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/inventory/product/:productId/adjust",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "inventory",
+                "product",
+                ":productId",
+                "adjust"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Manually adjusts the stock level of a product. Positive quantity increases stock, negative quantity decreases stock."
           }
         }
       ]
@@ -2125,7 +2619,7 @@
                 }
               ]
             },
-            "description": "Returns the coupons owned by the authenticated seller with optional status filter and pagination."
+            "description": "Returns the coupons owned by the authenticated seller with optional status filter and pagination. The `status` of every coupon is derived from the current date and the remaining usage limit, so expired or fully-used coupons are automatically reported (and filtered) as INACTIVE."
           }
         },
         {
@@ -3708,6 +4202,91 @@
               ]
             },
             "description": "Lists every order across all sellers with optional status filter and pagination. Admin only."
+          }
+        },
+        {
+          "name": "List audit log entries",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/admin/audit-logs",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "audit-logs"
+              ],
+              "query": [
+                {
+                  "key": "actorId",
+                  "value": ""
+                },
+                {
+                  "key": "actorRole",
+                  "value": ""
+                },
+                {
+                  "key": "action",
+                  "value": ""
+                },
+                {
+                  "key": "entityType",
+                  "value": ""
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "entityId",
+                  "value": ""
+                },
+                {
+                  "key": "fromDate",
+                  "value": ""
+                },
+                {
+                  "key": "toDate",
+                  "value": ""
+                },
+                {
+                  "key": "sortBy",
+                  "value": ""
+                },
+                {
+                  "key": "sortOrder",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": ""
+                },
+                {
+                  "key": "limit",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Read-only, paginated view of the platform audit trail - every entry written by the audit logging service (logins, order, product, seller, payment, return, settlement, coupon, discount, notification and admin actions). All filters are optional and combined with AND; entries are returned newest first by default. SUPER_ADMIN only."
           }
         },
         {

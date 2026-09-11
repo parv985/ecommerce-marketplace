@@ -851,7 +851,7 @@ The frontend knows the role from the stored `user` object and uses it for (a) ro
 | `Coupon` | Seller coupon code | `sellerId`, `code` (unique per seller), `type` (PERCENTAGE/FIXED), `value`, `minOrderValue`, `maxDiscount`, scope (product/category), `usageLimit`, `perUserLimit`, `usageCount`, `startDate/endDate`, `status` (manual switch — the API returns the **derived** status: manual ACTIVE ∧ inside the date window ∧ usage limit not reached) |
 | `CouponUsage` | Who used which coupon on which order | `couponId`+`userId` (partial unique for per-user limit), `orderId`, `released` (flag on cancellation) |
 | `Review` | One per user per product | `productId`, `userId`, `orderId`, `rating` (1–5), `comment`; unique `(productId,userId)` |
-| `ReturnRequest` | Return lifecycle | `orderId`, `userId`, `productId`, `reason`, `status` (PENDING→APPROVED→COMPLETED \| REJECTED \| CANCELLED), `refundAmount`; partial unique index on active `orderId` |
+| `ReturnRequest` | Return lifecycle + refund ledger | `orderId`, `userId`, `sellerId`, `reason`, `status` (PENDING→APPROVED→COMPLETED \| REJECTED \| CANCELLED), `approvedAt`/`decidedBy`/`decidedRole`, `stockRestoredAt`, `refund {amount,status,method,gatewayRefundId,paymentId,reason,requestedAt,completedAt}`; partial unique index on active `orderId` |
 | `InventoryTransaction` | Stock audit trail | `productId`, `sellerId`, `type` (DECREMENT/INCREMENT/ADJUST), `quantity`, `previousStock`, `newStock`, `reason`, `referenceId/Type` |
 | `Notification` | In-app notifications | `userId`, `type`, `title`, `message`, `entityType/Id`, `channel`, `isRead` |
 | `NotificationPreference` | Per-user delivery prefs | `userId` (unique), toggles per category (order/payment/promotional) for in-app + email |
@@ -956,10 +956,18 @@ PENDING ──▶ CONFIRMED ──▶ SHIPPED ──▶ DELIVERED
 
 ### 11.9 Returns & refunds
 
-1. Buyer `POST /returns` {orderId, productId, reason} — allowed only **within 7 days of `deliveredAt`**, and only for delivered orders (partial unique index blocks a second active request for the same order).
+1. Buyer `POST /returns` {orderId, reason} — allowed only **within 7 days of `deliveredAt`**, and only for delivered orders (partial unique index blocks a second active request for the same order).
 2. Seller/admin `PATCH /returns/:id/status`: PENDING → APPROVED or REJECTED (buyer can `POST /returns/:id/cancel` while PENDING).
-3. On **APPROVED → COMPLETED**: stock is restored (inventory transaction recorded) and, for online-paid orders, a **full refund** is issued (idempotent; real-mode refunds complete asynchronously via the `refund.processed` webhook).
-4. Every step notifies both parties and is audit-logged.
+3. On **APPROVED** the refund and every rollback happen together:
+   - the **eligible amount** (`order.total` = paid amount, net of sales + coupon discounts) is refunded — through the **gateway** for online orders (idempotent; real-mode refunds complete asynchronously via the `refund.processed` webhook) or recorded as an **offline** refund on the return for COD;
+   - the **order** becomes `RETURNED` with `paymentStatus = REFUNDED` (so it leaves revenue analytics and settlement eligibility);
+   - **stock** is credited back with `RETURN_RESTOCK` inventory transactions — claimed via `stockRestoredAt`, so it can never be restored twice;
+   - the **coupon** usage is released and `usageCount` decremented, so the buyer can use the coupon again;
+   - the **settlement** that booked the order is reversed: the order is pulled out and its snapshot commission + seller payable given back (an emptied PENDING settlement is cancelled; an already-PAID one is corrected and the payable recovered from the next payout);
+   - the order **timeline**, the **return's refund block** and the **audit log** are written in the same transaction.
+4. The buyer is notified — *"Your return has been approved and your refund has been processed successfully."* — as is the seller (refund, restock and settlement adjustment).
+5. **Idempotent**: a repeated approval returns the existing refund; a partially applied approval resumes without paying twice.
+6. **APPROVED → COMPLETED** only records that the goods are back with the seller.
 
 ### 11.10 Discounts
 

@@ -2,6 +2,7 @@ import {
   Order,
   type IOrder,
 } from "../../models/Order.js";
+import { OrderStatus } from "../../constants/orderStatus.js";
 import { Seller } from "../../models/Seller.js";
 
 export const createOrders = async (
@@ -120,6 +121,34 @@ export const resetOrderCoupon = async (
     {
       new: true,
     },
+  ).exec();
+};
+
+/*
+ * Closes an order through the return flow: status RETURNED, payment
+ * REFUNDED and the audit anchors (when / which return request).
+ * Guarded on the current status so a replayed approval can never
+ * overwrite an order that was cancelled in the meantime.
+ */
+export const markOrderReturned = async (
+  id: string,
+  returnRequestId: string,
+  paymentStatus: string,
+): Promise<IOrder | null> => {
+  return Order.findOneAndUpdate(
+    {
+      _id: id,
+      status: { $ne: OrderStatus.RETURNED },
+    },
+    {
+      $set: {
+        status: OrderStatus.RETURNED,
+        paymentStatus,
+        returnedAt: new Date(),
+        returnRequestId,
+      },
+    },
+    { new: true },
   ).exec();
 };
 

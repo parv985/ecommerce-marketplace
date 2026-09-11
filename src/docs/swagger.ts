@@ -958,6 +958,67 @@ const options: swaggerJSDoc.Options = {
               type: "string",
               nullable: true,
             },
+            approvedAt: {
+              type: "string",
+              format: "date-time",
+              nullable: true,
+            },
+            decidedBy: {
+              type: "string",
+              nullable: true,
+            },
+            decidedRole: {
+              type: "string",
+              nullable: true,
+            },
+            stockRestoredAt: {
+              type: "string",
+              format: "date-time",
+              nullable: true,
+            },
+            refund: {
+              type: "object",
+              nullable: true,
+              description:
+                "Present once the return was approved: the money side of the refund (amount, status, method, gateway refund id, timestamps).",
+              properties: {
+                amount: {
+                  type: "number",
+                  description:
+                    "Amount refunded to the buyer: the paid order total, already net of sales and coupon discounts.",
+                },
+                status: {
+                  type: "string",
+                  enum: ["PENDING", "PROCESSED", "FAILED"],
+                },
+                method: {
+                  type: "string",
+                  enum: ["GATEWAY", "OFFLINE", "NONE"],
+                },
+                gatewayRefundId: {
+                  type: "string",
+                  nullable: true,
+                },
+                paymentId: {
+                  type: "string",
+                  nullable: true,
+                },
+                reason: {
+                  type: "string",
+                  nullable: true,
+                },
+                requestedAt: {
+                  type: "string",
+                  format: "date-time",
+                  nullable: true,
+                },
+                completedAt: {
+                  type: "string",
+                  format: "date-time",
+                  nullable: true,
+                },
+              },
+            },
             createdAt: {
               type: "string",
               format: "date-time",
@@ -1633,7 +1694,22 @@ const options: swaggerJSDoc.Options = {
                 "SHIPPED",
                 "DELIVERED",
                 "CANCELLED",
+                "RETURNED",
               ],
+              description:
+                "RETURNED is terminal and is only reached by approving a return (refund issued, purchase rolled back).",
+            },
+            deliveredAt: {
+              type: "string",
+              format: "date-time",
+              nullable: true,
+              description: "Anchor of the 7-day return window",
+            },
+            returnedAt: {
+              type: "string",
+              format: "date-time",
+              nullable: true,
+              description: "Set when a return was approved and the refund processed",
             },
             createdAt: {
               type: "string",

@@ -4,6 +4,14 @@ export enum OrderStatus {
   SHIPPED = "SHIPPED",
   DELIVERED = "DELIVERED",
   CANCELLED = "CANCELLED",
+  /*
+   * Terminal state reached only through the return flow: the seller
+   * approved the buyer's return, the refund was issued and every
+   * purchase side effect (stock, coupon, commission, settlement) was
+   * rolled back. It is never reachable through the manual order-status
+   * endpoint - only `PATCH /returns/:id/status` can set it.
+   */
+  RETURNED = "RETURNED",
 }
 
 export enum PaymentMethod {

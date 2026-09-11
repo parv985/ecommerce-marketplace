@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, RotateCcw, Package } from 'lucide-react'
+import { ArrowLeft, RotateCcw, Package, BadgeIndianRupee } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { returnService } from '@/services/return.service'
 import { orderService } from '@/services/order.service'
@@ -12,7 +12,11 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import {
   returnStatusColors,
   returnStatusLabels,
+  refundMethodLabels,
+  refundStatusColors,
+  refundStatusLabels,
   isReturnCancellable,
+  isReturnRefunded,
 } from '@/lib/returnStatus'
 
 export function ReturnDetailPage() {
@@ -110,6 +114,74 @@ export function ReturnDetailPage() {
               </div>
             )}
           </div>
+
+          {/* Refund */}
+          {returnRequest.refund && (
+            <div
+              className={`border rounded-[var(--radius-lg)] p-5 shadow-[var(--shadow-sm)] ${
+                isReturnRefunded(returnRequest)
+                  ? 'border-emerald-200 bg-emerald-50/60'
+                  : 'border-[var(--border)] bg-white'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <BadgeIndianRupee size={16} className="text-emerald-700" />
+                <h2 className="font-semibold">Refund</h2>
+                <Badge
+                  variant={refundStatusColors[returnRequest.refund.status]}
+                  className="ml-auto"
+                >
+                  {refundStatusLabels[returnRequest.refund.status]}
+                </Badge>
+              </div>
+
+              {isReturnRefunded(returnRequest) ? (
+                <p
+                  className="text-sm font-medium text-emerald-900"
+                  data-testid="return-refund-success"
+                >
+                  Your return has been approved and your refund has been
+                  processed successfully.
+                </p>
+              ) : (
+                <p className="text-sm text-[var(--fg-secondary)]">
+                  Your refund is being processed. It is credited once the
+                  payment provider confirms it.
+                </p>
+              )}
+
+              <dl className="mt-4 space-y-2 text-sm">
+                <div className="flex justify-between gap-2">
+                  <dt className="text-[var(--muted)]">Amount refunded</dt>
+                  <dd className="font-semibold">
+                    {formatPrice(returnRequest.refund.amount)}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-[var(--muted)]">Method</dt>
+                  <dd className="text-right text-xs">
+                    {refundMethodLabels[returnRequest.refund.method]}
+                  </dd>
+                </div>
+                {returnRequest.refund.completedAt && (
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-[var(--muted)]">Processed on</dt>
+                    <dd className="text-right text-xs">
+                      {formatDateFull(returnRequest.refund.completedAt)}
+                    </dd>
+                  </div>
+                )}
+                {returnRequest.refund.gatewayRefundId && (
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-[var(--muted)]">Reference</dt>
+                    <dd className="text-right text-[11px] font-mono truncate max-w-[60%]">
+                      {returnRequest.refund.gatewayRefundId}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+          )}
 
           {/* Linked order items */}
           {order && (

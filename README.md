@@ -114,7 +114,18 @@ The ledger is readable through **`GET /api/v1/admin/audit-logs`** (`SUPER_ADMIN`
 - A failed checkout rolls back any decrements already applied.
 - Cancelling an order restores the committed stock (idempotent — a second cancel does not double-restore).
 - The cart is **claimed atomically** at checkout start, so a double-submit can never create duplicate orders (the loser gets `CART_CHECKOUT_IN_PROGRESS` or an empty-cart error).
-- Completing a return restores stock; cancelling a paid online order refunds it first.
+- Approving a return restores stock (with an inventory transaction) exactly once; cancelling a paid online order refunds it first.
+
+## Returns & Refunds
+
+`PATCH /api/v1/returns/:id/status` with `{ "status": "APPROVED" }` is the money event of the return flow. It runs as one unit of work:
+
+1. **Claim** — the return is flipped `PENDING → APPROVED` by a conditional update, so a double-click or a retried call can only ever produce one refund.
+2. **Refund** — the eligible amount (`order.total`, i.e. what the buyer actually paid after discounts and coupons) goes back through the payment gateway for online orders, or is recorded as an offline refund on the return for cash-on-delivery.
+3. **Rollbacks (one transaction)** — the order becomes `RETURNED` with `paymentStatus = REFUNDED`; the returned units are credited back to the seller's inventory with `RETURN_RESTOCK` transactions; any coupon usage is released and the coupon counter decremented; the order is pulled out of the seller's settlement, reversing its platform commission and seller payable; the order timeline is updated.
+4. **Notify** — the buyer receives *"Your return has been approved and your refund has been processed successfully."*, the seller receives a summary of what changed on their side, and the whole thing is audit-logged.
+
+Repeats are safe: an already-refunded return returns its current state, `COMPLETED` never credits stock a second time, cancelled/rejected returns and cancelled orders are refused, and a settlement that was already paid is corrected with the payable recovered from the next payout. See [`docs/architecture.md`](docs/architecture.md#v314--return-approval-refund--rollbacks-in-one-transaction) for the design notes.
 
 ## Security Notes
 

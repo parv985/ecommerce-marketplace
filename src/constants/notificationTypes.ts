@@ -19,3 +19,11 @@ export enum NotificationChannel {
   EMAIL = "EMAIL",
   BOTH = "BOTH",
 }
+
+/*
+ * Buyer-facing confirmation for an approved return whose refund has
+ * been issued. Shared by the notification service, the API docs and
+ * the frontend banner, so the wording can never drift apart.
+ */
+export const RETURN_APPROVED_REFUND_MESSAGE =
+  "Your return has been approved and your refund has been processed successfully.";

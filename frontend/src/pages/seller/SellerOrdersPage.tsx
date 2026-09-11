@@ -9,8 +9,8 @@ import { Button } from '@/components/ui/Button'
 import { toast } from 'react-hot-toast'
 import { Pagination } from '@/components/ui/Pagination'
 
-const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error' | 'secondary'> = {
-  PENDING: 'warning', CONFIRMED: 'secondary', SHIPPED: 'secondary', DELIVERED: 'success', CANCELLED: 'error',
+const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error' | 'secondary' | 'brand'> = {
+  PENDING: 'warning', CONFIRMED: 'secondary', SHIPPED: 'secondary', DELIVERED: 'success', CANCELLED: 'error', RETURNED: 'brand',
 }
 
 export function SellerOrdersPage() {
@@ -45,7 +45,7 @@ export function SellerOrdersPage() {
     <div>
       <h1 className="text-2xl font-bold mb-6">Orders</h1>
       <div className="flex gap-2 mb-4 flex-wrap">
-        {['', 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'].map(s => (
+        {['', 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'RETURNED'].map(s => (
           <button key={s} onClick={() => { setStatus(s); setPage(1); }}
             className={`px-3 py-1 text-sm rounded ${status === s ? 'bg-[var(--primary)] text-white' : 'bg-zinc-100 hover:bg-zinc-200'}`}>
             {s || 'All'}
