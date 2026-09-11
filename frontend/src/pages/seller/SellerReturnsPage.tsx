@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast'
 import { returnService } from '@/services/return.service'
 import { extractErrorMessage } from '@/services/api'
 import { formatDate, formatDateFull } from '@/lib/utils'
+import { invalidateSellerData } from '@/lib/sellerData'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Pagination } from '@/components/ui/Pagination'
@@ -61,8 +62,15 @@ export function SellerReturnsPage() {
       reason?: string
     }) => returnService.updateStatus(id, { status: nextStatus, reason }),
     onSuccess: (res) => {
-      queryClient.invalidateQueries({ queryKey: ['seller-returns'] })
-      queryClient.invalidateQueries({ queryKey: ['seller-dashboard'] })
+      /*
+       * A return decision moves far more than the returns list: approving
+       * refunds the buyer (revenue drops), marks the order RETURNED,
+       * restores stock and reverses the settlement; completing can also
+       * credit stock. Invalidate every derived cache so dashboard,
+       * orders, analytics, customers, settlement and inventory all show
+       * the post-return database state.
+       */
+      invalidateSellerData(queryClient, { inventory: true })
       toast.success(res.message || 'Return updated')
       setSelected((prev) => (prev && res.data ? res.data : prev))
       setRejectOpen(false)

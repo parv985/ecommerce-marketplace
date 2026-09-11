@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { orderService } from '@/services/order.service'
 import { formatPrice, formatDate } from '@/lib/utils'
+import { invalidateSellerData } from '@/lib/sellerData'
 import { notifyNoChanges } from '@/lib/formChanges'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -25,7 +26,17 @@ export function SellerOrdersPage() {
 
   const updateStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => orderService.updateStatus(id, status),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['orders'] }); toast.success('Status updated') },
+    /*
+     * A status change moves derived data beyond the order list: delivering
+     * a COD order flips its payment to PAID (revenue, analytics, customers,
+     * settlement) and cancelling restores stock + refunds online payments.
+     * `invalidateSellerData` refreshes every affected section from the API;
+     * the stock caches are included when the transition cancels the order.
+     */
+    onSuccess: (_res, vars) => {
+      invalidateSellerData(queryClient, { inventory: vars.status === 'CANCELLED' })
+      toast.success('Status updated')
+    },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
   })
 

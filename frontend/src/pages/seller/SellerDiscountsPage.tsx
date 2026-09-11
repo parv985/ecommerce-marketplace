@@ -94,6 +94,8 @@ export function SellerDiscountsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['discounts'] })
+      // The dashboard reports the live discount count from the database.
+      queryClient.invalidateQueries({ queryKey: ['seller-dashboard'] })
       setShowCreate(false)
       setTargetType('')
       reset()

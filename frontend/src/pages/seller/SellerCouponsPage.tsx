@@ -99,6 +99,8 @@ export function SellerCouponsPage() {
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['coupons'] })
+      // The dashboard reports the live coupon count from the database.
+      queryClient.invalidateQueries({ queryKey: ['seller-dashboard'] })
       setShowCreate(false)
       reset()
       toast.success('Coupon created successfully')

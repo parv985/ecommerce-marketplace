@@ -96,11 +96,15 @@ export function SellerProductsPage() {
   /*
    * Images are rendered all over the app (shop grid, product page, cart,
    * wishlist), so a change here refreshes the seller list and the catalog.
+   * Creating/updating/deactivating a product also moves the dashboard's
+   * product counters (total / active / low stock), so that cache is
+   * invalidated too and the dashboard refetches the live counts.
    */
   function refreshProductQueries() {
     queryClient.invalidateQueries({ queryKey: ['my-products'] })
     queryClient.invalidateQueries({ queryKey: ['products'] })
     queryClient.invalidateQueries({ queryKey: ['product'] })
+    queryClient.invalidateQueries({ queryKey: ['seller-dashboard'] })
   }
 
   /* Patches the list cache so an upload/delete shows instantly, before the refetch lands. */

@@ -32,6 +32,16 @@ export function Header() {
   const isAdmin = user?.role === 'SUPER_ADMIN'
   const isSeller = user?.role === 'SELLER'
 
+  /*
+   * Inside the Seller Panel the generic marketplace search is not shown:
+   * sellers manage their own catalog with the dedicated
+   * "Search your products…" bar on the Products page, so the header search
+   * would only duplicate it. Hiding it lets the header row (logo left,
+   * actions right) stay balanced via justify-between. Marketplace pages
+   * keep the full search experience.
+   */
+  const isSellerPanel = location.pathname.startsWith('/seller')
+
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-[var(--border)] shadow-[var(--shadow-sm)]">
       {/* Announcement bar — light & subtle */}
@@ -52,10 +62,13 @@ export function Header() {
             {APP_NAME}<span className="text-[var(--primary)] font-black">.</span>
           </Link>
 
-          {/* Search - Desktop (products only, with live suggestions) */}
-          <div className="hidden md:block flex-1 max-w-xl">
-            <ProductSearchBar />
-          </div>
+          {/* Search - Desktop (products only, with live suggestions).
+              Not rendered inside the Seller Panel (see isSellerPanel). */}
+          {!isSellerPanel && (
+            <div className="hidden md:block flex-1 max-w-xl">
+              <ProductSearchBar />
+            </div>
+          )}
 
           {/* Nav links - Desktop */}
           <nav className="hidden md:flex items-center gap-1.5">
@@ -210,7 +223,7 @@ export function Header() {
       {mobileOpen && (
         <div className="md:hidden border-t border-[var(--border)] bg-white">
           <div className="p-4 space-y-3">
-            <ProductSearchBar onNavigate={() => setMobileOpen(false)} />
+            {!isSellerPanel && <ProductSearchBar onNavigate={() => setMobileOpen(false)} />}
             {!isSeller && !isAdmin && (
               <Link to="/products" className="block py-2 text-sm font-medium text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>Shop</Link>
             )}
