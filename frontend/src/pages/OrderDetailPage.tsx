@@ -7,6 +7,7 @@ import { returnService } from '@/services/return.service'
 import { reviewService } from '@/services/review.service'
 import { extractErrorMessage } from '@/services/api'
 import { formatPrice, formatDate, formatDateFull } from '@/lib/utils'
+import { invalidateSellerData } from '@/lib/sellerData'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -97,6 +98,14 @@ export function OrderDetailPage({ variant = 'buyer' }: OrderDetailPageProps) {
     mutationFn: () => orderService.cancel(id!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['order', id] })
+      /*
+       * Cancellation is a money + stock event: a paid online order is
+       * refunded (revenue drops), every line's stock is restored and the
+       * coupon usage is released. Refresh all derived caches — order
+       * lists, seller dashboard/analytics/settlement/customers and the
+       * product/inventory caches showing the restored stock.
+       */
+      invalidateSellerData(queryClient, { inventory: true })
       toast.success('Order cancelled')
     },
     onError: (err: unknown) => toast.error(extractErrorMessage(err) || 'Cannot cancel'),
@@ -110,8 +119,15 @@ export function OrderDetailPage({ variant = 'buyer' }: OrderDetailPageProps) {
    */
   const updateOrderStatus = useMutation({
     mutationFn: (status: string) => orderService.updateStatus(id!, status),
-    onSuccess: () => {
+    onSuccess: (_res, status) => {
       queryClient.invalidateQueries({ queryKey: ['order', id] })
+      /*
+       * Delivering a COD order marks it PAID (revenue/analytics/
+       * settlement/customers change); cancelling restores stock and
+       * refunds online payments. Refresh every derived cache so the
+       * dashboard never shows stale numbers after a status change.
+       */
+      invalidateSellerData(queryClient, { inventory: status === 'CANCELLED' })
       toast.success('Order status updated')
     },
     onError: (err: unknown) =>

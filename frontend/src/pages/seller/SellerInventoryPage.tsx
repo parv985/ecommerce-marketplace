@@ -41,7 +41,21 @@ export function SellerInventoryPage() {
 
   const adjust = useMutation({
     mutationFn: () => inventoryService.adjustStock(adjustProductId, { quantity: adjustQty, reason: adjustReason }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['inventory'] }); setAdjustProductId(''); toast.success('Stock adjusted') },
+    /*
+     * A stock adjustment changes the product's stock everywhere it is
+     * shown (seller product list, catalog) and can move the dashboard's
+     * "Low Stock" counter, so all of those caches are refreshed from the
+     * API — never patched locally.
+     */
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory'] })
+      queryClient.invalidateQueries({ queryKey: ['my-products'] })
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+      queryClient.invalidateQueries({ queryKey: ['product'] })
+      queryClient.invalidateQueries({ queryKey: ['seller-dashboard'] })
+      setAdjustProductId('')
+      toast.success('Stock adjusted')
+    },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
   })
 

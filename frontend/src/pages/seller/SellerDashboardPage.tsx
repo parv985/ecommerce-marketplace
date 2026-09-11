@@ -7,9 +7,23 @@ import { Card, CardContent } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
 
 export function SellerDashboardPage() {
+  /*
+   * All numbers come from GET /sellers/dashboard, which the backend
+   * aggregates live from the database (orders, payments, returns,
+   * products) — nothing is stored or computed client-side.
+   *
+   * Freshness:
+   *  - staleTime 0 (default) → every navigation to the dashboard refetches;
+   *  - mutations anywhere in the seller panel invalidate 'seller-dashboard'
+   *    via `invalidateSellerData` (see lib/sellerData.ts);
+   *  - refetchOnWindowFocus → re-aggregates when the seller returns to the
+   *    tab, picking up changes made elsewhere (buyer orders/cancellations,
+   *    admin actions, another device).
+   */
   const { data: dashboard, isLoading } = useQuery({
     queryKey: ['seller-dashboard'],
     queryFn: sellerService.getDashboard,
+    refetchOnWindowFocus: true,
   })
 
   const stats = dashboard ? [
