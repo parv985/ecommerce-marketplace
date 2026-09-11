@@ -42,7 +42,7 @@ export function CheckoutPage() {
   const { data: cart } = useCart()
   const guardRestrictedAction = useRestrictedAction()
   const [selectedAddress, setSelectedAddress] = useState<string>('')
-  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'ONLINE'>('COD')
+  const [paymentMethod, setPaymentMethod] = useState<'CASH_ON_DELIVERY' | 'ONLINE'>('CASH_ON_DELIVERY')
   const [couponInput, setCouponInput] = useState('')
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null)
   const [showNewAddress, setShowNewAddress] = useState(false)
@@ -234,14 +234,14 @@ export function CheckoutPage() {
             <CardHeader><CardTitle>Payment Method</CardTitle></CardHeader>
             <CardContent>
               <div className="space-y-2.5">
-                <label className={`block border rounded-[var(--radius)] p-3.5 cursor-pointer transition-colors ${paymentMethod === 'COD' ? 'border-[var(--primary)] bg-[var(--primary-subtle)]' : 'border-[var(--border)] hover:bg-[var(--accent)]'}`}>
+                <label className={`block border rounded-[var(--radius)] p-3.5 cursor-pointer transition-colors ${paymentMethod === 'CASH_ON_DELIVERY' ? 'border-[var(--primary)] bg-[var(--primary-subtle)]' : 'border-[var(--border)] hover:bg-[var(--accent)]'}`}>
                   <div className="flex items-center gap-2.5">
                     <input
                       type="radio"
                       name="payment"
-                      value="COD"
-                      checked={paymentMethod === 'COD'}
-                      onChange={() => setPaymentMethod('COD')}
+                      value="CASH_ON_DELIVERY"
+                      checked={paymentMethod === 'CASH_ON_DELIVERY'}
+                      onChange={() => setPaymentMethod('CASH_ON_DELIVERY')}
                       className="accent-[var(--primary)]"
                     />
                     <span className="font-semibold text-sm text-[var(--fg)]">Cash on Delivery (COD)</span>

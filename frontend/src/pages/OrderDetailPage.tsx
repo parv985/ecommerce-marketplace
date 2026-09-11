@@ -114,7 +114,7 @@ export function OrderDetailPage() {
   if (!order) return <div className="text-center py-20">Order not found</div>
 
   const canCancel = ['PENDING', 'CONFIRMED'].includes(order.status)
-  const canPay = order.paymentMethod === 'COD' && order.paymentStatus === 'UNPAID' && order.status === 'DELIVERED'
+  const canPay = order.paymentMethod === 'CASH_ON_DELIVERY' && order.paymentStatus === 'PENDING' && order.status === 'DELIVERED'
   const isDelivered = order.status === 'DELIVERED'
 
   const deliveredAt =
