@@ -52,6 +52,7 @@ const AdminSellersPage = lazy(() => import('@/pages/admin/AdminSellersPage').the
 const AdminCategoriesPage = lazy(() => import('@/pages/admin/AdminCategoriesPage').then(m => ({ default: m.AdminCategoriesPage })))
 const AdminProductsPage = lazy(() => import('@/pages/admin/AdminProductsPage').then(m => ({ default: m.AdminProductsPage })))
 const AdminOrdersPage = lazy(() => import('@/pages/admin/AdminOrdersPage').then(m => ({ default: m.AdminOrdersPage })))
+const AdminOrderDetailPage = lazy(() => import('@/pages/admin/AdminOrderDetailPage').then(m => ({ default: m.AdminOrderDetailPage })))
 const AdminSettlementsPage = lazy(() => import('@/pages/admin/AdminSettlementsPage').then(m => ({ default: m.AdminSettlementsPage })))
 const AdminNotificationsPage = lazy(() => import('@/pages/admin/AdminNotificationsPage').then(m => ({ default: m.AdminNotificationsPage })))
 const AdminAuditPage = lazy(() => import('@/pages/admin/AdminAuditPage').then(m => ({ default: m.AdminAuditPage })))
@@ -94,6 +95,7 @@ export default function App() {
                 <Route path="categories" element={<AdminCategoriesPage />} />
                 <Route path="products" element={<AdminProductsPage />} />
                 <Route path="orders" element={<AdminOrdersPage />} />
+                <Route path="orders/:id" element={<AdminOrderDetailPage />} />
                 <Route path="settlements" element={<AdminSettlementsPage />} />
                 <Route path="notifications" element={<AdminNotificationsPage />} />
                 <Route path="audit" element={<AdminAuditPage />} />
