@@ -231,8 +231,8 @@ export type OrderStatus =
   | 'CANCELLED'
   /** Terminal: a return was approved, refunded and rolled back. */
   | 'RETURNED'
-export type PaymentStatus = 'UNPAID' | 'PAID' | 'REFUNDED'
-export type PaymentMethod = 'COD' | 'ONLINE';
+export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED'
+export type PaymentMethod = 'CASH_ON_DELIVERY' | 'ONLINE';
 
 // Mirrors the backend `OrderItemResponse` (src/modules/orders/order.types.ts):
 // `subtotal` = price * quantity, `discountAmount` = sale discount for the line.
