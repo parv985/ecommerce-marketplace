@@ -1,4 +1,9 @@
-import type { ReturnStatus } from '@/types/api'
+import type {
+  RefundMethod,
+  RefundStatus,
+  ReturnRequest,
+  ReturnStatus,
+} from '@/types/api'
 import { RETURN_WINDOW_DAYS } from '@/types/api'
 
 export const returnStatusColors: Record<
@@ -79,3 +84,34 @@ export const RETURN_REASON_PRESETS = [
   'Changed my mind',
   'Other',
 ] as const
+
+/*
+ * Refund side of a return (populated by the API from approval onwards).
+ */
+export const refundStatusLabels: Record<RefundStatus, string> = {
+  PENDING: 'Refund processing',
+  PROCESSED: 'Refunded',
+  FAILED: 'Refund failed',
+}
+
+export const refundStatusColors: Record<
+  RefundStatus,
+  'default' | 'success' | 'warning' | 'error'
+> = {
+  PENDING: 'warning',
+  PROCESSED: 'success',
+  FAILED: 'error',
+}
+
+export const refundMethodLabels: Record<RefundMethod, string> = {
+  GATEWAY: 'Back to the original payment method',
+  OFFLINE: 'Cash on delivery - settled by the seller',
+  NONE: 'No payment was captured for this order',
+}
+
+/** True once the buyer's money is confirmed back with them. */
+export function isReturnRefunded(
+  ret: Pick<ReturnRequest, 'refund'>,
+): boolean {
+  return ret.refund?.status === 'PROCESSED'
+}

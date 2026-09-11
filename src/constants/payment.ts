@@ -27,3 +27,18 @@ export enum RefundStatus {
   PROCESSED = "PROCESSED",
   FAILED = "FAILED",
 }
+
+/*
+ * How a refund reaches the buyer:
+ *  - GATEWAY: reversed through the payment provider (online payments).
+ *  - OFFLINE: recorded against the return request for orders that were
+ *    never paid through a gateway (cash on delivery), where the seller
+ *    settles the money back to the buyer directly.
+ *  - NONE: nothing was ever captured for the order, so there is no
+ *    money to move (still recorded so the return stays auditable).
+ */
+export enum RefundMethod {
+  GATEWAY = "GATEWAY",
+  OFFLINE = "OFFLINE",
+  NONE = "NONE",
+}

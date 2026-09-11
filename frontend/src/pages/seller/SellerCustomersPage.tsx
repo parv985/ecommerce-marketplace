@@ -11,8 +11,8 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import type { CustomerInfo, Order } from '@/types/api'
 import { Search } from 'lucide-react'
 
-const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error' | 'secondary'> = {
-  PENDING: 'warning', CONFIRMED: 'secondary', SHIPPED: 'secondary', DELIVERED: 'success', CANCELLED: 'error',
+const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error' | 'secondary' | 'brand'> = {
+  PENDING: 'warning', CONFIRMED: 'secondary', SHIPPED: 'secondary', DELIVERED: 'success', CANCELLED: 'error', RETURNED: 'brand',
 }
 
 /**

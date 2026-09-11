@@ -94,6 +94,12 @@ const TRANSITIONS: Record<
   ],
   [OrderStatus.DELIVERED]: [],
   [OrderStatus.CANCELLED]: [],
+  /*
+   * RETURNED is terminal and unreachable through this endpoint: only
+   * the return flow (approve a return) may close an order this way,
+   * because that is what issues the refund and the rollbacks.
+   */
+  [OrderStatus.RETURNED]: [],
 };
 
 const canManageOrder = (
@@ -214,6 +220,8 @@ const toOrderResponse = async (
       ? order.paymentId.toString()
       : null,
     status: order.status,
+    deliveredAt: order.deliveredAt ?? null,
+    returnedAt: order.returnedAt ?? null,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
   };

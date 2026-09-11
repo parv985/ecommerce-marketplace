@@ -4,12 +4,16 @@ import { useQuery } from '@tanstack/react-query'
 import { RotateCcw } from 'lucide-react'
 import { returnService } from '@/services/return.service'
 import { extractErrorMessage } from '@/services/api'
-import { formatDate } from '@/lib/utils'
+import { formatDate, formatPrice } from '@/lib/utils'
 import { Badge } from '@/components/ui/Badge'
 import { Pagination } from '@/components/ui/Pagination'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { returnStatusColors, returnStatusLabels } from '@/lib/returnStatus'
+import {
+  isReturnRefunded,
+  returnStatusColors,
+  returnStatusLabels,
+} from '@/lib/returnStatus'
 import type { ReturnStatus } from '@/types/api'
 
 const STATUS_FILTERS: Array<{ value: '' | ReturnStatus; label: string }> = [
@@ -115,9 +119,24 @@ export function ReturnListPage() {
                 </Badge>
               </div>
               <p className="text-xs text-[var(--fg-secondary)] line-clamp-2">{ret.reason}</p>
-              <p className="text-[11px] text-[var(--muted)] mt-2">
-                Order ID: {ret.orderId.slice(-8).toUpperCase()}
-              </p>
+              <div className="flex items-center justify-between gap-3 mt-2">
+                <p className="text-[11px] text-[var(--muted)]">
+                  Order ID: {ret.orderId.slice(-8).toUpperCase()}
+                </p>
+                {ret.refund && (
+                  <p
+                    className={`text-[11px] font-semibold ${
+                      isReturnRefunded(ret)
+                        ? 'text-emerald-700'
+                        : 'text-[var(--muted)]'
+                    }`}
+                  >
+                    {isReturnRefunded(ret)
+                      ? `Refunded ${formatPrice(ret.refund.amount)}`
+                      : `Refund of ${formatPrice(ret.refund.amount)} in progress`}
+                  </p>
+                )}
+              </div>
             </Link>
           ))}
           <Pagination

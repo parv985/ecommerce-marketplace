@@ -403,7 +403,7 @@ router.patch(
  *         description: Filter by order status
  *         schema:
  *           type: string
- *           enum: [PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED]
+ *           enum: [PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED, RETURNED]
  *       - name: page
  *         in: query
  *         schema:
