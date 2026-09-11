@@ -32,7 +32,18 @@ const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error' |
   RETURNED: 'brand',
 }
 
-export function OrderDetailPage() {
+export interface OrderDetailPageProps {
+  /**
+   * `buyer` (default) — the marketplace view with reviews, return
+   * requests and self-service actions.
+   * `admin` — read-only Super Admin view (route `/admin/orders/:id`):
+   * buyer-only features are hidden and buyer/seller details are shown.
+   */
+  variant?: 'buyer' | 'admin'
+}
+
+export function OrderDetailPage({ variant = 'buyer' }: OrderDetailPageProps) {
+  const isAdmin = variant === 'admin'
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const [reviewingItem, setReviewingItem] = useState<OrderItem | null>(null)
@@ -51,17 +62,21 @@ export function OrderDetailPage() {
     enabled: !!id,
   })
 
+  // Buyers see the invoice once the order is delivered. Admins get it for
+  // every status: it is the only API that resolves the buyer's name/email
+  // and the seller's business/GSTIN details for any order.
   const { data: invoice } = useQuery({
     queryKey: ['invoice', id],
     queryFn: () => orderService.getInvoice(id!),
-    enabled: !!id && order?.status === 'DELIVERED',
+    enabled: !!id && (isAdmin || order?.status === 'DELIVERED'),
   })
 
   // Load the buyer's returns and find any linked to this order (active or recent).
+  // Admins never request returns themselves, so this list is buyer-only.
   const { data: returnsData } = useQuery({
     queryKey: ['returns', 'for-order', id],
     queryFn: () => returnService.list({ page: 1, limit: 100 }),
-    enabled: !!id && order?.status === 'DELIVERED',
+    enabled: !!id && !isAdmin && order?.status === 'DELIVERED',
   })
 
   const orderReturn: ReturnRequest | undefined = returnsData?.items?.find(
@@ -106,15 +121,16 @@ export function OrderDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="container-app py-8 space-y-4">
+      <div className={`${isAdmin ? '' : 'container-app py-8'} space-y-4`}>
         <Skeleton className="h-48 w-full rounded-lg" />
       </div>
     )
   }
   if (!order) return <div className="text-center py-20">Order not found</div>
 
-  const canCancel = ['PENDING', 'CONFIRMED'].includes(order.status)
-  const canPay = order.paymentMethod === 'CASH_ON_DELIVERY' && order.paymentStatus === 'PENDING' && order.status === 'DELIVERED'
+  // Admin view is read-only — cancel/pay stay self-service (buyer) actions.
+  const canCancel = !isAdmin && ['PENDING', 'CONFIRMED'].includes(order.status)
+  const canPay = !isAdmin && order.paymentMethod === 'CASH_ON_DELIVERY' && order.paymentStatus === 'PENDING' && order.status === 'DELIVERED'
   const isDelivered = order.status === 'DELIVERED'
 
   const deliveredAt =
@@ -126,10 +142,25 @@ export function OrderDetailPage() {
   const canRequestReturn =
     isDelivered && withinWindow && !hasActiveReturn
 
+  // Admin read-only view: surface why a cancelled/returned order reached its
+  // terminal state. The tracking timeline records when it happened, who did
+  // it and the actor's reason.
+  const closureEntry = isAdmin && (order.status === 'CANCELLED' || order.status === 'RETURNED')
+    ? tracking?.timeline?.filter((t) => t.status === order.status).slice(-1)[0]
+    : undefined
+  const closureInfo = closureEntry
+    ? {
+        status: order.status as 'CANCELLED' | 'RETURNED',
+        date: closureEntry.createdAt,
+        reason: closureEntry.reason ?? null,
+        actorRole: closureEntry.actorRole,
+      }
+    : null
+
   return (
-    <div className="container-app py-8">
+    <div className={isAdmin ? '' : 'container-app py-8'}>
       <Link
-        to="/orders"
+        to={isAdmin ? '/admin/orders' : '/orders'}
         className="inline-flex items-center gap-1 text-sm text-[var(--muted)] hover:text-[var(--fg)] mb-6 font-medium transition-colors"
       >
         <ArrowLeft size={16} /> Back to orders
@@ -179,7 +210,7 @@ export function OrderDetailPage() {
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0">
-                  {isDelivered && (
+                  {!isAdmin && isDelivered && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -281,6 +312,39 @@ export function OrderDetailPage() {
             <p className="text-xs text-[var(--muted)] mt-2">Payment: {order.paymentMethod}</p>
           </div>
 
+          {/* Customer & Seller (admin only) */}
+          {isAdmin && (
+            <div className="border border-[var(--border)] rounded-[var(--radius-lg)] bg-white p-5 shadow-[var(--shadow-sm)]">
+              <h2 className="font-semibold mb-3">Customer &amp; Seller</h2>
+              <div className="space-y-1 text-sm">
+                <p className="text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Customer</p>
+                <p>{invoice?.buyer?.name ?? order.shippingAddress?.recipientName ?? '—'}</p>
+                {invoice?.buyer?.email && (
+                  <p className="text-[var(--muted)]">{invoice.buyer.email}</p>
+                )}
+                {order.shippingAddress?.phone && (
+                  <p className="text-[var(--muted)]">{order.shippingAddress.phone}</p>
+                )}
+                <p className="text-[11px] font-mono text-[var(--muted)] break-all pt-1">
+                  User ID: {order.userId}
+                </p>
+              </div>
+              <div className="space-y-1 text-sm mt-4 pt-3 border-t border-[var(--border-subtle)]">
+                <p className="text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Seller</p>
+                <p>{order.sellerBusinessName ?? invoice?.seller?.businessName ?? '—'}</p>
+                {invoice?.seller?.gstin && (
+                  <p className="text-[var(--muted)]">GSTIN: {invoice.seller.gstin}</p>
+                )}
+                <p className="text-[11px] font-mono text-[var(--muted)] break-all pt-1">
+                  Seller ID: {order.sellerId}
+                </p>
+              </div>
+              <div className="mt-4 pt-3 border-t border-[var(--border-subtle)]">
+                <p className="text-[11px] font-mono text-[var(--muted)] break-all">Order ID: {order.id}</p>
+              </div>
+            </div>
+          )}
+
           {/* Shipping */}
           <div className="border border-[var(--border)] rounded-[var(--radius-lg)] bg-white p-5 shadow-[var(--shadow-sm)]">
             <h2 className="font-semibold mb-2">Shipping Address</h2>
@@ -290,8 +354,9 @@ export function OrderDetailPage() {
             </p>
           </div>
 
-          {/* Return status / request */}
-          {isDelivered && (
+          {/* Return status / request (buyer only — admins get the
+              read-only closure card below) */}
+          {!isAdmin && isDelivered && (
             <div className="border border-[var(--border)] rounded-[var(--radius-lg)] bg-white p-5 shadow-[var(--shadow-sm)]">
               <div className="flex items-center gap-2 mb-2">
                 <RotateCcw size={16} className="text-[var(--primary)]" />
@@ -349,6 +414,31 @@ export function OrderDetailPage() {
                   {withinWindow
                     ? 'A return is not available for this order.'
                     : `The ${RETURN_WINDOW_DAYS}-day return window has expired.`}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Cancellation / return closure info (admin only) */}
+          {closureInfo && (
+            <div className="border border-[var(--border)] rounded-[var(--radius-lg)] bg-white p-5 shadow-[var(--shadow-sm)]">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <h2 className="font-semibold">
+                  {closureInfo.status === 'CANCELLED' ? 'Cancellation' : 'Return'}
+                </h2>
+                <Badge variant={closureInfo.status === 'CANCELLED' ? 'error' : 'brand'}>
+                  {closureInfo.status}
+                </Badge>
+              </div>
+              <p className="text-sm text-[var(--muted)]">
+                {closureInfo.status === 'CANCELLED' ? 'Cancelled' : 'Returned'} on{' '}
+                {formatDateFull(closureInfo.date)}
+                {closureInfo.actorRole ? ` by ${closureInfo.actorRole}` : ''}
+              </p>
+              {closureInfo.reason && (
+                <p className="text-sm mt-2">
+                  <span className="text-[var(--muted)]">Reason: </span>
+                  {closureInfo.reason}
                 </p>
               )}
             </div>

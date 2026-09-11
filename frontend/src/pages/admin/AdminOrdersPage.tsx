@@ -32,7 +32,7 @@ export function AdminOrdersPage() {
       </div>
       <div className="space-y-3">
         {data?.items?.map(order => (
-          <Link to={`/orders/${order.id}`} key={order.id} className="block border rounded-lg p-4 hover:shadow-sm">
+          <Link to={`/admin/orders/${order.id}`} key={order.id} className="block border rounded-lg p-4 hover:shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <span className="font-medium">#{order.orderNumber}</span>
