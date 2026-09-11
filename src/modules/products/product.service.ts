@@ -174,9 +174,16 @@ export const createProductForSeller = async (
 
 export const listSellerProducts = async (
   sellerId: string,
+  search?: string,
 ): Promise<ProductResponse[]> => {
+  /*
+   * sellerId comes from the authenticated user (never from the
+   * client), so results are always scoped to this seller; an optional
+   * search term filters name/description server-side.
+   */
   const products = await findProductsBySeller(
     sellerId,
+    search,
   );
 
   return Promise.all(

@@ -27,8 +27,17 @@ export const productService = {
   getById: (id: string) =>
     api.get<ApiResponse<Product>>(`/products/${id}`).then(r => r.data.data),
 
-  getMyProducts: () =>
-    api.get<ApiResponse<Product[]>>('/products/my').then(r => r.data.data),
+  /**
+   * The authenticated seller's own products. An optional free-text search
+   * term is filtered server-side by the backend, which scopes results to
+   * the seller's own id — never another seller's products.
+   */
+  getMyProducts: (search?: string) =>
+    api
+      .get<ApiResponse<Product[]>>('/products/my', {
+        params: search ? { search } : undefined,
+      })
+      .then(r => r.data.data),
 
   getMyProduct: (id: string) =>
     api.get<ApiResponse<Product>>(`/products/my/${id}`).then(r => r.data.data),

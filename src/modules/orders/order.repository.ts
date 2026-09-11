@@ -75,7 +75,14 @@ export const updateOrderStatusById = async (
   id: string,
   status: string,
   deliveredAt?: Date | null,
+  paymentStatus?: string,
 ): Promise<IOrder | null> => {
+  /*
+   * Every supplied field is applied in one atomic `$set`, so the
+   * delivery-status change and the COD payment-status flip happen in a
+   * single update — the database can never hold DELIVERED + PENDING
+   * for a cash-on-delivery order.
+   */
   return Order.findByIdAndUpdate(
     id,
     {
@@ -83,6 +90,9 @@ export const updateOrderStatusById = async (
         status,
         ...(deliveredAt !== undefined && {
           deliveredAt,
+        }),
+        ...(paymentStatus !== undefined && {
+          paymentStatus,
         }),
       },
     },

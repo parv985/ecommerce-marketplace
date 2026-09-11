@@ -38,12 +38,17 @@ export interface OrderDetailPageProps {
    * requests and self-service actions.
    * `admin` — read-only Super Admin view (route `/admin/orders/:id`):
    * buyer-only features are hidden and buyer/seller details are shown.
+   * `seller` — Seller Panel view (route `/seller/orders/:id`):
+   * buyer-only features are hidden and the seller lifecycle actions
+   * (Confirm / Ship / Deliver / Cancel) are shown instead.
    */
-  variant?: 'buyer' | 'admin'
+  variant?: 'buyer' | 'admin' | 'seller'
 }
 
 export function OrderDetailPage({ variant = 'buyer' }: OrderDetailPageProps) {
   const isAdmin = variant === 'admin'
+  const isSeller = variant === 'seller'
+  const isBuyerView = variant === 'buyer'
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const [reviewingItem, setReviewingItem] = useState<OrderItem | null>(null)
@@ -62,21 +67,21 @@ export function OrderDetailPage({ variant = 'buyer' }: OrderDetailPageProps) {
     enabled: !!id,
   })
 
-  // Buyers see the invoice once the order is delivered. Admins get it for
-  // every status: it is the only API that resolves the buyer's name/email
-  // and the seller's business/GSTIN details for any order.
+  // Buyers see the invoice once the order is delivered. Admins and sellers
+  // get it for every status: it is the only API that resolves the buyer's
+  // name/email and the seller's business/GSTIN details for any order.
   const { data: invoice } = useQuery({
     queryKey: ['invoice', id],
     queryFn: () => orderService.getInvoice(id!),
-    enabled: !!id && (isAdmin || order?.status === 'DELIVERED'),
+    enabled: !!id && (isAdmin || isSeller || order?.status === 'DELIVERED'),
   })
 
   // Load the buyer's returns and find any linked to this order (active or recent).
-  // Admins never request returns themselves, so this list is buyer-only.
+  // Admins and sellers never request returns themselves, so this list is buyer-only.
   const { data: returnsData } = useQuery({
     queryKey: ['returns', 'for-order', id],
     queryFn: () => returnService.list({ page: 1, limit: 100 }),
-    enabled: !!id && !isAdmin && order?.status === 'DELIVERED',
+    enabled: !!id && isBuyerView && order?.status === 'DELIVERED',
   })
 
   const orderReturn: ReturnRequest | undefined = returnsData?.items?.find(
@@ -97,13 +102,20 @@ export function OrderDetailPage({ variant = 'buyer' }: OrderDetailPageProps) {
     onError: (err: unknown) => toast.error(extractErrorMessage(err) || 'Cannot cancel'),
   })
 
-  const markPaid = useMutation({
-    mutationFn: () => orderService.markPaid(id!),
+  /*
+   * Seller lifecycle actions (Seller Panel view). Buyers never change an
+   * order's status or payment status: payment status is driven entirely
+   * by the backend order/payment logic (gateway verification for online
+   * payments, automatic PAID on delivery for COD).
+   */
+  const updateOrderStatus = useMutation({
+    mutationFn: (status: string) => orderService.updateStatus(id!, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['order', id] })
-      toast.success('Payment recorded')
+      toast.success('Order status updated')
     },
-    onError: (err: unknown) => toast.error(extractErrorMessage(err) || 'Failed'),
+    onError: (err: unknown) =>
+      toast.error(extractErrorMessage(err) || 'Cannot update order status'),
   })
 
   const handleOpenReview = async (item: OrderItem) => {
@@ -121,17 +133,33 @@ export function OrderDetailPage({ variant = 'buyer' }: OrderDetailPageProps) {
 
   if (isLoading) {
     return (
-      <div className={`${isAdmin ? '' : 'container-app py-8'} space-y-4`}>
+      <div className={`${isAdmin || isSeller ? '' : 'container-app py-8'} space-y-4`}>
         <Skeleton className="h-48 w-full rounded-lg" />
       </div>
     )
   }
   if (!order) return <div className="text-center py-20">Order not found</div>
 
-  // Admin view is read-only — cancel/pay stay self-service (buyer) actions.
-  const canCancel = !isAdmin && ['PENDING', 'CONFIRMED'].includes(order.status)
-  const canPay = !isAdmin && order.paymentMethod === 'CASH_ON_DELIVERY' && order.paymentStatus === 'PENDING' && order.status === 'DELIVERED'
+  // Admin view is read-only; buyer cancel stays a self-service buyer action.
+  const canCancel = isBuyerView && ['PENDING', 'CONFIRMED'].includes(order.status)
   const isDelivered = order.status === 'DELIVERED'
+
+  /*
+   * Seller Panel: the next lifecycle step mirrors the seller order list
+   * (Confirm → Ship → Deliver). The backend rejects invalid transitions
+   * and flips COD payment status to PAID atomically with DELIVERED.
+   */
+  const sellerNextAction = isSeller
+    ? order.status === 'PENDING'
+      ? { label: 'Confirm Order', next: 'CONFIRMED' }
+      : order.status === 'CONFIRMED'
+        ? { label: 'Ship Order', next: 'SHIPPED' }
+        : order.status === 'SHIPPED'
+          ? { label: 'Mark as Delivered', next: 'DELIVERED' }
+          : null
+    : null
+  const sellerCanCancel =
+    isSeller && ['PENDING', 'CONFIRMED', 'SHIPPED'].includes(order.status)
 
   const deliveredAt =
     tracking?.deliveredAt ?? invoice?.deliveredAt ?? null
@@ -158,9 +186,9 @@ export function OrderDetailPage({ variant = 'buyer' }: OrderDetailPageProps) {
     : null
 
   return (
-    <div className={isAdmin ? '' : 'container-app py-8'}>
+    <div className={isAdmin || isSeller ? '' : 'container-app py-8'}>
       <Link
-        to={isAdmin ? '/admin/orders' : '/orders'}
+        to={isAdmin ? '/admin/orders' : isSeller ? '/seller/orders' : '/orders'}
         className="inline-flex items-center gap-1 text-sm text-[var(--muted)] hover:text-[var(--fg)] mb-6 font-medium transition-colors"
       >
         <ArrowLeft size={16} /> Back to orders
@@ -210,7 +238,7 @@ export function OrderDetailPage({ variant = 'buyer' }: OrderDetailPageProps) {
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0">
-                  {!isAdmin && isDelivered && (
+                  {isBuyerView && isDelivered && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -356,7 +384,7 @@ export function OrderDetailPage({ variant = 'buyer' }: OrderDetailPageProps) {
 
           {/* Return status / request (buyer only — admins get the
               read-only closure card below) */}
-          {!isAdmin && isDelivered && (
+          {isBuyerView && isDelivered && (
             <div className="border border-[var(--border)] rounded-[var(--radius-lg)] bg-white p-5 shadow-[var(--shadow-sm)]">
               <div className="flex items-center gap-2 mb-2">
                 <RotateCcw size={16} className="text-[var(--primary)]" />
@@ -456,9 +484,23 @@ export function OrderDetailPage({ variant = 'buyer' }: OrderDetailPageProps) {
                 Cancel Order
               </Button>
             )}
-            {canPay && (
-              <Button className="w-full" onClick={() => markPaid.mutate()} disabled={markPaid.isPending}>
-                Mark as Paid
+            {sellerNextAction && (
+              <Button
+                className="w-full"
+                onClick={() => updateOrderStatus.mutate(sellerNextAction.next)}
+                disabled={updateOrderStatus.isPending}
+              >
+                {sellerNextAction.label}
+              </Button>
+            )}
+            {sellerCanCancel && (
+              <Button
+                variant="destructive"
+                className="w-full"
+                onClick={() => cancelOrder.mutate()}
+                disabled={cancelOrder.isPending}
+              >
+                Cancel Order
               </Button>
             )}
           </div>

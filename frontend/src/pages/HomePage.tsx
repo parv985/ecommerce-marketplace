@@ -11,6 +11,7 @@ import { sellerService } from '@/services/seller.service'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { HeroShowcase } from '@/components/home/HeroShowcase'
 import { ProductCarousel } from '@/components/home/ProductCarousel'
+import { ProductGrid } from '@/components/home/ProductGrid'
 import { SectionHeader } from '@/components/home/SectionHeader'
 import { TrustSection } from '@/components/home/TrustSection'
 import { SellerCtaSection } from '@/components/home/SellerCtaSection'
@@ -22,11 +23,11 @@ import type { Category } from '@/types/api'
 import '@/components/home/home.css'
 
 /*
- * Homepage — Announcement bar (header) → Hero → Categories → New Arrivals (Carousel) →
+ * Homepage — Announcement bar (header) → Hero → Categories → New Arrivals (Grid) →
  * Best Deals (Carousel) → Trust → Become-a-Seller CTA → Footer.
  *
  * Everything is rendered from the LIVE catalog: one browse query feeds the
- * hero showcase, the New Arrivals carousel and the Best Deals carousel (products with
+ * hero showcase, the New Arrivals grid and the Best Deals carousel (products with
  * a live seller discount, ranked by discount). No mock products anywhere.
  */
 
@@ -191,13 +192,13 @@ export function HomePage() {
         )
       )}
 
-      {/* ── New Arrivals Automatic Carousel ── */}
+      {/* ── New Arrivals — responsive grid, every card fully visible ── */}
       <section
         className="border-y border-[var(--border-subtle)] bg-white py-9 md:py-12"
         aria-labelledby="home-new-arrivals-title"
       >
         <div className="container-app">
-          <ProductCarousel
+          <ProductGrid
             products={newArrivals}
             isLoading={productsLoading}
             eyebrow="Just dropped"
@@ -206,8 +207,6 @@ export function HomePage() {
             subtitle="The latest inspected items added by verified merchants"
             linkTo="/products?sort=newest"
             linkLabel="View all"
-            autoPlayInterval={2500}
-            priorityFirst
           />
         </div>
       </section>
