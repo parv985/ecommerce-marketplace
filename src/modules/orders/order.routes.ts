@@ -61,7 +61,7 @@ router.use(authenticate);
  *                   items:
  *                     $ref: "#/components/schemas/Order"
  *       400:
- *         description: Validation error, empty cart, insufficient stock or unavailable product
+ *         description: Validation error, empty cart, insufficient stock, unavailable product or an unusable coupon (`COUPON_EXPIRED` / `COUPON_USAGE_LIMIT_REACHED` both return "Coupon code expired")
  *       401:
  *         description: Not authenticated
  *       404:
@@ -184,7 +184,11 @@ router.post(
  *                           total:
  *                             type: number
  *       400:
- *         description: Empty cart, unavailable product, insufficient stock, invalid/expired coupon or coupon not applicable to the cart
+ *         description: |
+ *           Empty cart, unavailable product, insufficient stock or an unusable coupon. Coupon errors carry a machine-readable code:
+ *           `COUPON_EXPIRED` (end date passed) and `COUPON_USAGE_LIMIT_REACHED` (all allowed uses consumed) both return the message
+ *           "Coupon code expired"; `COUPON_INACTIVE` covers a deactivated or not-yet-started coupon; `COUPON_NOT_APPLICABLE`,
+ *           `COUPON_MIN_ORDER_NOT_MET`, `COUPON_RESTRICTION_FAILED` and `COUPON_PER_USER_LIMIT_REACHED` cover the remaining rules.
  *       401:
  *         description: Not authenticated
  */

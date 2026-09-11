@@ -1,4 +1,4 @@
-# Architecture Decisions — Reliability & Concurrency (V3.8–V3.12)
+# Architecture Decisions — Reliability & Concurrency (V3.8–V3.13)
 
 This document records the engineering decisions behind the
 "production features" phase. The guiding rule from the specification
@@ -101,3 +101,38 @@ indexes above would still be the backstop.
 | Coupon usage | Yes | Atomic slot reserve + unique usage records; cancelled orders release usage |
 | Settlement generation | Yes | Unique `(sellerId, periodKey)`; regenerating returns existing |
 | Order creation (checkout) | Yes (now) | Cart claim prevents duplicate orders from concurrent submits |
+
+## V3.13 — Coupon status: derived on read, never a stored truth
+
+**Decision:** Coupon status is computed from the current date and the
+remaining usage limit every time it is read. The stored `status` field
+is only the seller's **manual switch** (ACTIVE by default, INACTIVE
+after a deactivation).
+
+```
+ACTIVE   <=>  stored status is ACTIVE
+              AND startAt <= now <= endAt
+              AND (usageLimit is null OR usageCount < usageLimit)
+INACTIVE <=>  anything else (expired, fully used, not started, disabled)
+```
+
+Reasons:
+
+- **A scheduled job would only add lag and failure modes.** There is no
+  cron/queue in the deployment model (V3.9), and a coupon that expires
+  at 9:00 must be rejected at 9:00, not at the next job run.
+- **Persistence would break slot release.** Writing INACTIVE when a
+  coupon hits its usage limit would permanently disable it, because the
+  manual switch would then be off — yet cancelling an order releases
+  the slot and the coupon must become redeemable again. Deriving the
+  status makes the release automatic.
+- **One rule, three surfaces.** `resolveCouponStatus` (service),
+  `buildCouponStatusFilter` (list query, exact complement of the same
+  rule) and `getCouponState` (seller-panel UI) all implement the same
+  predicate, so the checkout decision, the `?status=` filter and the
+  badge can never disagree.
+- **Buyer messaging follows the state.** Expired and fully-used coupons
+  return `400 COUPON_EXPIRED` / `400 COUPON_USAGE_LIMIT_REACHED` with
+  the message "Coupon code expired"; deactivated or not-yet-started
+  coupons keep `COUPON_INACTIVE`. The generic "invalid coupon" message
+  is only ever shown for unknown codes and other validation failures.

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, keepPreviousData } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
@@ -12,6 +12,12 @@ import { userService } from '@/services/user.service'
 import { orderService } from '@/services/order.service'
 import { isAccountInactiveError } from '@/services/api'
 import { formatPrice } from '@/lib/utils'
+import {
+  COUPON_EXPIRED_MESSAGE,
+  COUPON_EXPIRED_TOAST_ID,
+  getCouponErrorMessage,
+  isCouponExpiredError,
+} from '@/lib/couponStatus'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -73,8 +79,16 @@ export function CheckoutPage() {
         toast.success('Coupon applied!')
       }
     },
-    onError: () => {
-      toast.error('Invalid coupon code.', { id: 'checkout-invalid-coupon' })
+    onError: (error) => {
+      /*
+       * Expired and fully-used coupons are distinct states on the API
+       * (`COUPON_EXPIRED` / `COUPON_USAGE_LIMIT_REACHED`) but the buyer
+       * sees the same "Coupon code expired" message for both; every
+       * other rejection keeps the generic message.
+       */
+      toast.error(getCouponErrorMessage(error), {
+        id: isCouponExpiredError(error) ? COUPON_EXPIRED_TOAST_ID : 'checkout-invalid-coupon',
+      })
     },
   })
 
@@ -82,6 +96,20 @@ export function CheckoutPage() {
     setAppliedCoupon(null)
     setCouponInput('')
   }
+
+  /*
+   * A coupon can expire (or consume its last usage slot) between being
+   * applied and the order being placed. When the background re-validation
+   * fails, drop the coupon and tell the buyer why.
+   */
+  useEffect(() => {
+    if (!appliedCoupon || !previewQuery.error) return
+    if (!isCouponExpiredError(previewQuery.error)) return
+
+    setAppliedCoupon(null)
+    setCouponInput('')
+    toast.error(COUPON_EXPIRED_MESSAGE, { id: COUPON_EXPIRED_TOAST_ID })
+  }, [appliedCoupon, previewQuery.error])
 
   const preview: CheckoutPreview | null =
     previewQuery.data ??
@@ -133,6 +161,13 @@ export function CheckoutPage() {
     onError: (err: any) => {
       // Inactive-account errors are toasted + handled by the api interceptor.
       if (isAccountInactiveError(err)) return
+      // The applied coupon is no longer redeemable: say so and clear it
+      // so the buyer can continue without the discount.
+      if (isCouponExpiredError(err)) {
+        removeCoupon()
+        toast.error(COUPON_EXPIRED_MESSAGE, { id: COUPON_EXPIRED_TOAST_ID })
+        return
+      }
       toast.error(err?.response?.data?.message || 'Failed to place order')
     },
   })

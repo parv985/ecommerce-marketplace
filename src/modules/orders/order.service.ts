@@ -37,6 +37,7 @@ import {
   roundMoney,
 } from "../discounts/discount.pricing.js";
 import {
+  assertCouponNotExpiredOrExhausted,
   evaluateCouponForOrder,
   recordCouponUsage,
   releaseCouponSlotOnly,
@@ -431,8 +432,22 @@ const buildCheckoutPlan = async (
     const coupon =
       await findCouponByCode(couponCode);
 
+    if (!coupon) {
+      throw new AppError(
+        "Coupon is not valid for the items in your cart",
+        400,
+        "COUPON_NOT_APPLICABLE",
+      );
+    }
+
+    /*
+     * An expired or fully-used coupon reports its real state BEFORE
+     * the applicability check, so the buyer always gets
+     * "Coupon code expired" instead of a generic error.
+     */
+    assertCouponNotExpiredOrExhausted(coupon);
+
     if (
-      !coupon ||
       !bySeller.has(
         coupon.sellerId.toString(),
       )
