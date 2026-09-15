@@ -114,7 +114,7 @@ export function SellerDiscountsPage() {
       </div>
       <div className="space-y-3">
         {(data?.items ?? []).map(d => (
-          <div key={d.id} className="border rounded-lg p-4 flex items-center justify-between">
+          <div key={d.id} className="border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white">
             <div>
               <span className="font-medium">
                 {d.discountType === 'PERCENTAGE' ? `${d.discountValue}% off` : 'Fixed discount'}
@@ -123,7 +123,7 @@ export function SellerDiscountsPage() {
                 ({formatDate(d.startAt)} - {formatDate(d.endAt)})
               </span>
             </div>
-            <Badge variant={d.status === 'ACTIVE' ? 'success' : 'default'}>
+            <Badge variant={d.status === 'ACTIVE' ? 'success' : 'default'} className="self-start sm:self-auto">
               {d.status === 'ACTIVE' ? 'Active' : 'Inactive'}
             </Badge>
           </div>

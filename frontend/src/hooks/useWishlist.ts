@@ -12,13 +12,15 @@ import { isAccountInactiveError } from '@/services/api'
  */
 export function useWishlist() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const accountInactive = useAuthStore((s) => s.accountInactive)
+  const user = useAuthStore((s) => s.user)
   const queryClient = useQueryClient()
 
-  // Fetch the full wishlist (only when authenticated)
+  // Fetch the full wishlist (only when authenticated and active)
   const { data: wishlistData } = useQuery({
     queryKey: ['wishlist'],
     queryFn: () => wishlistService.get(),
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && !accountInactive && user?.isActive !== false,
     staleTime: 5 * 60 * 1000, // 5 minutes — don't refetch on every navigation
   })
 
@@ -34,6 +36,15 @@ export function useWishlist() {
   /** Toggle a product in/out of the wishlist */
   const toggle = useMutation({
     mutationFn: async (productId: string) => {
+      const state = useAuthStore.getState()
+      if (!state.isAuthenticated) {
+        toast.error('Sign in to add products to wishlist')
+        return 'unauthenticated'
+      }
+      if (state.accountInactive || state.user?.isActive === false) {
+        toast.error('Your account is inactive')
+        return 'inactive'
+      }
       if (wishlistProductIds.has(productId)) {
         await wishlistService.removeItem(productId)
         return 'removed'
@@ -42,9 +53,11 @@ export function useWishlist() {
         return 'added'
       }
     },
-    onSuccess: (_result, _productId) => {
+    onSuccess: (result) => {
       // Invalidate so the wishlist query refetches
-      queryClient.invalidateQueries({ queryKey: ['wishlist'] })
+      if (result === 'added' || result === 'removed') {
+        queryClient.invalidateQueries({ queryKey: ['wishlist'] })
+      }
     },
     onError: (err: any) => {
       // Inactive-account errors are toasted + handled by the api interceptor.

@@ -98,8 +98,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: () => {
     sessionStorage.removeItem(USER_KEY)
+    sessionStorage.removeItem(INACTIVE_KEY)
+    sessionStorage.removeItem('access_token')
     setAccessToken(null)
-    set({ user: null, isAuthenticated: false, isLoading: false })
+    set({ user: null, isAuthenticated: false, isLoading: false, accountInactive: false })
   },
 }))
 

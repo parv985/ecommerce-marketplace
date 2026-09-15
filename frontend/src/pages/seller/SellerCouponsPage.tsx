@@ -124,7 +124,7 @@ export function SellerCouponsPage() {
           const state = getCouponState(c)
           const active = state === 'ACTIVE'
           return (
-          <div key={c.id} className="border rounded-lg p-4 flex items-center justify-between">
+          <div key={c.id} className="border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white">
             <div>
               <span className="font-mono font-bold">{c.code}</span>
               <span className="ml-2 text-sm text-[var(--muted)]">
@@ -137,7 +137,7 @@ export function SellerCouponsPage() {
                 ({formatDate(c.startAt)} - {formatDate(c.endAt)})
               </span>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
               {!active && (
                 <span className="text-xs text-[var(--muted)]">
                   {couponInactiveReasons[state]}

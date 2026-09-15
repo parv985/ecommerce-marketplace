@@ -42,6 +42,7 @@ export function ProductDetailPage() {
   const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null)
 
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const accountInactive = useAuthStore((s) => s.accountInactive)
   const user = useAuthStore((s) => s.user)
   const queryClient = useQueryClient()
 
@@ -114,11 +115,19 @@ export function ProductDetailPage() {
   }
 
   const handleWishlist = () => {
-    if (!guardRestrictedAction()) return
+    if (!isAuthenticated) {
+      toast.error('Sign in to add products to wishlist')
+      return
+    }
+    if (accountInactive || user?.isActive === false) {
+      toast.error('Your account is inactive')
+      return
+    }
     if (isToggling || !id) return
     toggleWishlistMutation.mutate(id, {
       onSuccess: (result) => {
-        toast(result === 'added' ? 'Added to wishlist' : 'Removed from wishlist')
+        if (result === 'added') toast('Added to wishlist')
+        else if (result === 'removed') toast('Removed from wishlist')
       },
     })
   }
@@ -299,7 +308,7 @@ export function ProductDetailPage() {
           {product.specifications && product.specifications.length > 0 && (
             <div className="mb-6">
               <h3 className="font-semibold text-xs uppercase tracking-wider text-[var(--muted)] mb-3">Specifications</h3>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 bg-[#f6f5f2] p-4 rounded-[var(--radius)] border border-[var(--border)]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2.5 bg-[#f6f5f2] p-4 rounded-[var(--radius)] border border-[var(--border)]">
                 {product.specifications.map((s, i) => (
                   <div key={`spec-${i}`} className="text-xs">
                     <span className="text-[var(--muted)]">{s.key}:</span>{' '}
@@ -311,8 +320,8 @@ export function ProductDetailPage() {
           )}
 
           {product.stock > 0 && (
-            <div className="flex items-center gap-3 mb-6">
-              <div className="flex items-center border border-[var(--border)] rounded-[var(--radius)] bg-white overflow-hidden">
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 mb-6">
+              <div className="flex items-center border border-[var(--border)] rounded-[var(--radius)] bg-white overflow-hidden shrink-0">
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
                   className="p-2.5 hover:bg-[var(--accent)] text-[var(--fg)] transition-colors"
@@ -329,14 +338,14 @@ export function ProductDetailPage() {
                   <Plus size={14} />
                 </button>
               </div>
-              <Button onClick={handleAddToCart} disabled={addToCartMutation.isPending} className="flex-1">
+              <Button onClick={handleAddToCart} disabled={addToCartMutation.isPending} className="flex-1 min-w-[140px]">
                 <ShoppingCart size={15} className="mr-2" /> {isAuthenticated ? 'Add to Cart' : 'Sign in to Buy'}
               </Button>
               <Button
                 variant="outline"
                 onClick={handleWishlist}
                 title={isAuthenticated ? (liked ? 'Remove from Wishlist' : 'Add to Wishlist') : 'Sign in to add to Wishlist'}
-                className={liked ? 'border-red-200 text-red-600 bg-red-50' : ''}
+                className={liked ? 'border-red-200 text-red-600 bg-red-50 shrink-0' : 'shrink-0'}
                 disabled={isToggling}
               >
                 <Heart size={15} className={liked ? 'fill-current' : ''} />

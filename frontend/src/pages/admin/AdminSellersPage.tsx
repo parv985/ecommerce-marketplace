@@ -80,19 +80,19 @@ export function AdminSellersPage() {
       </div>
       <div className="space-y-3">
         {data?.items?.map(s => (
-          <div key={s.id} className="border rounded-lg p-4">
-            <div className="flex items-center justify-between mb-2">
-              <div>
+          <div key={s.id} className="border rounded-lg p-4 bg-white">
+            <div className="flex items-center justify-between mb-2 gap-2">
+              <div className="min-w-0">
                 <span className="font-medium">{s.businessName || 'N/A'}</span>
-                <span className="text-xs text-[var(--muted)] ml-2">GSTIN: {s.gstin}</span>
+                <span className="text-xs text-[var(--muted)] ml-2 font-mono">GSTIN: {s.gstin}</span>
               </div>
               <Badge variant={statusColors[s.status]}>{s.status}</Badge>
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="text-sm text-[var(--muted)]">
                 <span>{typeof s.user === 'object' ? s.user.name : ''}</span> • {formatDate(s.createdAt)}
               </div>
-              <div className="flex gap-1">
+              <div className="flex gap-1 self-end sm:self-auto flex-wrap">
                 {s.status !== 'APPROVED' && <Button size="sm" variant="outline" onClick={() => setActionDialog({ id: s.id, action: 'APPROVED', name: s.businessName })}>Approve</Button>}
                 {s.status === 'PENDING' && <Button size="sm" variant="outline" onClick={() => setActionDialog({ id: s.id, action: 'REJECTED', name: s.businessName })}>Reject</Button>}
                 {s.status === 'APPROVED' && <Button size="sm" variant="outline" onClick={() => setActionDialog({ id: s.id, action: 'PAUSED', name: s.businessName })}>Pause</Button>}

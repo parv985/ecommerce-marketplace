@@ -103,23 +103,23 @@ export function ReturnListPage() {
             <Link
               to={`/returns/${ret.id}`}
               key={ret.id}
-              className="block border border-[var(--border)] rounded-[var(--radius-lg)] p-4.5 bg-white hover:border-neutral-400 hover:shadow-[var(--shadow-sm)] transition-all"
+              className="block border border-[var(--border)] rounded-[var(--radius-lg)] p-4 sm:p-4.5 bg-white hover:border-neutral-400 hover:shadow-[var(--shadow-sm)] transition-all"
             >
-              <div className="flex items-center justify-between mb-2 gap-3">
+              <div className="flex items-center justify-between mb-2 gap-2">
                 <div className="min-w-0">
                   <span className="font-semibold text-sm text-[var(--fg)]">
                     Return #{ret.id.slice(-8).toUpperCase()}
                   </span>
-                  <span className="text-xs text-[var(--muted)] ml-2.5">
+                  <span className="text-xs text-[var(--muted)] ml-2">
                     {formatDate(ret.createdAt)}
                   </span>
                 </div>
-                <Badge variant={returnStatusColors[ret.status]}>
+                <Badge variant={returnStatusColors[ret.status]} className="shrink-0">
                   {returnStatusLabels[ret.status]}
                 </Badge>
               </div>
               <p className="text-xs text-[var(--fg-secondary)] line-clamp-2">{ret.reason}</p>
-              <div className="flex items-center justify-between gap-3 mt-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mt-2">
                 <p className="text-[11px] text-[var(--muted)]">
                   Order ID: {ret.orderId.slice(-8).toUpperCase()}
                 </p>

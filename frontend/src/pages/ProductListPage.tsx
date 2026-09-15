@@ -103,7 +103,7 @@ export function ProductListPage() {
   return (
     <div className="container-app py-8">
       {/* Top filter / header bar */}
-      <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--border)]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-[var(--border)]">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[var(--fg)]">
             {search ? `Results for "${search}"` : 'All Products'}
@@ -117,7 +117,7 @@ export function ProductListPage() {
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <select
             value={sort}
             onChange={(e) => updateFilter('sort', e.target.value)}
@@ -216,7 +216,7 @@ export function ProductListPage() {
         {/* Product Grid with Progressive Scroll Loading */}
         <div className="flex-1">
           {isLoading ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
               {Array.from({ length: 12 }).map((_, i) => (
                 <div
                   key={i}
@@ -247,7 +247,7 @@ export function ProductListPage() {
           ) : (
             <>
               {/* Product cards grid */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
                 {products.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}

@@ -440,7 +440,7 @@ function SettlementDetailDialog({ id, onClose }: { id: string | null; onClose: (
             <p className="text-sm text-[var(--muted)] py-6 text-center">No orders are part of this settlement.</p>
           ) : (
             <div className="border rounded-lg overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[540px]">
                 <thead className="bg-zinc-50 border-b">
                   <tr>
                     <th className="text-left p-3 font-medium">Order</th>

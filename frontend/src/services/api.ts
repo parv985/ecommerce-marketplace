@@ -108,6 +108,12 @@ api.interceptors.response.use(
       originalRequest.url?.includes('/auth/google')
 
     if (error.response?.status === 401 && !originalRequest._retry && !skipRefresh) {
+      // If there is no stored access token, the user is unauthenticated.
+      // Do not attempt refresh or force window redirect.
+      if (!accessToken && !sessionStorage.getItem('access_token')) {
+        return Promise.reject(error)
+      }
+
       if (isRefreshing) {
         return new Promise<string>((resolve, reject) => {
           failedQueue.push({ resolve, reject })

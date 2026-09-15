@@ -27,9 +27,10 @@ const CHECK_INTERVAL_MS = 30_000
  */
 export function useAccountStatus() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const accountInactive = useAuthStore((s) => s.accountInactive)
 
   useEffect(() => {
-    if (!isAuthenticated) return
+    if (!isAuthenticated || accountInactive) return
 
     let cancelled = false
 
@@ -68,5 +69,5 @@ export function useAccountStatus() {
       window.removeEventListener('focus', onWindowFocus)
       document.removeEventListener('visibilitychange', onWindowFocus)
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, accountInactive])
 }
