@@ -7,7 +7,7 @@
 
 ## Current Design System (Must Preserve These Tokens)
 
-### Colors (CSS Variables in `frontend/src/index.css`)
+### Colors (CSS Variables in `src/index.css`)
 ```css
 --primary: #b83e20;           /* Warm Terracotta — single brand accent */
 --primary-hover: #9c3217;
