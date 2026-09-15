@@ -174,7 +174,7 @@ Detail: [§6 Backend Architecture](#6-backend-architecture).
    Header: Authorization: Bearer <sellerAccessToken>
    Body: { name, description, price, stock, sku, category, … }
 
-2. Express app (src/app.ts):
+2. Express app (src/app.tsb):
    - helmet() security headers
    - baseline rate limiter (300 req/15 min/IP)
    - CORS check against CORS_ORIGIN
@@ -186,7 +186,7 @@ Detail: [§6 Backend Architecture](#6-backend-architecture).
                      reject deactivated accounts (403 ACCOUNT_INACTIVE)
    - requireTwoFactorSetup (seller) → 403 TWO_FACTOR_REQUIRED if 2FA not enabled
    - authorize(SELLER) → role check
-   - validate(createProductSchema) → Zod validates the body
+   - validate(createProductSchema) → Zod validates the ody
    - asyncHandler(createProductController)
 
 4. product.controller.ts: extracts req.user + req.body, calls the service,
@@ -232,7 +232,7 @@ The failure path is symmetric: any `AppError` thrown in layers 3–6 is caught b
 | **oxlint** | — | Linting (`npm run lint`) |
 
 ### 3.2 Backend (root `package.json`)
-
+React.lazy()
 | Technology | Version (approx.) | Why it is used |
 |------------|-------------------|----------------|
 | **Node.js** | 20+ | Runtime; async I/O for an API server |

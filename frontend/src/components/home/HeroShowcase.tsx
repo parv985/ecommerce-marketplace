@@ -22,12 +22,6 @@ const SLIDE_INTERVAL = 2500
 /** Slide transition duration in ms (kept in sync with the CSS below). */
 const SLIDE_TRANSITION_MS = 600
 
-/** One collage = featured tile + two supporting tiles (the hero layout). */
-interface Collage {
-  featured: Product
-  secondary: Product[]
-}
-
 /** Direction of an in-flight slide. */
 type SlideDirection = 1 | -1
 
@@ -44,16 +38,19 @@ interface SlideAnimation {
  *
  * Built entirely from LIVE catalog data — the newest products returned by
  * `productService.browse`. The showcase is an auto-playing carousel: every
- * 2.5 seconds the featured product advances by one and the whole collage
- * (featured + two supporting tiles) glides horizontally to the next
- * combination. While loading it renders matching skeletons; if the catalog
- * has fewer than four imaged products it shows them as a static collage,
+ * 2.5 seconds the displayed product card advances and the tile glides
+ * horizontally to the next product. While loading it renders a matching
+ * skeleton; if the catalog has only one product it shows a static card,
  * and with none at all it degrades to a branded panel that surfaces the
  * real categories (never fake product imagery).
+ *
+ * Each slide shows ONE product card (image + badge + name + price).
  */
 export function HeroShowcase({ products, categories, isLoading }: HeroShowcaseProps) {
-  const withImages = (products ?? []).filter((p) => p.images?.[0]?.url)
-  const totalSlides = withImages.length
+  /* Use ALL products — the ShowcaseImage component already renders a tidy
+     "NO PHOTO YET" placeholder for products without a photo. */
+  const allProducts = products ?? []
+  const totalSlides = allProducts.length
 
   /* ── Carousel state ── */
   const [step, setStep] = useState(0)
@@ -100,7 +97,7 @@ export function HeroShowcase({ products, categories, isLoading }: HeroShowcasePr
    */
   const goTo = useCallback(
     (index: number) => {
-      if (totalSlides <= 3 || animRef.current) return
+      if (totalSlides <= 1 || animRef.current) return
       const from =
         ((stepRef.current % totalSlides) + totalSlides) % totalSlides
       const to = ((index % totalSlides) + totalSlides) % totalSlides
@@ -124,7 +121,7 @@ export function HeroShowcase({ products, categories, isLoading }: HeroShowcasePr
   /* Auto-play: advance one product every 2.5s while the hero is visible,
      unhovered, untouched and no slide is in flight. */
   useEffect(() => {
-    if (totalSlides <= 3 || isPaused) return
+    if (totalSlides <= 1 || isPaused) return
     const timer = setInterval(() => advance(1), SLIDE_INTERVAL)
     return () => clearInterval(timer)
   }, [totalSlides, isPaused, advance])
@@ -186,48 +183,34 @@ export function HeroShowcase({ products, categories, isLoading }: HeroShowcasePr
     touchResumeTimer.current = setTimeout(() => setTouching(false), 1200)
   }
 
-  /* Products shown in the currently-landed slide (drives the status chip). */
+  /* Product shown in the currently-landed slide (drives the status chip). */
   const displayIndex = anim ? anim.to : safeStep
-  const displayed = totalSlides > 0 ? withImages[displayIndex % totalSlides] : undefined
+  const displayed = totalSlides > 0 ? allProducts[displayIndex % totalSlides] : undefined
 
-  /* Build the featured + supporting pair for any slide index. */
-  const collageAt = (index: number): Collage | null => {
-    if (totalSlides === 0) return null
-    const featured = withImages[((index % totalSlides) + totalSlides) % totalSlides]
-    const secondary = [1, 2]
-      .map((offset) => withImages[(index + offset) % totalSlides])
-      .filter(Boolean)
-    return { featured, secondary }
-  }
-
-  /* ── Loading: skeleton collage with the same geometry ── */
+  /* ── Loading: skeleton card with the same geometry ── */
   if (isLoading) {
     return (
-      <div className="grid gap-3 sm:grid-cols-5 sm:grid-rows-[196px_196px] lg:grid-rows-[216px_216px]">
-        <div className="flex h-[320px] flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white sm:col-span-3 sm:row-span-2 sm:h-full">
-          <Skeleton className="min-h-0 w-full flex-1 rounded-none" />
-          <div className="flex shrink-0 items-center justify-between gap-3 border-t border-[var(--border-subtle)] p-3.5">
-            <Skeleton className="h-4 w-2/3" />
-            <Skeleton className="h-4 w-16" />
-          </div>
+      <div className="flex h-[320px] flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white sm:h-[420px] lg:h-[448px]">
+        <Skeleton className="min-h-0 w-full flex-1 rounded-none" />
+        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-[var(--border-subtle)] p-3.5">
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-4 w-16" />
         </div>
-        <Skeleton className="hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white sm:col-span-2 sm:block" />
-        <Skeleton className="hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white sm:col-span-2 sm:block" />
       </div>
     )
   }
 
-  /* ── Live products: auto-playing carousel of featured + supporting tiles ── */
+  /* ── Live products: auto-playing carousel of single product cards ── */
   if (displayed) {
     const dotCount = Math.min(totalSlides, 8)
-    const showDots = totalSlides > 3
+    const showDots = totalSlides > 1
 
-    /* Collages currently mounted in the sliding track. */
-    const trackCollages: { collage: Collage }[] = anim
+    /* Products currently mounted in the sliding track (1 while idle, 2 during a slide). */
+    const trackProducts: Product[] = anim
       ? anim.dir === 1
-        ? [{ collage: collageAt(anim.from)! }, { collage: collageAt(anim.to)! }]
-        : [{ collage: collageAt(anim.to)! }, { collage: collageAt(anim.from)! }]
-      : [{ collage: collageAt(safeStep)! }]
+        ? [allProducts[anim.from], allProducts[anim.to]]
+        : [allProducts[anim.to], allProducts[anim.from]]
+      : [allProducts[safeStep]]
 
     const trackStyle: React.CSSProperties = anim
       ? {
@@ -282,19 +265,14 @@ export function HeroShowcase({ products, categories, isLoading }: HeroShowcasePr
               }
             }}
           >
-            {trackCollages.map(({ collage }, slideIdx) => (
+            {trackProducts.map((product, slideIdx) => (
               <div
-                key={collage.featured.id}
+                key={product.id}
                 className="shrink-0"
                 style={{ width: anim ? '50%' : '100%' }}
                 aria-hidden={anim ? slideIdx !== (anim.dir === 1 ? 1 : 0) : false}
               >
-                <div className="grid gap-3 sm:grid-cols-5 sm:grid-rows-[196px_196px] lg:grid-rows-[216px_216px]">
-                  <FeaturedTile product={collage.featured} />
-                  {collage.secondary.map((product) => (
-                    <SecondaryTile key={product.id} product={product} />
-                  ))}
-                </div>
+                <HeroProductCard product={product} />
               </div>
             ))}
           </div>
@@ -364,21 +342,28 @@ export function HeroShowcase({ products, categories, isLoading }: HeroShowcasePr
 }
 
 /**
- * The large featured tile — markup and styling identical to the original
- * hero showcase card (badge strip, caption with price/discount, whole
- * tile links to the product).
+ * Single product card — fills the full showcase width. Shows the product
+ * image (or a "NO PHOTO YET" placeholder), a discount or new-arrival badge,
+ * product name, and price with optional strikethrough original price.
+ * Design is identical to the original hero FeaturedTile.
  */
-function FeaturedTile({ product }: { product: Product }) {
+function HeroProductCard({ product }: { product: Product }) {
   return (
     <Link
       to={`/products/${product.id}`}
-      className="group relative flex h-[320px] flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)] transition-shadow duration-200 hover:shadow-[var(--shadow-md)] sm:col-span-3 sm:row-span-2 sm:h-full"
+      className="group relative flex h-[320px] flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)] transition-shadow duration-200 hover:shadow-[var(--shadow-md)] sm:h-[420px] lg:h-[448px]"
     >
       <div className="relative min-h-0 flex-1 overflow-hidden bg-[var(--surface-warm)]">
         <ShowcaseImage product={product} />
-        <span className="absolute left-3 top-3 rounded-[var(--radius-sm)] border border-[var(--border)] bg-white/95 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--primary)] shadow-sm backdrop-blur-sm">
-          New arrival
-        </span>
+        {product.activeDiscount ? (
+          <span className="absolute left-3 top-3 rounded-[var(--radius-sm)] bg-[var(--primary)] px-2 py-1 text-[10px] font-bold text-white shadow-sm">
+            -{product.activeDiscount.discountValue}%
+          </span>
+        ) : (
+          <span className="absolute left-3 top-3 rounded-[var(--radius-sm)] border border-[var(--border)] bg-white/95 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--primary)] shadow-sm backdrop-blur-sm">
+            New arrival
+          </span>
+        )}
       </div>
 
       {/* Caption in a clean white strip — text never sits on the photo */}
@@ -396,37 +381,6 @@ function FeaturedTile({ product }: { product: Product }) {
             </span>
           )}
         </div>
-      </div>
-    </Link>
-  )
-}
-
-/**
- * Supporting tile — same design as before: discount badge over the photo,
- * compact caption strip, links to the product. Tablet/desktop only so the
- * mobile hero stays tight.
- */
-function SecondaryTile({ product }: { product: Product }) {
-  return (
-    <Link
-      to={`/products/${product.id}`}
-      className="group relative hidden flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)] transition-shadow duration-200 hover:shadow-[var(--shadow-md)] sm:col-span-2 sm:flex"
-    >
-      <div className="relative min-h-0 flex-1 overflow-hidden bg-[var(--surface-warm)]">
-        <ShowcaseImage product={product} />
-        {product.activeDiscount && (
-          <span className="absolute left-2.5 top-2.5 rounded-[var(--radius-sm)] bg-[var(--primary)] px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm">
-            -{product.activeDiscount.discountValue}%
-          </span>
-        )}
-      </div>
-      <div className="flex items-center justify-between gap-2 border-t border-[var(--border-subtle)] bg-white px-3 py-2">
-        <p className="min-w-0 truncate text-xs font-semibold text-[var(--fg)]">
-          {product.name}
-        </p>
-        <p className="shrink-0 text-xs font-bold text-[var(--fg)]">
-          {formatPrice(product.activeDiscount?.discountedPrice ?? product.price)}
-        </p>
       </div>
     </Link>
   )
