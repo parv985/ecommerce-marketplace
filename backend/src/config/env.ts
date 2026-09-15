@@ -33,16 +33,12 @@ const envSchema = z.object({
     .string()
     .min(32, "JWT_ACCESS_SECRET must be at least 32 characters"),
 
-  JWT_ACCESS_EXPIRES_IN: z
-    .string()
-    .default("15m"),
+  JWT_ACCESS_EXPIRES_IN: z.string().default("15m"),
   JWT_REFRESH_SECRET: z
     .string()
     .min(32, "JWT_REFRESH_SECRET must be at least 32 characters"),
 
-  JWT_REFRESH_EXPIRES_IN: z
-    .string()
-    .default("7d"),
+  JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
 
   /*
    * Razorpay. When the key id/secret are unset the payment gateway
@@ -65,7 +61,7 @@ const envSchema = z.object({
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().optional(),
 
-  /* Redis (optional) */  
+  /* Redis (optional) */
   REDIS_URL: z.string().optional(),
 });
 export const env = envSchema.parse(process.env);
