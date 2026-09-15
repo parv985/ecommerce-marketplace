@@ -45,7 +45,7 @@ The repository is a **monorepo with two applications**:
 
 | Part | Location | What it is |
 |------|----------|------------|
-| **Backend API** | repository root (`src/`, `tests/`, `package.json`) | Node.js + Express 5 + TypeScript REST API on port 5000 (`/api/v1/*`) |
+| **Backend API** | `backend/` (`src/`, `tests/`, `package.json`) | Node.js + Express 5 + TypeScript REST API on port 5000 (`/api/v1/*`) |
 | **Frontend SPA** | `frontend/` | React 19 + TypeScript + Vite single-page app on port 3000 |
 
 There is no separate monorepo tooling (workspaces/turborepo) — each side has its own `package.json` and is installed/run independently.
@@ -89,14 +89,15 @@ A full end-to-end walkthrough of the checkout flow (the most complex path in the
 ### 2.1 Repository layout
 
 ```
-ecommerce-marketplace/            ← the BACKEND project (package.json, src/, tests/, docs/)
-├── frontend/                     ← the FRONTEND project (its own package.json, src/)
-├── docs/                         ← architecture notes, Postman artifacts, this guide
-├── src/                          ← backend source (Express app)
-├── tests/                        ← backend integration tests, seeders, E2E shell scripts
-├── .env.example                  ← backend environment template
-├── package.json / tsconfig.json / vitest.config.ts / prettier.config.js
-└── test-cloudinary.js            ← standalone Cloudinary smoke-test script (manual)
+ecommerce-marketplace/            ← monorepo root
+├── backend/                      ← the BACKEND project (package.json, src/, tests/, docs/)
+│   ├── docs/                     ← architecture notes, Postman artifacts, this guide
+│   ├── src/                      ← backend source (Express app)
+│   ├── tests/                    ← backend integration tests, seeders, E2E shell scripts
+│   ├── .env.example              ← backend environment template
+│   ├── package.json / tsconfig.json / vitest.config.ts / prettier.config.js
+│   └── test-cloudinary.js        ← standalone Cloudinary smoke-test script (manual)
+└── frontend/                     ← the FRONTEND project (its own package.json, src/)
 ```
 
 ### 2.2 System diagram
@@ -284,11 +285,10 @@ React.lazy()
 
 > Purpose-level explanation: what each important folder/file is responsible for and why it exists. Trivial files are grouped.
 
-### 4.1 Root (backend) — annotated
+### 4.1 `backend/` — annotated
 
 ```
-ecommerce-marketplace/
-├── frontend/                     # the React app (see §4.2)
+backend/
 ├── docs/
 │   ├── PROJECT_GUIDE.md          # ← this guide
 │   ├── architecture.md           # reliability decisions: atomic ops, idempotency map, why-no-Redis/queue history
@@ -1409,9 +1409,9 @@ Both follow the same pattern (seller-scoped CRUD): `POST /` create · `GET /` li
 
 ## 19. Environment Configuration
 
-> No real secrets appear in this document. Templates live in `.env.example` (backend) and `frontend/.env.example` (frontend).
+> No real secrets appear in this document. Templates live in `backend/.env.example` (backend) and `frontend/.env.example` (frontend).
 
-### 19.1 Backend (`.env` at repo root)
+### 19.1 Backend (`backend/.env`)
 
 The backend validates its environment **at startup** with Zod (`src/config/env.ts`) — missing required values crash the process with a clear message.
 
@@ -1470,9 +1470,10 @@ The backend validates its environment **at startup** with Zod (`src/config/env.t
 - **MongoDB** — local instance or Atlas connection string (tests derive their own test DB; with no `MONGODB_URI` at all, tests fall back to an in-memory MongoDB)
 - **Redis** — optional (only for the catalog cache)
 
-### 20.2 Backend setup (repo root)
+### 20.2 Backend setup (`backend/`)
 
 ```bash
+cd backend
 npm install
 cp .env.example .env          # then fill in the required values (§19.1):
                               #   MONGODB_URI, JWT_ACCESS_SECRET, JWT_REFRESH_SECRET,
@@ -1689,3 +1690,4 @@ Documented here so nobody is surprised — the **code is the source of truth**:
 ---
 
 *End of guide. If you change the codebase, update this document — and keep the "Discrepancies" section (§23.2) current: it exists to keep honest what is implemented versus what is planned.*
+ it exists to keep honest what is implemented versus what is planned.*

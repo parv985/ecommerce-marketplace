@@ -126,7 +126,7 @@ cannot skip the guard.
 
 ## Running Frontend + Backend
 
-1. Start the backend: `cd .. && npm run dev`
+1. Start the backend: `cd ../backend && npm run dev`
 2. Start the frontend: `npm run dev`
 3. Open http://localhost:3000
 
