@@ -6,7 +6,13 @@ import { env } from "../../config/env.js";
 import { logger } from "../../config/logger.js";
 import { AppError } from "../../errors/AppError.js";
 import { sendSuccess } from "../../utils/apiResponse.js";
-import { clearRefreshTokenCookie, setRefreshTokenCookie } from "../../constants/cookies.js";
+import {
+  OAUTH_STATE_COOKIE,
+  clearOAuthStateCookie,
+  clearRefreshTokenCookie,
+  setOAuthStateCookie,
+  setRefreshTokenCookie,
+} from "../../constants/cookies.js";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -33,7 +39,18 @@ import {
   disableTwoFactor,
   regenerateRecoveryCodes,
 } from "./auth.service.js";
-import { loginWithGoogle, handleGoogleCallback, getGoogleAuthUrl, getGoogleAuthorizationUrl } from "./google.service.js";
+import {
+  loginWithGoogle,
+  handleGoogleCallback,
+  getGoogleAuthUrl,
+  getGoogleAuthorizationUrl,
+  resolveGoogleRedirectUri,
+} from "./google.service.js";
+import {
+  createOAuthState,
+  verifyOAuthState,
+} from "./oauthState.js";
+
 export { getGoogleAuthorizationUrl };
 
 export const refresh = async (
@@ -328,22 +345,53 @@ export const googleLogin = async (
   });
 };
 
+/*
+ * Step 1 - the browser is sent to Google's consent screen. The state
+ * value is stored in an httpOnly cookie so the callback can prove the
+ * response belongs to this browser, and it carries the page the user
+ * was trying to reach.
+ */
 export const googleRedirect = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const authUrl = getGoogleAuthUrl();
-  res.redirect(authUrl);
+  const redirectUri = resolveGoogleRedirectUri(req);
+  const state = createOAuthState(req.query.to);
+
+  setOAuthStateCookie(res, state);
+
+  res.redirect(getGoogleAuthUrl({ redirectUri, state }));
 };
 
-const frontendUrl = env.CLIENT_URL;
+/**
+ * Frontend route that finishes the browser side of the OAuth handshake
+ * (stores the access token, fetches the profile and routes by role).
+ * It must exist in the SPA router - without it the browser lands on the
+ * frontend's catch-all 404 after Google sign-in.
+ */
+const FRONTEND_GOOGLE_CALLBACK_PATH =
+  "/auth/google/callback";
+
+const frontendBaseUrl = (): string => {
+  const raw = env.CLIENT_URL.trim().replace(/\/+$/, "");
+
+  if (!/^https?:\/\//i.test(raw)) {
+    throw new AppError(
+      `CLIENT_URL must be an absolute URL (e.g. https://shop.example.com), got "${env.CLIENT_URL}".`,
+      500,
+      "INVALID_CLIENT_URL",
+    );
+  }
+
+  return raw;
+};
 
 const redirectToFrontend = (
   res: Response,
   path: string,
   params: Record<string, string> = {},
 ): void => {
-  const url = new URL(path, frontendUrl);
+  const url = new URL(path, frontendBaseUrl());
 
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
@@ -352,28 +400,99 @@ const redirectToFrontend = (
   res.redirect(url.toString());
 };
 
+/*
+ * Step 2 - Google redirects the browser back here with ?code (plus
+ * ?state and ?iss). The code is exchanged, the user is created or
+ * linked, the same access + refresh session as password login is issued
+ * and the browser is handed back to the frontend.
+ */
 export const googleCallback = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { code } = req.query;
+  const redirectUri = resolveGoogleRedirectUri(req);
+  const { code, state } = req.query;
+  const googleError = req.query.error;
+
+  // The user denied access (or Google rejected the request).
+  if (typeof googleError === "string" && googleError !== "") {
+    clearOAuthStateCookie(res);
+
+    logger.warn(
+      `Google OAuth was not completed: ${googleError}`,
+    );
+
+    redirectToFrontend(res, "/login", {
+      error:
+        googleError === "access_denied"
+          ? "GOOGLE_ACCESS_DENIED"
+          : "GOOGLE_AUTH_ERROR",
+      message:
+        googleError === "access_denied"
+          ? "Google sign-in was cancelled."
+          : `Google sign-in failed (${googleError}).`,
+    });
+
+    return;
+  }
 
   if (typeof code !== "string" || code.trim() === "") {
     // No code in the URL (e.g. the callback was opened directly):
     // restart the flow by sending the user to Google's consent screen.
-    res.redirect(getGoogleAuthUrl());
+    const restartState = createOAuthState(req.query.to);
+
+    setOAuthStateCookie(res, restartState);
+
+    res.redirect(
+      getGoogleAuthUrl({
+        redirectUri,
+        state: restartState,
+      }),
+    );
+
+    return;
+  }
+
+  const verifiedState = verifyOAuthState(
+    state,
+    req.cookies?.[OAUTH_STATE_COOKIE],
+  );
+
+  // Single-use: always drop the state cookie once the callback ran.
+  clearOAuthStateCookie(res);
+
+  if (!verifiedState.ok) {
+    logger.warn(
+      `Google OAuth callback rejected (${verifiedState.reason}).`,
+    );
+
+    redirectToFrontend(res, "/login", {
+      error: "OAUTH_STATE_INVALID",
+      message:
+        "Your Google sign-in session expired or was started in another browser. Please try again.",
+    });
 
     return;
   }
 
   try {
-    const result = await handleGoogleCallback(code);
+    const result = await handleGoogleCallback(
+      code,
+      redirectUri,
+    );
 
     setRefreshTokenCookie(res, result.refreshToken);
 
-    redirectToFrontend(res, "/auth/google/callback", {
-      access_token: result.accessToken,
-    });
+    redirectToFrontend(
+      res,
+      FRONTEND_GOOGLE_CALLBACK_PATH,
+      {
+        access_token: result.accessToken,
+        ...(verifiedState.to
+          ? { to: verifiedState.to }
+          : {}),
+      },
+    );
   } catch (error) {
     if (error instanceof AppError) {
       redirectToFrontend(res, "/login", {

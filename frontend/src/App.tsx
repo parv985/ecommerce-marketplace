@@ -11,6 +11,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute'
 
 // Auth
 const AuthPage = lazy(() => import('@/pages/auth/AuthPage'))
+const GoogleCallbackPage = lazy(() => import('@/pages/auth/GoogleCallbackPage'))
 const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })))
 const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })))
 
@@ -103,6 +104,14 @@ export default function App() {
                 <Route path="profile" element={<AdminProfilePage />} />
               </Route>
             </Route>
+
+            {/*
+              ── Google OAuth handoff ──
+              The backend callback (/api/v1/auth/google/callback) redirects the
+              browser here with the issued access token. Kept outside MainLayout
+              so no layout guard interferes with the handshake.
+            */}
+            <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
 
             {/* ── Marketplace routes (buyer/seller/guest) ── */}
             <Route element={<MainLayout />}>

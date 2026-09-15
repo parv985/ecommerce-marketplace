@@ -278,10 +278,19 @@ router.post(
    *     tags:
    *       - Authentication
    *     summary: Start Google OAuth flow
-   *     description: Redirects the browser to Google's consent screen.
+   *     description: Redirects the browser to Google's consent screen with a signed state value (also stored in an httpOnly cookie) that protects the callback and carries the return path.
+   *     parameters:
+   *       - name: to
+   *         in: query
+   *         required: false
+   *         schema:
+   *           type: string
+   *         description: Frontend path the user should return to after sign-in (e.g. /wishlist). External URLs are ignored.
    *     responses:
    *       302:
    *         description: Redirect to Google consent screen
+   *       503:
+   *         description: Google OAuth is not configured on this server (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET missing)
    */
 router.get(
   "/google",
@@ -343,7 +352,7 @@ router.post(
    *     tags:
    *       - Authentication
    *     summary: Google OAuth callback
-   *     description: Exchanges the authorization code for tokens, upserts the user and redirects to the frontend with an access token. If the code is missing the user is redirected back to Google's consent screen.
+   *     description: Registered at exactly /api/v1/auth/google/callback - this URL must be listed verbatim in the Google Cloud console. Exchanges the authorization code for tokens, upserts the user, issues the normal access + refresh session and redirects the browser to the frontend route /auth/google/callback. If the code is missing the user is sent back to Google's consent screen.
    *     parameters:
    *       - name: code
    *         in: query
@@ -351,6 +360,18 @@ router.post(
    *         schema:
    *           type: string
    *         description: Authorization code from Google
+   *       - name: state
+   *         in: query
+   *         required: false
+   *         schema:
+   *           type: string
+   *         description: State value issued by GET /auth/google; must match the httpOnly oauth_state cookie
+   *       - name: iss
+   *         in: query
+   *         required: false
+   *         schema:
+   *           type: string
+   *         description: Authorization server issuer (RFC 9207) - ignored by this API
    *       - name: error
    *         in: query
    *         required: false
@@ -359,7 +380,7 @@ router.post(
    *         description: Error returned by Google (e.g. access_denied)
    *     responses:
    *       302:
-   *         description: Redirect to the frontend (success or error)
+   *         description: Redirect to the frontend (success, or /login with an error code)
    */
 router.get(
   "/google/callback",

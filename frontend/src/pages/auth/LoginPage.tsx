@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast'
 import { useAuthStore } from '@/stores/authStore'
 import { authApi } from '@/services/auth.service'
 import { extractErrorMessage } from '@/services/api'
+import { googleSignInUrl } from '@/config/api'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -76,7 +77,9 @@ export function LoginPage() {
   }
 
   const handleGoogleLogin = () => {
-    window.location.href = `${import.meta.env.VITE_API_URL || '/api/v1'}/auth/google`
+    // Full-page navigation to the backend, which redirects to Google's
+    // consent screen and back to /auth/google/callback with a session.
+    window.location.href = googleSignInUrl(from)
   }
 
   if (show2FA) {

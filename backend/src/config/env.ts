@@ -25,6 +25,7 @@ const envSchema = z.object({
 
   MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
 
+  // Comma-separated list is allowed (production + preview origins).
   CORS_ORIGIN: z.string().min(1).default("http://localhost:3000"),
 
   CLIENT_URL: z.string().min(1).default("http://localhost:3000"),
@@ -39,6 +40,32 @@ const envSchema = z.object({
     .min(32, "JWT_REFRESH_SECRET must be at least 32 characters"),
 
   JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
+
+  /*
+   * Google OAuth 2.0. Optional at the schema level so the API still
+   * boots (and email/password auth keeps working) when Google sign-in
+   * is not configured - the auth routes answer with a clear
+   * GOOGLE_OAUTH_NOT_CONFIGURED error instead of crashing at import
+   * time. GOOGLE_REDIRECT_URI must be an absolute URL that ends in
+   * /api/v1/auth/google/callback and must be listed verbatim in the
+   * Google Cloud console ("Authorized redirect URIs").
+   */
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_REDIRECT_URI: z.string().optional(),
+
+  /*
+   * SameSite policy for the refresh-token cookie. Defaults to "lax"
+   * outside production and "none" in production, because the deployed
+   * frontend and backend live on different origins (Render static site
+   * + Render web service) and a Strict/Lax cookie would never be sent
+   * with the cross-origin POST /auth/refresh call, silently logging
+   * users out when the access token expires. "none" requires https,
+   * which production already enforces via `secure`.
+   */
+  COOKIE_SAME_SITE: z
+    .enum(["strict", "lax", "none"])
+    .optional(),
 
   /*
    * Razorpay. When the key id/secret are unset the payment gateway
@@ -65,3 +92,12 @@ const envSchema = z.object({
   REDIS_URL: z.string().optional(),
 });
 export const env = envSchema.parse(process.env);
+
+/**
+ * CORS_ORIGIN accepts a comma-separated list so a deployment can allow
+ * both its production frontend and a preview/staging origin without
+ * code changes (Render preview URLs, a Netlify preview, etc.).
+ */
+export const corsOrigins: string[] = env.CORS_ORIGIN.split(",")
+  .map((origin) => origin.trim())
+  .filter((origin) => origin.length > 0);

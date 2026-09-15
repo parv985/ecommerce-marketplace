@@ -24,3 +24,16 @@ const query = devUri.includes("?")
 process.env.MONGODB_URI =
   `${base}/ecommerce_marketplace_test${query}`;
 process.env.NODE_ENV = "test";
+
+/*
+ * Deterministic Google OAuth test credentials. The suite stubs the two
+ * outbound calls to Google (token exchange + ID-token verification), so
+ * no real client is ever needed - and forcing the values here keeps the
+ * assertions independent of whatever a developer has in their local .env.
+ */
+process.env.GOOGLE_CLIENT_ID =
+  "test-client-id.apps.googleusercontent.com";
+process.env.GOOGLE_CLIENT_SECRET = "test-client-secret";
+process.env.GOOGLE_REDIRECT_URI =
+  "http://localhost:5000/api/v1/auth/google/callback";
+process.env.CLIENT_URL = "http://localhost:3000";

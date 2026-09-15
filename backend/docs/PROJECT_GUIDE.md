@@ -756,7 +756,7 @@ See dedicated sections: [§17 Audit Logging](#17-audit-logging) and [§16 Notifi
 
 - **Password (buyer):** `POST /auth/login` → `{ accessToken, user }` + refresh cookie.
 - **Password (2FA-enabled seller/admin):** `POST /auth/login` → `{ twoFactorRequired: true, loginToken }` → `POST /auth/2fa/verify` with TOTP code **or** a recovery code → `{ accessToken, user }`.
-- **Google:** two entry points — (a) redirect flow: `GET /auth/google` → Google consent → `GET /auth/google/callback` (code exchange via `googleapis`); (b) ID-token flow: `POST /auth/google` with `{ idToken }` (the frontend's current path). Both verify the token/audience server-side, **upsert the user by `googleId` or email**, mark email verified, set the avatar if new, then issue a normal session. Deactivated accounts are rejected here too.
+- **Google:** two entry points — (a) redirect flow (used by the UI): `GET /auth/google?to=/path` sets a signed `state` in an httpOnly `oauth_state` cookie and 302s to Google → Google returns to `GET /auth/google/callback?code&state` → code exchange via `googleapis` (the same `redirect_uri` is replayed) → 302 to `CLIENT_URL/auth/google/callback?access_token=…`, the SPA route that stores the session and routes by role; (b) ID-token flow: `POST /auth/google` with `{ idToken }`. Both verify the token/audience server-side, **upsert the user by `googleId` or email**, mark email verified, set the avatar if new, then issue a normal session. Deactivated accounts are rejected here too. A missing/mismatched/forged `state`, a Google `error` response or a failed code exchange redirects to `/login?error=…` instead of issuing tokens.
 - **2FA setup:** `POST /auth/2fa/setup` (secret + `otpauthUrl` QR + one-time recovery codes) → `POST /auth/2fa/enable` (verify a live TOTP code). `POST /auth/2fa/disable` and `POST /auth/2fa/recovery-codes` (regenerate) also require a valid TOTP code.
 - **Deactivated accounts:** login, 2FA-verify, and refresh all reject with `403 ACCOUNT_INACTIVE`; deactivation also **revokes all live refresh tokens**, and `authenticate` re-checks `isActive` on every request.
 
@@ -1086,7 +1086,7 @@ Online payment gateway (India). See the full flow in §15. Two modes: **RAZORPAY
 
 ### 13.7 Google OAuth
 
-`googleapis` OAuth2 client: generates the consent URL, exchanges the authorization code (`/auth/google/callback`), and **verifies ID tokens** (`POST /auth/google`). Requires `GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI` — and note the module throws at import time when they are missing (§19.1, §23.2).
+`googleapis` OAuth2 client: generates the consent URL, exchanges the authorization code (`/auth/google/callback`), and **verifies ID tokens** (`POST /auth/google`). The client is created lazily, so a deployment without `GOOGLE_CLIENT_ID/SECRET` still boots and serves password auth — the Google routes answer `503 GOOGLE_OAUTH_NOT_CONFIGURED` instead. `GOOGLE_REDIRECT_URI` must be an absolute URL whose path is exactly `/api/v1/auth/google/callback` (the route this backend registers); when it is unset the URI is derived from the request (`trust proxy` is on), and a path mismatch is logged as a warning at boot (`describeGoogleOAuthConfig()`).
 
 ### 13.8 Swagger
 
@@ -1429,9 +1429,10 @@ The backend validates its environment **at startup** with Zod (`src/config/env.t
 | `CLOUDINARY_CLOUD_NAME` | **required** | Cloudinary credentials — the API **will not boot** without them (uploads are core: images, avatars, documents) |
 | `CLOUDINARY_API_KEY` | **required** | — |
 | `CLOUDINARY_API_SECRET` | **required** | — |
-| `GOOGLE_CLIENT_ID` | ⚠️ effectively **required at boot** | Google OAuth. `google.service.ts` **throws at import time** if any of the three Google vars is missing/empty, and the auth module imports it — so the server currently cannot start without them (see §23.2; the README's "only if you use Google sign-in" note describes intent, not current behavior) |
-| `GOOGLE_CLIENT_SECRET` | ⚠️ effectively **required at boot** | — |
-| `GOOGLE_REDIRECT_URI` | ⚠️ effectively **required at boot** | Must exactly match an Authorized redirect URI in Google Cloud (default template: `http://localhost:5000/api/v1/auth/google/callback`) |
+| `GOOGLE_CLIENT_ID` | optional (required for Google sign-in) | Google OAuth. Missing/empty → the API still boots and the Google routes return `503 GOOGLE_OAUTH_NOT_CONFIGURED` |
+| `GOOGLE_CLIENT_SECRET` | optional (required for Google sign-in) | Backend only — never a `VITE_*` variable |
+| `GOOGLE_REDIRECT_URI` | optional (derived from the request when unset) | Must exactly match an Authorized redirect URI in Google Cloud and end in `/api/v1/auth/google/callback` (e.g. `https://<backend>.onrender.com/api/v1/auth/google/callback`) |
+| `COOKIE_SAME_SITE` | optional | `strict`/`lax`/`none`. Default `lax` in dev, `none` in production (required for the cross-origin `POST /auth/refresh` between a Render static frontend and the API) |
 | `SMTP_HOST` | optional | Real SMTP host. **Empty (default) → Ethereal test account** in dev; preview URLs logged to console |
 | `SMTP_PORT` / `SMTP_SECURE` | optional | 587 / false by default |
 | `SMTP_USER` / `SMTP_PASS` | optional | SMTP credentials |
@@ -1642,7 +1643,7 @@ Documented here so nobody is surprised — the **code is the source of truth**:
 3. **COD payment-method mismatch (fixed).** The frontend used to send `paymentMethod: 'COD' | 'ONLINE'` (`CheckoutPage`, `orderService.create`, `types/api.ts`), but the backend validates against the `PaymentMethod` enum **`CASH_ON_DELIVERY` | `ONLINE`** (`order.schema.ts` is `.strict()`), so a COD checkout from the UI failed Zod validation with 400 ("Validation failed"). The frontend now sends `CASH_ON_DELIVERY`, and `OrderDetailPage`'s "pay on delivery" check now matches the stored `CASH_ON_DELIVERY` / `PENDING` values. The `PaymentStatus` frontend type was likewise aligned to the backend enum (`PENDING` | `PAID` | `FAILED` | `REFUNDED`).
 4. **Swagger coverage.** The README claims "118 operations" documented; the route files currently contain **~120 endpoints** but only **~65 `@openapi` annotations**, so the Swagger UI covers a subset (the admin, wishlist, inventory, analytics and several newer endpoints lack annotations). `tests/swagger-full.json` is an **empty (0-byte) placeholder** file.
 5. **Stale API tables in the old guide.** The previous guide's endpoint tables predate several renames: there is **no** `/admin/login` (admins use `/auth/login`), seller management is a single `PATCH /admin/sellers/:id/status`, commission lives at `/admin/settings/commission`, broadcast is `POST /admin/notifications`, returns use `PATCH /:id/status` + `POST /:id/cancel`, reviews list at `/reviews/product/:productId`, analytics exposes `dashboard/top-products/categories/customers/revenue`, and orders gained `POST /orders/preview`. §18 reflects the current routes.
-6. **Google OAuth optionality.** `.env.example`/README suggest Google vars are optional; `google.service.ts` throws **at import time** when they are empty, so the server currently cannot start without them. Either set them or make the module lazy/optional before relying on "no Google" dev setups.
+6. **Google OAuth optionality.** *(Fixed)* `google.service.ts` builds its OAuth2 client lazily, so missing Google vars no longer stop the server from booting; the Google routes return `503 GOOGLE_OAUTH_NOT_CONFIGURED` and the effective configuration is logged at startup.
 7. **Mock payments vs browser.** As noted in §23.1, the mock gateway verifies signatures server-side without credentials, but `PaymentPage` loads the real `checkout.razorpay.com` script — mock mode is fully usable via Postman/tests, while the browser payment UI needs Razorpay (test) keys.
 
 ---
