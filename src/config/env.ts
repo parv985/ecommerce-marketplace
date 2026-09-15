@@ -1,5 +1,20 @@
-import "dotenv/config";
+import { config } from "dotenv";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
+
+/*
+ * Resolve the backend's .env from this module's location instead of relying
+ * on process.cwd(). dotenv/config only checks the current working directory,
+ * which means starting the backend from another directory can leave every
+ * file-based variable undefined. config() is synchronous, so envSchema.parse
+ * below always runs after the file has been loaded.
+ */
+const envFilePath = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../.env",
+);
+config({ path: envFilePath, quiet: true });
 
 const envSchema = z.object({
   NODE_ENV: z
