@@ -148,15 +148,15 @@ export function AdminLayout() {
       </aside>
 
       {/* ── Mobile bottom nav ── */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[var(--border)] z-40">
-        <div className="flex overflow-x-auto">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[var(--border)] z-40 shadow-sm">
+        <div className="flex overflow-x-auto justify-around py-1">
           {navItems.slice(0, 5).map(({ to, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
               className={({ isActive }) => cn(
-                'flex flex-col items-center gap-1 px-4 py-2 text-[10px] shrink-0',
-                isActive ? 'text-[var(--primary)] font-semibold' : 'text-[var(--muted)]'
+                'flex flex-col items-center gap-1 px-3 py-1.5 text-[10px] shrink-0 min-w-[56px] transition-colors',
+                isActive ? 'text-[var(--primary)] font-semibold' : 'text-[var(--muted)] hover:text-[var(--fg)]'
               )}
             >
               <Icon size={18} strokeWidth={1.75} />

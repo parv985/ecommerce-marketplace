@@ -19,9 +19,6 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
   const isActive = useAuthStore((s) => s.user?.isActive !== false)
   const { isWishlisted, toggle, isToggling } = useWishlist()
   const liked = isWishlisted(product.id)
-  // Wishlist is a buyer-specific action — hide it for signed-out and
-  // inactive users (the backend rejects it too).
-  const canUseWishlist = isAuthenticated && isActive && !accountInactive
 
   /*
    * Live seller sales discount (product or category) wins the display:
@@ -99,19 +96,29 @@ export function ProductCard({ product, priority = false }: ProductCardProps) {
           )}
         </div>
       </div>
-      {canUseWishlist && product.stock > 0 && (
+      {product.stock > 0 && (
         <div className="px-3.5 pb-3 pt-0">
           <button
+            type="button"
             onClick={(e) => {
               e.preventDefault()
+              if (!isAuthenticated) {
+                toast.error('Sign in to add products to wishlist')
+                return
+              }
+              if (accountInactive || !isActive) {
+                toast.error('Your account is inactive')
+                return
+              }
               if (isToggling) return
               toggle.mutate(product.id, {
                 onSuccess: (result) => {
-                  toast(result === 'added' ? 'Added to wishlist' : 'Removed from wishlist')
+                  if (result === 'added') toast('Added to wishlist')
+                  else if (result === 'removed') toast('Removed from wishlist')
                 },
               })
             }}
-            className="text-xs text-[var(--muted)] hover:text-[var(--primary)] transition-colors flex items-center gap-1.5 font-medium"
+            className="text-xs text-[var(--muted)] hover:text-[var(--primary)] transition-colors flex items-center gap-1.5 font-medium cursor-pointer"
             style={{ color: liked ? 'var(--primary)' : undefined }}
           >
             <Heart size={13} className={liked ? 'fill-current' : ''} />

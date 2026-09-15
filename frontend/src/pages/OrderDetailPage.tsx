@@ -229,7 +229,7 @@ export function OrderDetailPage({ variant = 'buyer' }: OrderDetailPageProps) {
           <div className="border border-[var(--border)] rounded-[var(--radius-lg)] bg-white p-5 shadow-[var(--shadow-sm)]">
             <h2 className="font-semibold mb-3">Items</h2>
             {order.items.map((item, i) => (
-              <div key={i} className="flex items-center justify-between gap-3 py-3 border-b last:border-0">
+              <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 border-b last:border-0">
                 <div className="flex items-center gap-3 min-w-0">
                   {item.image && (
                     <img
@@ -237,7 +237,7 @@ export function OrderDetailPage({ variant = 'buyer' }: OrderDetailPageProps) {
                       alt=""
                       loading="lazy"
                       decoding="async"
-                      className="w-12 h-12 rounded object-cover border border-[var(--border)]"
+                      className="w-12 h-12 rounded object-cover border border-[var(--border)] shrink-0"
                     />
                   )}
                   <div className="min-w-0">
@@ -253,7 +253,7 @@ export function OrderDetailPage({ variant = 'buyer' }: OrderDetailPageProps) {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
                   {isBuyerView && isDelivered && (
                     <Button
                       variant="outline"

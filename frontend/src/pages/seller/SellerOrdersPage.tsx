@@ -73,9 +73,9 @@ export function SellerOrdersPage() {
               </div>
               <Badge variant={statusColors[order.status]}>{order.status}</Badge>
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <span className="text-sm text-[var(--muted)]">{order.items.length} item(s) • {formatPrice(order.total)}</span>
-              <div className="flex gap-1">
+              <div className="flex gap-1 self-end sm:self-auto">
                 {order.status === 'PENDING' && <Button size="sm" variant="outline" disabled={updateStatus.isPending} onClick={() => changeStatus(order.id, 'CONFIRMED')}>Confirm</Button>}
                 {order.status === 'CONFIRMED' && <Button size="sm" variant="outline" disabled={updateStatus.isPending} onClick={() => changeStatus(order.id, 'SHIPPED')}>Ship</Button>}
                 {order.status === 'SHIPPED' && <Button size="sm" variant="outline" disabled={updateStatus.isPending} onClick={() => changeStatus(order.id, 'DELIVERED')}>Deliver</Button>}

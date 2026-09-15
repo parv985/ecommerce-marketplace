@@ -367,8 +367,6 @@ export function CheckoutPage() {
             size="lg"
             disabled={!selectedAddress || placeOrder.isPending}
             onClick={() => {
-              // Buying is restricted: inactive/unauthenticated users are
-              // blocked with a "Your account is inactive" toast.
               if (!guardRestrictedAction()) return
               placeOrder.mutate()
             }}

@@ -310,34 +310,36 @@ export function SellerProductsPage() {
       ) : (
         <div className="space-y-3">
           {products.map(p => (
-            <div key={p.id} className="flex items-center gap-4 p-4 border rounded-lg">
-              <button
-                type="button"
-                onClick={() => openEditDialog(p, 'images')}
-                title={p.images?.length ? 'Manage images' : 'Add images'}
-                className="relative w-16 h-16 bg-zinc-100 rounded overflow-hidden shrink-0 cursor-pointer group"
-              >
-                {p.images?.[0]?.url ? <img src={p.images[0].url} alt="" className="w-full h-full object-cover" /> : null}
-                {!p.images?.[0]?.url ? <ImagePlus size={18} className="text-zinc-400 absolute inset-0 m-auto" /> : null}
-                <span className="absolute inset-0 bg-black/0 group-hover:bg-black/45 transition-colors flex items-center justify-center">
-                  <span className="text-white text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
-                    {p.images?.length ? 'Edit images' : 'Add images'}
+            <div key={p.id} className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 border rounded-lg bg-white">
+              <div className="flex items-center gap-4 min-w-0 flex-1">
+                <button
+                  type="button"
+                  onClick={() => openEditDialog(p, 'images')}
+                  title={p.images?.length ? 'Manage images' : 'Add images'}
+                  className="relative w-16 h-16 bg-zinc-100 rounded overflow-hidden shrink-0 cursor-pointer group"
+                >
+                  {p.images?.[0]?.url ? <img src={p.images[0].url} alt="" className="w-full h-full object-cover" /> : null}
+                  {!p.images?.[0]?.url ? <ImagePlus size={18} className="text-zinc-400 absolute inset-0 m-auto" /> : null}
+                  <span className="absolute inset-0 bg-black/0 group-hover:bg-black/45 transition-colors flex items-center justify-center">
+                    <span className="text-white text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                      {p.images?.length ? 'Edit images' : 'Add images'}
+                    </span>
                   </span>
-                </span>
-              </button>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm truncate">{p.name}</span>
-                  <Badge variant={statusColors[p.status]}>{p.status}</Badge>
-                  {p.images?.length ? (
-                    <Badge variant="default">{p.images.length}/{MAX_IMAGES} images</Badge>
-                  ) : (
-                    <Badge variant="warning">No image</Badge>
-                  )}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-sm truncate">{p.name}</span>
+                    <Badge variant={statusColors[p.status]}>{p.status}</Badge>
+                    {p.images?.length ? (
+                      <Badge variant="default">{p.images.length}/{MAX_IMAGES} images</Badge>
+                    ) : (
+                      <Badge variant="warning">No image</Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-[var(--muted)] mt-0.5">{formatPrice(p.price)} • Stock: {p.stock} • SKU: {p.sku}</p>
                 </div>
-                <p className="text-xs text-[var(--muted)]">{formatPrice(p.price)} • Stock: {p.stock} • SKU: {p.sku}</p>
               </div>
-              <div className="flex gap-1">
+              <div className="flex gap-1 self-end sm:self-auto shrink-0">
                 <Button variant="ghost" size="sm" onClick={() => openEditDialog(p, 'images')} title="Manage images"><ImagePlus size={14} /></Button>
                 <Button variant="ghost" size="sm" onClick={() => openEditDialog(p)}><Edit size={14} /></Button>
                 <Button variant="ghost" size="sm" onClick={() => deleteProduct.mutate(p.id)}><Trash2 size={14} /></Button>

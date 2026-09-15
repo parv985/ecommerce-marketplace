@@ -32,9 +32,9 @@ export function AdminOrdersPage() {
       </div>
       <div className="space-y-3">
         {data?.items?.map(order => (
-          <Link to={`/admin/orders/${order.id}`} key={order.id} className="block border rounded-lg p-4 hover:shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
+          <Link to={`/admin/orders/${order.id}`} key={order.id} className="block border rounded-lg p-4 bg-white hover:shadow-sm transition-shadow">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
                 <span className="font-medium">#{order.orderNumber}</span>
                 <span className="text-xs text-[var(--muted)] ml-2">{formatDate(order.createdAt)}</span>
               </div>

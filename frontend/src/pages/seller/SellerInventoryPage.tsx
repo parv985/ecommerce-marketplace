@@ -63,34 +63,36 @@ export function SellerInventoryPage() {
     <div>
       <h1 className="text-2xl font-bold mb-6">Inventory</h1>
       <div className="border rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-zinc-50 border-b">
-            <tr>
-              <th className="text-left p-3 font-medium">Product</th>
-              <th className="text-left p-3 font-medium">Type</th>
-              <th className="text-left p-3 font-medium">Quantity</th>
-              <th className="text-left p-3 font-medium">Reason</th>
-              <th className="text-left p-3 font-medium">Date</th>
-              <th className="p-3 font-medium">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data?.items?.map(t => (
-              <tr key={t.id} className="border-b">
-                <td className="p-3 font-medium text-[var(--fg)]">{productNameOf(t.productId)}</td>
-                <td className="p-3"><span className={`px-2 py-0.5 rounded text-xs ${t.quantity > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{t.type}</span></td>
-                <td className="p-3 font-medium">{t.quantity > 0 ? '+' : ''}{t.quantity}</td>
-                <td className="p-3 text-[var(--muted)]">{t.reason}</td>
-                <td className="p-3 text-[var(--muted)]">{formatDate(t.createdAt)}</td>
-                <td className="p-3 text-center">
-                  <Button size="sm" variant="ghost" onClick={() => { setAdjustProductId(t.productId); setAdjustQty(0); setAdjustReason(''); }}>
-                    Adjust
-                  </Button>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[600px]">
+            <thead className="bg-zinc-50 border-b">
+              <tr>
+                <th className="text-left p-3 font-medium">Product</th>
+                <th className="text-left p-3 font-medium">Type</th>
+                <th className="text-left p-3 font-medium">Quantity</th>
+                <th className="text-left p-3 font-medium">Reason</th>
+                <th className="text-left p-3 font-medium">Date</th>
+                <th className="p-3 font-medium text-center">Action</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {data?.items?.map(t => (
+                <tr key={t.id} className="border-b">
+                  <td className="p-3 font-medium text-[var(--fg)]">{productNameOf(t.productId)}</td>
+                  <td className="p-3"><span className={`px-2 py-0.5 rounded text-xs ${t.quantity > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{t.type}</span></td>
+                  <td className="p-3 font-medium">{t.quantity > 0 ? '+' : ''}{t.quantity}</td>
+                  <td className="p-3 text-[var(--muted)]">{t.reason}</td>
+                  <td className="p-3 text-[var(--muted)]">{formatDate(t.createdAt)}</td>
+                  <td className="p-3 text-center">
+                    <Button size="sm" variant="ghost" onClick={() => { setAdjustProductId(t.productId); setAdjustQty(0); setAdjustReason(''); }}>
+                      Adjust
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         {data && <div className="p-4"><Pagination currentPage={page} totalPages={data.totalPages} onPageChange={setPage} /></div>}
       </div>
 

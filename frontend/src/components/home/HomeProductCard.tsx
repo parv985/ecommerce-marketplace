@@ -37,9 +37,6 @@ export function HomeProductCard({ product, priority = false }: HomeProductCardPr
   const isActive = useAuthStore((s) => s.user?.isActive !== false)
   const { isWishlisted, toggle, isToggling } = useWishlist()
   const liked = isWishlisted(product.id)
-  // Wishlist is a buyer-specific action — hide it for signed-out and
-  // inactive users (the backend rejects it too).
-  const canUseWishlist = isAuthenticated && isActive && !accountInactive
 
   /*
    * Live seller sales discount (product or category) wins the display:
@@ -109,22 +106,32 @@ export function HomeProductCard({ product, priority = false }: HomeProductCardPr
         )}
 
         {/* Wishlist action (sits above the stretched card link) */}
-        {canUseWishlist && !outOfStock && (
+        {!outOfStock && (
           <button
             type="button"
             aria-label={liked ? `Remove ${product.name} from wishlist` : `Add ${product.name} to wishlist`}
             aria-pressed={liked}
             onClick={(e) => {
               e.preventDefault()
+              e.stopPropagation()
+              if (!isAuthenticated) {
+                toast.error('Sign in to add products to wishlist')
+                return
+              }
+              if (accountInactive || !isActive) {
+                toast.error('Your account is inactive')
+                return
+              }
               if (isToggling) return
               toggle.mutate(product.id, {
                 onSuccess: (result) => {
-                  toast(result === 'added' ? 'Added to wishlist' : 'Removed from wishlist')
+                  if (result === 'added') toast('Added to wishlist')
+                  else if (result === 'removed') toast('Removed from wishlist')
                 },
               })
             }}
             className={cn(
-              'absolute right-2.5 top-2.5 z-20 flex h-8 w-8 items-center justify-center rounded-[var(--radius)] border shadow-sm backdrop-blur-sm transition-all duration-150 active:scale-90',
+              'absolute right-2.5 top-2.5 z-20 flex h-8 w-8 items-center justify-center rounded-[var(--radius)] border shadow-sm backdrop-blur-sm transition-all duration-150 active:scale-90 cursor-pointer',
               liked
                 ? 'border-[var(--primary)]/30 bg-[var(--primary-subtle)] text-[var(--primary)]'
                 : 'border-[var(--border)] bg-white/95 text-[var(--fg-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--primary)]',

@@ -22,7 +22,7 @@ export function AdminDashboardPage() {
       <h1 className="text-2xl font-bold tracking-tight text-[var(--fg)] mb-6 pb-4 border-b border-[var(--border)]">
         Admin Dashboard
       </h1>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {stats.map(s => (
           <Card key={s.label}>
             <CardContent className="flex items-center gap-3.5 p-4.5">

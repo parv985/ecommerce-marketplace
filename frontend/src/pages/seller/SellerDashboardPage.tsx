@@ -39,7 +39,7 @@ export function SellerDashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {Array(8).fill(0).map((_, i) => (
           <Skeleton key={i} className="h-24 rounded-[var(--radius-lg)]" />
         ))}
@@ -52,7 +52,7 @@ export function SellerDashboardPage() {
       <h1 className="text-2xl font-bold tracking-tight text-[var(--fg)] mb-6 pb-4 border-b border-[var(--border)]">
         Seller Dashboard
       </h1>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map(s => {
           const content = (
             <CardContent className="flex items-center gap-3.5 p-4.5">

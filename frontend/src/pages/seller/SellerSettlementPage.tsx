@@ -119,7 +119,7 @@ export function SellerSettlementPage() {
               <Badge variant={statusColors[settlement.status] ?? 'default'}>{settlement.status}</Badge>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                   <p className="text-xs text-[var(--muted)]">Total Sales</p>
                   <p className="text-xl font-bold tracking-tight">{formatPrice(settlement.totalSales)}</p>

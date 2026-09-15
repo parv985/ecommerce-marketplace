@@ -198,7 +198,7 @@ export function SellerProfilePage() {
       <Card>
         <CardHeader><CardTitle>Business Details</CardTitle></CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div><span className="text-[var(--muted)]">Business Name:</span> <p className="font-medium">{profile.businessName}</p></div>
             <div><span className="text-[var(--muted)]">GSTIN:</span> <p className="font-medium font-mono">{profile.gstin}</p></div>
             <div><span className="text-[var(--muted)]">PAN:</span> <p className="font-medium font-mono">{profile.pan}</p></div>

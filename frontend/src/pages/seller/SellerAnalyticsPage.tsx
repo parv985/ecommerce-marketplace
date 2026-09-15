@@ -32,11 +32,11 @@ export function SellerAnalyticsPage() {
 
       {/* Stats */}
       {revenue && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <Card><CardContent><p className="text-xs text-[var(--muted)]">Total Revenue</p><p className="text-xl font-bold">{formatPrice(revenue.totalRevenue)}</p></CardContent></Card>
-          <Card><CardContent><p className="text-xs text-[var(--muted)]">Delivered Orders</p><p className="text-xl font-bold">{revenue.deliveredOrders}</p></CardContent></Card>
-          <Card><CardContent><p className="text-xs text-[var(--muted)]">Cancelled</p><p className="text-xl font-bold">{revenue.cancelledOrders}</p></CardContent></Card>
-          <Card><CardContent><p className="text-xs text-[var(--muted)]">Returned</p><p className="text-xl font-bold">{revenue.returnedOrders}</p></CardContent></Card>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <Card><CardContent className="p-4"><p className="text-xs text-[var(--muted)]">Total Revenue</p><p className="text-xl font-bold">{formatPrice(revenue.totalRevenue)}</p></CardContent></Card>
+          <Card><CardContent className="p-4"><p className="text-xs text-[var(--muted)]">Delivered Orders</p><p className="text-xl font-bold">{revenue.deliveredOrders}</p></CardContent></Card>
+          <Card><CardContent className="p-4"><p className="text-xs text-[var(--muted)]">Cancelled</p><p className="text-xl font-bold">{revenue.cancelledOrders}</p></CardContent></Card>
+          <Card><CardContent className="p-4"><p className="text-xs text-[var(--muted)]">Returned</p><p className="text-xl font-bold">{revenue.returnedOrders}</p></CardContent></Card>
         </div>
       )}
 

@@ -76,14 +76,14 @@ export function OrderListPage() {
             <Link
               to={`/orders/${order.id}`}
               key={order.id}
-              className="block border border-[var(--border)] rounded-[var(--radius-lg)] p-4.5 bg-white hover:border-neutral-400 hover:shadow-[var(--shadow-sm)] transition-all"
+              className="block border border-[var(--border)] rounded-[var(--radius-lg)] p-4 sm:p-4.5 bg-white hover:border-neutral-400 hover:shadow-[var(--shadow-sm)] transition-all"
             >
-              <div className="flex items-center justify-between mb-2">
-                <div>
+              <div className="flex items-center justify-between mb-2 gap-2">
+                <div className="min-w-0">
                   <span className="font-semibold text-sm text-[var(--fg)]">Order #{order.orderNumber}</span>
-                  <span className="text-xs text-[var(--muted)] ml-2.5">{formatDate(order.createdAt)}</span>
+                  <span className="text-xs text-[var(--muted)] ml-2">{formatDate(order.createdAt)}</span>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <Badge variant={order.paymentStatus === 'PAID' ? 'success' : 'warning'}>
                     {order.paymentStatus}
                   </Badge>

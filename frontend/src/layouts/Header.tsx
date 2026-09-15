@@ -221,9 +221,38 @@ export function Header() {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-[var(--border)] bg-white">
+        <div className="md:hidden border-t border-[var(--border)] bg-white max-h-[calc(100vh-4rem)] overflow-y-auto">
           <div className="p-4 space-y-3">
             {!isSellerPanel && <ProductSearchBar onNavigate={() => setMobileOpen(false)} />}
+
+            {isAuthenticated && user && (
+              <div className="flex items-center gap-3 p-3 bg-[var(--surface-warm)] rounded-[var(--radius)] border border-[var(--border)]">
+                {user.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt={user.name}
+                    className="h-9 w-9 rounded-[var(--radius)] object-cover shrink-0"
+                  />
+                ) : (
+                  <div className="h-9 w-9 rounded-[var(--radius)] bg-[#191816] text-white flex items-center justify-center text-xs font-semibold shrink-0">
+                    {user.name?.charAt(0)?.toUpperCase() || 'U'}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-sm text-[var(--fg)] truncate">{user.name}</p>
+                  <p className="text-xs text-[var(--muted)] truncate">{user.email}</p>
+                </div>
+                <span className={cn(
+                  'text-[10px] font-medium px-2 py-0.5 rounded-[var(--radius-sm)] shrink-0',
+                  user.role === 'SUPER_ADMIN' ? 'bg-indigo-50 text-indigo-800 border border-indigo-200' :
+                  user.role === 'SELLER' ? 'bg-amber-50 text-amber-800 border border-amber-200' :
+                  'bg-[var(--bg-subtle)] text-[var(--fg-secondary)] border border-[var(--border)]'
+                )}>
+                  {user.role === 'SUPER_ADMIN' ? 'Admin' : user.role === 'SELLER' ? 'Seller' : 'Buyer'}
+                </span>
+              </div>
+            )}
+
             {!isSeller && !isAdmin && (
               <Link to="/products" className="block py-2 text-sm font-medium text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>Shop</Link>
             )}
@@ -231,24 +260,37 @@ export function Header() {
               <>
                 {!isAdmin && !isSeller && (
                   <>
-                    <Link to="/cart" className="flex items-center justify-between py-2 text-sm text-[var(--fg-secondary)]" onClick={() => setMobileOpen(false)}>
+                    <Link to="/cart" className="flex items-center justify-between py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>
                       <span>Cart</span>
                       {cart?.items?.length ? <span className="bg-[var(--primary)] text-white text-xs px-2 py-0.5 rounded-[var(--radius-sm)] font-medium">{cart.items.length}</span> : null}
                     </Link>
-                    <Link to="/orders" className="block py-2 text-sm text-[var(--fg-secondary)]" onClick={() => setMobileOpen(false)}>My Orders</Link>
-                    <Link to="/returns" className="block py-2 text-sm text-[var(--fg-secondary)]" onClick={() => setMobileOpen(false)}>My Returns</Link>
-                    <Link to="/notifications" className="block py-2 text-sm text-[var(--fg-secondary)]" onClick={() => setMobileOpen(false)}>Notifications</Link>
+                    <Link to="/wishlist" className="block py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>Wishlist</Link>
+                    <Link to="/account" className="block py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>My Account</Link>
+                    <Link to="/orders" className="block py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>My Orders</Link>
+                    <Link to="/returns" className="block py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>My Returns</Link>
+                    <Link to="/notifications" className="block py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>Notifications</Link>
                   </>
                 )}
-                {isSeller && <Link to="/seller/dashboard" className="block py-2 text-sm text-[var(--fg-secondary)]" onClick={() => setMobileOpen(false)}>Seller Dashboard</Link>}
+                {isSeller && (
+                  <>
+                    <Link to="/seller/dashboard" className="block py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>Seller Dashboard</Link>
+                    <Link to="/seller/products" className="block py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>Products</Link>
+                    <Link to="/seller/orders" className="block py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>Orders</Link>
+                    <Link to="/seller/returns" className="block py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>Returns</Link>
+                    <Link to="/seller/settlement" className="block py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>Settlement</Link>
+                    <Link to="/seller/profile" className="block py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>Profile</Link>
+                    <Link to="/seller/notifications" className="block py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>Notifications</Link>
+                  </>
+                )}
                 {isAdmin && (
                   <>
-                    <Link to="/admin/dashboard" className="block py-2 text-sm text-[var(--fg-secondary)]" onClick={() => setMobileOpen(false)}>Admin Panel</Link>
-                    <Link to="/admin/notifications" className="block py-2 text-sm text-[var(--fg-secondary)]" onClick={() => setMobileOpen(false)}>Notifications</Link>
+                    <Link to="/admin/dashboard" className="block py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>Admin Panel</Link>
+                    <Link to="/admin/notifications" className="block py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>Notifications</Link>
+                    <Link to="/admin/profile" className="block py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>Admin Profile</Link>
                   </>
                 )}
                 <div className="border-t border-[var(--border-subtle)] pt-2 mt-2">
-                  <button onClick={handleLogout} className="block py-2 text-sm text-red-700 font-medium">Logout</button>
+                  <button onClick={handleLogout} className="block py-2 text-sm text-red-700 font-medium w-full text-left">Logout</button>
                 </div>
               </>
             ) : (
