@@ -1,6 +1,10 @@
 import crypto from "node:crypto";
+
+import type { Request } from "express";
 import { google } from "googleapis";
 
+import { env } from "../../config/env.js";
+import { logger } from "../../config/logger.js";
 import { UserRole } from "../../constants/roles.js";
 import { AppError } from "../../errors/AppError.js";
 import { User } from "../../models/User.js";
@@ -8,33 +12,197 @@ import { generateAccessToken, generateRefreshToken } from "../../utils/jwt.js";
 import { hashToken } from "../../utils/tokenHash.js";
 import { createRefreshToken } from "./auth.repository.js";
 
-const googleClientId = process.env.GOOGLE_CLIENT_ID;
-const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
-const googleRedirectUri = process.env.GOOGLE_REDIRECT_URI;
+/*
+ * ---------------------------------------------------------------------------
+ * Google OAuth wiring
+ * ---------------------------------------------------------------------------
+ * The backend owns the whole server-side flow:
+ *
+ *   GET  /api/v1/auth/google            -> 302 to accounts.google.com
+ *   Google                              -> 302 back to GOOGLE_REDIRECT_URI
+ *   GET  /api/v1/auth/google/callback   -> code exchange, user upsert,
+ *                                          302 to CLIENT_URL with a session
+ *
+ * The callback route is mounted exactly once
+ * (`app.use("/api/v1", routes)` -> `router.use("/auth", authRoutes)` ->
+ * `router.get("/google/callback")`), so the path the backend serves is
+ * always `/api/v1/auth/google/callback`. GOOGLE_REDIRECT_URI must be that
+ * same absolute URL and must be listed verbatim under "Authorized redirect
+ * URIs" in the Google Cloud console - Google compares scheme, host, port
+ * and path character by character.
+ */
+
+/** The single callback path this backend registers. */
+export const GOOGLE_CALLBACK_PATH = "/api/v1/auth/google/callback";
+
+const GOOGLE_SCOPES = [
+  "https://www.googleapis.com/auth/userinfo.email",
+  "https://www.googleapis.com/auth/userinfo.profile",
+];
+
+export const isGoogleOAuthConfigured = (): boolean =>
+  Boolean(env.GOOGLE_CLIENT_ID?.trim() && env.GOOGLE_CLIENT_SECRET?.trim());
+
+const missingConfigError = (): AppError =>
+  new AppError(
+    "Google sign-in is not configured on this server. Set GOOGLE_CLIENT_ID, " +
+      "GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI in the backend environment " +
+      "(never in the frontend).",
+    503,
+    "GOOGLE_OAUTH_NOT_CONFIGURED",
+  );
 
 /*
- * Google OAuth is an optional integration, like SMTP, Redis and Razorpay
- * (which also stay inert when unconfigured). Do not crash the whole server
- * at import time when the credentials are absent: build the client lazily
- * and reject only when a Google sign-in endpoint is actually called.
+ * The OAuth2 client is created lazily so a deployment without Google
+ * credentials still boots and keeps serving email/password auth. The
+ * client is also created *without* a redirect URI: the redirect URI is
+ * passed per call (`generateAuthUrl({ redirect_uri })`,
+ * `getToken({ code, redirect_uri })`) so one shared client - and its
+ * cached Google certificate bundle - is safe to reuse across requests.
  */
-let googleClient: InstanceType<typeof google.auth.OAuth2> | null = null;
+type GoogleOAuth2Client = InstanceType<typeof google.auth.OAuth2>;
 
-const getGoogleClient = (): InstanceType<typeof google.auth.OAuth2> => {
-  if (!googleClientId || !googleClientSecret || !googleRedirectUri) {
+let cachedClient: GoogleOAuth2Client | null = null;
+
+const getGoogleClient = (): GoogleOAuth2Client => {
+  const clientId = env.GOOGLE_CLIENT_ID?.trim();
+  const clientSecret = env.GOOGLE_CLIENT_SECRET?.trim();
+
+  if (!clientId || !clientSecret) {
+    throw missingConfigError();
+  }
+
+  if (!cachedClient) {
+    cachedClient = new google.auth.OAuth2(clientId, clientSecret);
+  }
+
+  return cachedClient;
+};
+
+const parseConfiguredRedirectUri = (): URL | null => {
+  const raw = env.GOOGLE_REDIRECT_URI?.trim();
+
+  if (!raw) return null;
+
+  try {
+    const url = new URL(raw);
+
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return null;
+    }
+
+    return url;
+  } catch {
+    return null;
+  }
+};
+
+/* One warning per distinct misconfigured value, not one per request. */
+const warnedRedirectUris = new Set<string>();
+
+const warnOnce = (key: string, message: string): void => {
+  if (warnedRedirectUris.has(key)) return;
+
+  warnedRedirectUris.add(key);
+  logger.warn(message);
+};
+
+const requestOrigin = (req: Request): string | null => {
+  const forwardedHost = req.get("x-forwarded-host");
+  const host =
+    (forwardedHost ? forwardedHost.split(",")[0]?.trim() : "") ||
+    req.get("host");
+
+  if (!host) return null;
+
+  const forwardedProto = req.get("x-forwarded-proto")?.split(",")[0]?.trim();
+
+  const protocol = forwardedProto || req.protocol || "http";
+
+  return `${protocol}://${host}`;
+};
+
+/**
+ * The redirect URI used for both halves of the flow (the value sent to
+ * Google and the value sent back during the code exchange - they must be
+ * identical).
+ *
+ * 1. GOOGLE_REDIRECT_URI wins when it is an absolute http(s) URL, because
+ *    only a value that matches the Google Cloud console entry can work.
+ * 2. When it is unset - or was set to a relative path, which Google cannot
+ *    accept - the URI is derived from the incoming request, which is what
+ *    makes the same build work on Render, a preview URL and localhost.
+ */
+export const resolveGoogleRedirectUri = (req?: Request): string => {
+  const configured = parseConfiguredRedirectUri();
+
+  if (configured) {
+    const uri = configured.toString().replace(/\/$/, "");
+
+    if (configured.pathname !== GOOGLE_CALLBACK_PATH) {
+      warnOnce(
+        uri,
+        `GOOGLE_REDIRECT_URI is "${uri}" but this backend serves the callback at ` +
+          `"${GOOGLE_CALLBACK_PATH}". Google will send the authorization code somewhere ` +
+          `the API never receives (the usual symptom is a 404 on the frontend). ` +
+          `Set GOOGLE_REDIRECT_URI to "<backend origin>${GOOGLE_CALLBACK_PATH}" and add ` +
+          `that exact URL to the Google Cloud console.`,
+      );
+    }
+
+    return uri;
+  }
+
+  if (env.GOOGLE_REDIRECT_URI?.trim()) {
+    warnOnce(
+      "invalid",
+      `GOOGLE_REDIRECT_URI="${env.GOOGLE_REDIRECT_URI}" is not an absolute http(s) URL; ` +
+        `deriving the callback URL from the request instead.`,
+    );
+  }
+
+  const origin = req ? requestOrigin(req) : null;
+
+  if (!origin) {
     throw new AppError(
-      "Google OAuth is not configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI in .env " +
-        "(and make sure GOOGLE_REDIRECT_URI matches an Authorized redirect URI in the Google Cloud console).",
+      "Google sign-in is not configured: set GOOGLE_REDIRECT_URI to " +
+        `"<backend origin>${GOOGLE_CALLBACK_PATH}".`,
       503,
       "GOOGLE_OAUTH_NOT_CONFIGURED",
     );
   }
-  googleClient ??= new google.auth.OAuth2(
-    googleClientId,
-    googleClientSecret,
-    googleRedirectUri,
-  );
-  return googleClient;
+
+  return `${origin}${GOOGLE_CALLBACK_PATH}`;
+};
+
+/** Human-readable summary logged at boot so misconfigurations are visible. */
+export const describeGoogleOAuthConfig = (): string[] => {
+  if (!isGoogleOAuthConfigured()) {
+    return [
+      "Google OAuth: DISABLED (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are not set). " +
+        "Email/password authentication is unaffected.",
+    ];
+  }
+
+  const configured = parseConfiguredRedirectUri();
+  const lines = [
+    `Google OAuth: ENABLED (client ${env.GOOGLE_CLIENT_ID})`,
+    configured
+      ? `Google OAuth redirect URI: ${configured.toString().replace(/\/$/, "")}`
+      : "Google OAuth redirect URI: not configured - derived per request as " +
+        `<request origin>${GOOGLE_CALLBACK_PATH}`,
+    `Register this exact URL in Google Cloud > Credentials > Authorized redirect URIs: ` +
+      `<backend origin>${GOOGLE_CALLBACK_PATH}`,
+  ];
+
+  if (configured && configured.pathname !== GOOGLE_CALLBACK_PATH) {
+    lines.push(
+      `WARNING: GOOGLE_REDIRECT_URI path "${configured.pathname}" does not match the ` +
+        `route this backend registers ("${GOOGLE_CALLBACK_PATH}").`,
+    );
+  }
+
+  return lines;
 };
 
 export const loginWithGoogle = async (idToken: string) => {
@@ -42,11 +210,17 @@ export const loginWithGoogle = async (idToken: string) => {
     throw new AppError("Google ID token is required", 400, "MISSING_TOKEN");
   }
 
+  const clientId = env.GOOGLE_CLIENT_ID?.trim();
+
+  if (!clientId) {
+    throw missingConfigError();
+  }
+
   let payload;
   try {
     const ticket = await getGoogleClient().verifyIdToken({
       idToken,
-      ...(googleClientId ? { audience: googleClientId } : {}),
+      audience: clientId,
     });
     payload = ticket.getPayload();
   } catch (error) {
@@ -135,14 +309,25 @@ export const loginWithGoogle = async (idToken: string) => {
   };
 };
 
-export const handleGoogleCallback = async (code: string) => {
+export const handleGoogleCallback = async (
+  code: string,
+  redirectUri: string,
+) => {
   if (!code) {
     throw new AppError("Authorization code is required", 400, "MISSING_CODE");
   }
 
   let tokens;
   try {
-    const { tokens: googleTokens } = await getGoogleClient().getToken(code);
+    const { tokens: googleTokens } = await getGoogleClient().getToken({
+      code,
+      /*
+       * Must be byte-identical to the redirect_uri sent to Google in
+       * the authorization request, otherwise Google rejects the
+       * exchange with invalid_grant.
+       */
+      redirect_uri: redirectUri,
+    });
     tokens = googleTokens;
   } catch (error) {
     throw new AppError(
@@ -163,16 +348,24 @@ export const handleGoogleCallback = async (code: string) => {
   return loginWithGoogle(tokens.id_token);
 };
 
-export const getGoogleAuthUrl = (): string => {
-  const scopes = [
-    "https://www.googleapis.com/auth/userinfo.email",
-    "https://www.googleapis.com/auth/userinfo.profile",
-  ];
+export const getGoogleAuthUrl = (options: {
+  redirectUri: string;
+  state?: string;
+}): string => {
   return getGoogleClient().generateAuthUrl({
     access_type: "offline",
-    scope: scopes,
+    scope: GOOGLE_SCOPES,
     prompt: "consent",
+    redirect_uri: options.redirectUri,
+    ...(options.state ? { state: options.state } : {}),
   });
 };
 
-export const getGoogleAuthorizationUrl = getGoogleAuthUrl;
+/*
+ * Kept for backwards compatibility with anything that imported the
+ * previous no-argument helper (e.g. tests or docs snippets).
+ */
+export const getGoogleAuthorizationUrl = (redirectUri?: string): string =>
+  getGoogleAuthUrl({
+    redirectUri: redirectUri ?? env.GOOGLE_REDIRECT_URI ?? "",
+  });

@@ -4,7 +4,7 @@ import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { rateLimit } from "express-rate-limit";
 
-import { env } from "./config/env.js";
+import { corsOrigins, env } from "./config/env.js";
 import routes from "./routes/index.js";
 import { notFoundMiddleware } from "./middlewares/notFound.middleware.js";
 import { errorMiddleware } from "./middlewares/error.middleware.js";
@@ -12,6 +12,14 @@ import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./docs/swagger.js";
 
 const app = express();
+
+/*
+ * The API runs behind Render's proxy (and the Vite dev proxy locally).
+ * Trusting one hop keeps req.protocol === "https" and the original Host
+ * header intact, which is what the Google OAuth callback uses to derive
+ * its redirect URI when GOOGLE_REDIRECT_URI is not set explicitly.
+ */
+app.set("trust proxy", 1);
 
 app.use(helmet());
 
@@ -50,15 +58,28 @@ if (env.NODE_ENV !== "test") {
 
 app.use(
   cors({
-    origin: env.CORS_ORIGIN,
+    /*
+     * CORS_ORIGIN may list several comma-separated origins (production
+     * frontend + a preview origin). The refresh-token cookie is
+     * SameSite=None in production, so credentialed cross-origin calls
+     * only work when the requesting origin is allowed here.
+     */
+    origin: (origin, callback) => {
+      // Same-origin/curl/server-to-server requests have no Origin header.
+      if (!origin || corsOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      /*
+       * Unknown origin: answer without CORS headers (the browser blocks
+       * the response) exactly like a single-origin allowlist would.
+       */
+      return callback(null, false);
+    },
     credentials: true,
   }),
 );
-app.use(
-  "/api-docs",
-  swaggerUi.serve,
-  swaggerUi.setup(swaggerSpec),
-);
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 /*
  * The verify callback captures the raw request body for the Razorpay
  * webhook, whose signature is computed over the exact bytes received.
@@ -66,8 +87,7 @@ app.use(
 app.use(
   express.json({
     verify: (req, _res, buf) => {
-      (req as Request & { rawBody?: Buffer }).rawBody =
-        buf;
+      (req as Request & { rawBody?: Buffer }).rawBody = buf;
     },
   }),
 );

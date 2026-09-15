@@ -5,7 +5,7 @@ import { logger } from "./config/logger.js";
 import { initializeWorkers } from "./services/queue/workers.js";
 import { closeQueues } from "./services/queue/queue.config.js";
 import { verifyCloudinaryConfig } from "./services/cloudinary.service.js";
-
+import { describeGoogleOAuthConfig } from "./modules/auth/google.service.js";
 
 const startServer = async (): Promise<void> => {
   await connectDatabase();
@@ -16,10 +16,21 @@ const startServer = async (): Promise<void> => {
   // Initialize background job workers
   initializeWorkers();
 
+  /*
+   * Print the effective auth configuration once at boot. A wrong
+   * GOOGLE_REDIRECT_URI or CLIENT_URL is the single most common cause of
+   * "Google sign-in lands on a 404", and it is only diagnosable from the
+   * deployed logs (Render > Logs), so make it explicit.
+   */
+  logger.info(`Client URL (frontend): ${env.CLIENT_URL}`);
+  logger.info(`CORS origin(s): ${env.CORS_ORIGIN}`);
+
+  for (const line of describeGoogleOAuthConfig()) {
+    logger.info(line);
+  }
+
   app.listen(env.PORT, () => {
-    logger.info(
-      `Server running on http://localhost:${env.PORT}`,
-    );
+    logger.info(`Server running on http://localhost:${env.PORT}`);
   });
 };
 

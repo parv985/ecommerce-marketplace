@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast'
 import { useAuthStore } from '@/stores/authStore'
 import { authApi } from '@/services/auth.service'
 import { extractErrorMessage } from '@/services/api'
+import { googleSignInUrl } from '@/config/api'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -87,7 +88,7 @@ export function RegisterPage() {
           </div>
 
           <button
-            onClick={() => window.location.href = `${import.meta.env.VITE_API_URL || '/api/v1'}/auth/google`}
+            onClick={() => { window.location.href = googleSignInUrl() }}
             className="w-full flex items-center justify-center gap-2 border rounded-md py-2.5 text-sm font-medium hover:bg-[var(--accent)] transition-colors"
           >
             <svg viewBox="0 0 24 24" className="w-5 h-5">

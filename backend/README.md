@@ -79,9 +79,37 @@ For comprehensive API testing instructions, see the [Postman Testing Guide](docs
 - **Register / Login** return an access token in the response body and set an httpOnly refresh-token cookie scoped to `/api/v1/auth`.
 - **Refresh** (`POST /api/v1/auth/refresh`) rotates the refresh token — each refresh token is single-use, and a reused token is rejected.
 - **Logout** revokes the stored refresh token and clears the cookie.
-- **Google OAuth** (`GET /api/v1/auth/google`) redirects to Google's consent screen; the callback exchanges the code, upserts the user, and redirects back to the frontend with `access_token` in the query string.
+- **Google OAuth** (`GET /api/v1/auth/google`) redirects to Google's consent screen with a signed `state` (mirrored in an httpOnly cookie); Google returns to `GET /api/v1/auth/google/callback`, which exchanges the code, upserts the user, issues the same access + refresh session as password login, and redirects the browser to the frontend route `/auth/google/callback?access_token=…`. That page stores the token, loads the profile and routes by role — see [Google sign-in setup](#google-sign-in-setup-local--render).
 - **Two-factor authentication (TOTP)** is available for sellers and admins (`/auth/2fa/setup` → `/auth/2fa/enable`). Once enabled, login becomes two-step: the password step returns a short-lived `loginToken`, and only `/auth/2fa/verify` (TOTP code or single-use recovery code) issues real tokens. The secret is encrypted at rest (AES-256-GCM) and never returned after setup; recovery codes are stored hashed and shown exactly once. Buyers keep the single-step flow.
 - **Authorization** is role-based (`BUYER | SELLER | SUPER_ADMIN`) plus resource ownership checks (a seller can only touch their own products/orders/discounts/coupons; a buyer only their own orders/addresses/reviews — IDOR-safe).
+
+## Google sign-in setup (local + Render)
+
+Google sign-in reuses the **same session** as email/password login (same JWTs, same refresh rotation, same user record) — it is not a second auth system. The `GOOGLE_CLIENT_SECRET` lives **only** in the backend environment; the frontend needs nothing but the API URL.
+
+**1. Google Cloud console** → APIs & Services → Credentials → OAuth client ID (Web application) → *Authorized redirect URIs*. Add exactly the backend callback (scheme, host, port and path must match character for character):
+
+```
+https://<backend-service>.onrender.com/api/v1/auth/google/callback
+http://localhost:5000/api/v1/auth/google/callback        # local
+```
+
+**2. Backend environment** (Render → your web service → Environment):
+
+| Variable | Value on Render |
+| --- | --- |
+| `GOOGLE_CLIENT_ID` | the OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | the OAuth client secret |
+| `GOOGLE_REDIRECT_URI` | `https://<backend-service>.onrender.com/api/v1/auth/google/callback` |
+| `CLIENT_URL` | `https://<frontend-host>` (no trailing slash) — where the callback redirects after sign-in |
+| `CORS_ORIGIN` | `https://<frontend-host>` (comma-separate extra origins) |
+| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | ≥ 32 chars, distinct |
+
+**3. Frontend environment**: `VITE_API_URL=https://<backend-service>.onrender.com/api/v1`.
+
+The flow is: frontend button → `GET /api/v1/auth/google` → Google account picker → `GET /api/v1/auth/google/callback?code=…&state=…` → user created/linked (`googleId`, `authProvider: GOOGLE`, email verified) → 302 to `CLIENT_URL/auth/google/callback?access_token=…` → SPA stores the session and routes the user to `/`, `/seller/dashboard` or `/admin/dashboard` by role.
+
+If `GOOGLE_REDIRECT_URI` is unset, the callback URL is derived from the incoming request (`trust proxy` is enabled), and the effective configuration — including a warning when the configured path is not `/api/v1/auth/google/callback` — is printed in the backend log at boot.
 
 ## Module Overview
 
