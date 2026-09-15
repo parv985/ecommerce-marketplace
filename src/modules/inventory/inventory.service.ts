@@ -43,6 +43,15 @@ export const recordStockChange = async (
     actorId: input.actorId,
     actorRole: input.actorRole,
     reason: input.reason,
+    ...(input.referenceId !== undefined && {
+      referenceId: input.referenceId,
+    }),
+    ...(input.referenceType !== undefined && {
+      referenceType: input.referenceType,
+    }),
+    ...(input.metadata !== undefined && {
+      metadata: input.metadata,
+    }),
   });
 };
 

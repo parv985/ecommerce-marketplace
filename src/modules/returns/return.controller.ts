@@ -1,5 +1,7 @@
 import type { Request, Response } from "express";
 
+import { RefundStatus } from "../../constants/payment.js";
+import { ReturnStatus } from "../../constants/returnStatus.js";
 import { sendSuccess } from "../../utils/apiResponse.js";
 import {
   cancelReturn,
@@ -68,9 +70,19 @@ export const updateReturnStatusController = async (
     req.body,
   );
 
+  /*
+   * Approving is more than a status change - the refund and every
+   * rollback happened, so the response says so.
+   */
+  const refunded =
+    data.status === ReturnStatus.APPROVED &&
+    data.refund?.status === RefundStatus.PROCESSED;
+
   sendSuccess(
     res,
-    "Return request updated successfully",
+    refunded
+      ? "Return approved and refund processed successfully"
+      : "Return request updated successfully",
     data,
   );
 };

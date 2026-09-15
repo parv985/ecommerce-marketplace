@@ -108,13 +108,36 @@ export const deleteByPublicId = async (
   resourceType: "image" | "raw" | "video" = "image",
 ): Promise<boolean> => {
   try {
+    const result = await destroyByPublicId(publicId, resourceType);
+    return result === "ok";
+  } catch {
+    return false;
+  }
+};
+
+export type CloudinaryDestroyResult = "ok" | "not found";
+
+/**
+ * Strict variant of `deleteByPublicId`: resolves with Cloudinary's result
+ * ("ok" when removed, "not found" when the asset no longer exists) and
+ * REJECTS on API/network errors so callers can surface the failure.
+ */
+export const destroyByPublicId = async (
+  publicId: string,
+  resourceType: "image" | "raw" | "video" = "image",
+): Promise<CloudinaryDestroyResult> => {
+  try {
     const result = await cloudinary.uploader.destroy(publicId, {
       resource_type: resourceType,
     });
-    return result.result === "ok";
+    if (result?.result === "ok") return "ok";
+    if (result?.result === "not found") return "not found";
+    throw new Error(
+      `Cloudinary returned "${String(result?.result)}" for ${publicId}`,
+    );
   } catch (error) {
     logger.error(`Cloudinary delete failed for ${publicId}`, error);
-    return false;
+    throw error instanceof Error ? error : new Error("Cloudinary delete failed");
   }
 };
 

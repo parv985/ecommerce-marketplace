@@ -57,7 +57,7 @@ const router = Router();
  *             properties:
  *               name:
  *                 type: string
- *               example: Parv Kaneriya
+ *                 example: Parv Kaneriya
  *
  *               email:
  *                 type: string

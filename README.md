@@ -66,7 +66,7 @@ Swagger UI is served at:
 http://localhost:5000/api-docs/
 ```
 
-Every production endpoint is documented there (100 operations), grouped by tag: **Authentication, Sellers, Products, Categories, Users, Cart, Orders, Discounts, Coupons, Returns, Payments, Reviews, Notifications, Analytics, Admin, System**. Use the **Authorize** button to paste an access token and call protected endpoints interactively.
+Every production endpoint is documented there (118 operations), grouped by tag: **Authentication, Sellers, Products, Categories, Users, Cart, Orders, Discounts, Coupons, Returns, Payments, Reviews, Notifications, Analytics, Admin, System**. Use the **Authorize** button to paste an access token and call protected endpoints interactively.
 
 A ready-made **Postman collection** (generated from the OpenAPI spec, folder per tag, bearer auth preconfigured) lives at `docs/postman-collection.json`. Regenerate it with `npx tsx tests/generate-postman.ts`.
 
@@ -100,11 +100,13 @@ For comprehensive API testing instructions, see the [Postman Testing Guide](docs
 | Notifications | In-app + email notifications for orders, payments, returns, seller decisions, settlements and admin broadcasts; per-recipient preference model (`/notifications/preferences`); email is fire-and-forget with bounded retries |
 | Analytics   | Seller dashboard, sales series, top products, customers and revenue statistics — all MongoDB aggregations scoped to the authenticated seller |
 | Settlements | Configurable platform commission (default 10%, admin-adjustable, snapshotted per settlement so history is never recalculated). Admin generates monthly settlements (unique per seller+period — idempotent) and walks `PENDING → PROCESSING → PAID | FAILED | CANCELLED`; sellers view their own settlements |
-| Admin       | User activation/deactivation, seller approval/rejection, product moderation, order overview, settlement dashboard, commission settings, notification broadcasts — `SUPER_ADMIN` only |
+| Admin       | User activation/deactivation, seller approval/rejection, product moderation, order overview, settlement dashboard, commission settings, notification broadcasts, **filterable audit log viewer** — `SUPER_ADMIN` only |
 
 ## Audit Logging
 
 Every important action is written to the `auditlogs` collection through one reusable service: logins, order creation/cancellation/status changes, product/discount/coupon changes, return requests, seller registration/approval, payments (initiated/verified/captured/refunded), settlement actions and commission changes. Entries carry actor, action, entity, before/after values and metadata — passwords, tokens, TOTP secrets and recovery codes are never logged.
+
+The ledger is readable through **`GET /api/v1/admin/audit-logs`** (`SUPER_ADMIN` only), which paginates the existing entries (`page` default 1, `limit` default 20, max 100) and filters them by `actorId`, `actorRole`, `action`, `entityType`, `entityId` and an inclusive `fromDate`/`toDate` range on `createdAt`. Sorting is configurable via `sortBy` (`createdAt` | `action` | `entityType` | `actorRole` | `actorId`) and `sortOrder` (`asc` | `desc`), defaulting to newest first. The endpoint is a pure read — it never writes an audit entry itself — and is consumed by the admin console's **Audit Log** page (`/admin/audit`).
 
 ## Inventory Consistency
 
@@ -112,7 +114,18 @@ Every important action is written to the `auditlogs` collection through one reus
 - A failed checkout rolls back any decrements already applied.
 - Cancelling an order restores the committed stock (idempotent — a second cancel does not double-restore).
 - The cart is **claimed atomically** at checkout start, so a double-submit can never create duplicate orders (the loser gets `CART_CHECKOUT_IN_PROGRESS` or an empty-cart error).
-- Completing a return restores stock; cancelling a paid online order refunds it first.
+- Approving a return restores stock (with an inventory transaction) exactly once; cancelling a paid online order refunds it first.
+
+## Returns & Refunds
+
+`PATCH /api/v1/returns/:id/status` with `{ "status": "APPROVED" }` is the money event of the return flow. It runs as one unit of work:
+
+1. **Claim** — the return is flipped `PENDING → APPROVED` by a conditional update, so a double-click or a retried call can only ever produce one refund.
+2. **Refund** — the eligible amount (`order.total`, i.e. what the buyer actually paid after discounts and coupons) goes back through the payment gateway for online orders, or is recorded as an offline refund on the return for cash-on-delivery.
+3. **Rollbacks (one transaction)** — the order becomes `RETURNED` with `paymentStatus = REFUNDED`; the returned units are credited back to the seller's inventory with `RETURN_RESTOCK` transactions; any coupon usage is released and the coupon counter decremented; the order is pulled out of the seller's settlement, reversing its platform commission and seller payable; the order timeline is updated.
+4. **Notify** — the buyer receives *"Your return has been approved and your refund has been processed successfully."*, the seller receives a summary of what changed on their side, and the whole thing is audit-logged.
+
+Repeats are safe: an already-refunded return returns its current state, `COMPLETED` never credits stock a second time, cancelled/rejected returns and cancelled orders are refused, and a settlement that was already paid is corrected with the payable recovered from the next payout. See [`docs/architecture.md`](docs/architecture.md#v314--return-approval-refund--rollbacks-in-one-transaction) for the design notes.
 
 ## Security Notes
 

@@ -3,14 +3,15 @@ import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { orderService } from '@/services/order.service'
 import { formatPrice, formatDate } from '@/lib/utils'
+import { invalidateSellerData } from '@/lib/sellerData'
 import { notifyNoChanges } from '@/lib/formChanges'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { toast } from 'react-hot-toast'
 import { Pagination } from '@/components/ui/Pagination'
 
-const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error' | 'secondary'> = {
-  PENDING: 'warning', CONFIRMED: 'secondary', SHIPPED: 'secondary', DELIVERED: 'success', CANCELLED: 'error',
+const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error' | 'secondary' | 'brand'> = {
+  PENDING: 'warning', CONFIRMED: 'secondary', SHIPPED: 'secondary', DELIVERED: 'success', CANCELLED: 'error', RETURNED: 'brand',
 }
 
 export function SellerOrdersPage() {
@@ -25,7 +26,17 @@ export function SellerOrdersPage() {
 
   const updateStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => orderService.updateStatus(id, status),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['orders'] }); toast.success('Status updated') },
+    /*
+     * A status change moves derived data beyond the order list: delivering
+     * a COD order flips its payment to PAID (revenue, analytics, customers,
+     * settlement) and cancelling restores stock + refunds online payments.
+     * `invalidateSellerData` refreshes every affected section from the API;
+     * the stock caches are included when the transition cancels the order.
+     */
+    onSuccess: (_res, vars) => {
+      invalidateSellerData(queryClient, { inventory: vars.status === 'CANCELLED' })
+      toast.success('Status updated')
+    },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
   })
 
@@ -45,7 +56,7 @@ export function SellerOrdersPage() {
     <div>
       <h1 className="text-2xl font-bold mb-6">Orders</h1>
       <div className="flex gap-2 mb-4 flex-wrap">
-        {['', 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'].map(s => (
+        {['', 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'RETURNED'].map(s => (
           <button key={s} onClick={() => { setStatus(s); setPage(1); }}
             className={`px-3 py-1 text-sm rounded ${status === s ? 'bg-[var(--primary)] text-white' : 'bg-zinc-100 hover:bg-zinc-200'}`}>
             {s || 'All'}
@@ -57,14 +68,14 @@ export function SellerOrdersPage() {
           <div key={order.id} className="border rounded-lg p-4">
             <div className="flex items-center justify-between mb-2">
               <div>
-                <Link to={`/orders/${order.id}`} className="font-medium text-sm hover:underline">#{order.orderNumber}</Link>
+                <Link to={`/seller/orders/${order.id}`} className="font-medium text-sm hover:underline">#{order.orderNumber}</Link>
                 <span className="text-xs text-[var(--muted)] ml-2">{formatDate(order.createdAt)}</span>
               </div>
               <Badge variant={statusColors[order.status]}>{order.status}</Badge>
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <span className="text-sm text-[var(--muted)]">{order.items.length} item(s) • {formatPrice(order.total)}</span>
-              <div className="flex gap-1">
+              <div className="flex gap-1 self-end sm:self-auto">
                 {order.status === 'PENDING' && <Button size="sm" variant="outline" disabled={updateStatus.isPending} onClick={() => changeStatus(order.id, 'CONFIRMED')}>Confirm</Button>}
                 {order.status === 'CONFIRMED' && <Button size="sm" variant="outline" disabled={updateStatus.isPending} onClick={() => changeStatus(order.id, 'SHIPPED')}>Ship</Button>}
                 {order.status === 'SHIPPED' && <Button size="sm" variant="outline" disabled={updateStatus.isPending} onClick={() => changeStatus(order.id, 'DELIVERED')}>Deliver</Button>}

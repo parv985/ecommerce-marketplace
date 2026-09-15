@@ -45,6 +45,12 @@
     --primary-fg: #ffffff;
     --primary-subtle: #fcf5f2;
 
+    /* Light warm surfaces — premium light homepage/footer theme */
+    --surface-warm: #faf5ec;      /* warm off-white (announcement bar, footer) */
+    --surface-warm-deep: #f5ecdc; /* deeper cream (hero wash, panels) */
+    --surface-tint: #fdf1e6;      /* subtle warm-orange highlight band */
+    --surface-gray: #f1f0ea;      /* soft gray alternate band */
+
     --accent: #f4f3ef;
     --accent-hover: #eae8e1;
 

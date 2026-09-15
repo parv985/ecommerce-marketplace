@@ -1,5 +1,6 @@
 import { AppError } from "../../errors/AppError.js";
 import { SellerStatus } from "../../constants/sellerStatus.js";
+import mongoose from "mongoose";
 import { getCacheKey, invalidateCache } from "../../config/redis.js";
 import { logAudit } from "../../services/audit.service.js";
 import { notifySellerDecision } from "../notifications/notification.service.js";
@@ -8,11 +9,14 @@ import type { UserDocument } from "../../models/User.js";
 import type { ISeller } from "../../models/Seller.js";
 import type { IProduct } from "../../models/Product.js";
 import type { IOrder } from "../../models/Order.js";
+import type { IAuditLog } from "../../models/AuditLog.js";
 import {
   findSellerById,
   findUserById,
+  findUsersByIds,
   listAllOrders,
   listAllProducts,
+  listAuditLogs,
   listSellers,
   listUsers,
   updateProductStatusById,
@@ -22,6 +26,7 @@ import {
 import {
   listAdminOrdersQuerySchema,
   listAdminProductsQuerySchema,
+  listAuditLogsQuerySchema,
   listSellersQuerySchema,
   listUsersQuerySchema,
   updateProductStatusSchema,
@@ -29,6 +34,7 @@ import {
   updateUserStatusSchema,
   type ListAdminOrdersQuery,
   type ListAdminProductsQuery,
+  type ListAuditLogsQuery,
   type ListSellersQuery,
   type ListUsersQuery,
   type UpdateProductStatusInput,
@@ -36,6 +42,7 @@ import {
   type UpdateUserStatusInput,
 } from "./admin.schema.js";
 import type {
+  AdminAuditLogResponse,
   AdminListResponse,
   AdminOrderResponse,
   AdminProductResponse,
@@ -351,6 +358,188 @@ export const getAdminOrdersList = async (
 
   return {
     items: items.map(toAdminOrderResponse),
+    page: parsed.page,
+    limit: parsed.limit,
+    total,
+    totalPages:
+      Math.ceil(total / parsed.limit) || 0,
+  };
+};
+
+const toAdminAuditLogResponse = (
+  log: IAuditLog,
+  actor?: Pick<UserDocument, "name" | "email"> | null,
+): AdminAuditLogResponse => {
+  return {
+    id: log._id.toString(),
+    actorId: log.actorId,
+    /* Human-readable actor identity when the actor is a real user;
+       system actors ("system", "webhook") and deleted users stay null. */
+    actorName: actor?.name ?? null,
+    actorEmail: actor?.email ?? null,
+    actorRole: log.actorRole,
+    action: log.action,
+    entityType: log.entityType,
+    entityId: log.entityId
+      ? log.entityId.toString()
+      : null,
+    before: log.before ?? null,
+    after: log.after ?? null,
+    metadata: log.metadata ?? null,
+    createdAt: log.createdAt,
+  };
+};
+
+/*
+ * Free-text search across an audit entry's identity fields, evaluated
+ * entirely in the query (server-side) so the frontend can search
+ * without ever downloading the ledger:
+ *   - actorId and action: case-insensitive partial match (a pasted
+ *     full or partial ObjectId and action fragments both work);
+ *   - entityId: exact match when the term is a full 24-char ObjectId,
+ *     otherwise a hex fragment matches stored ObjectIds containing it
+ *     (ObjectId fields are compared through their string form).
+ * All branches are OR-ed; every other filter still ANDs on top.
+ */
+const escapeRegExp = (value: string): string =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const buildAuditSearchFilter = (
+  term: string,
+): Record<string, unknown>[] => {
+  const loose = new RegExp(escapeRegExp(term), "i");
+  const clauses: Record<string, unknown>[] = [
+    { actorId: loose },
+    { action: loose },
+  ];
+
+  if (mongoose.isValidObjectId(term)) {
+    clauses.push({ entityId: new mongoose.Types.ObjectId(term) });
+  } else if (/^[0-9a-f]{4,24}$/i.test(term)) {
+    /* Partial ObjectId: compare the stored ObjectId as a string.
+       Restricted to hex fragments so ordinary words never take this
+       (unindexed) path. */
+    clauses.push({
+      $expr: {
+        $regexMatch: {
+          input: { $toString: "$entityId" },
+          regex: escapeRegExp(term),
+          options: "i",
+        },
+      },
+    });
+  }
+
+  return clauses;
+};
+
+/*
+ * A `toDate` given as a bare date (YYYY-MM-DD) coerces to UTC
+ * midnight, which would silently exclude everything logged later that
+ * same day. When the timestamp carries no time component we widen it
+ * to the end of that UTC day so "from 2026-01-01 to 2026-01-31"
+ * really means "the whole of January".
+ */
+const toInclusiveUpperBound = (date: Date): Date => {
+  const hasTimeComponent =
+    date.getUTCHours() !== 0 ||
+    date.getUTCMinutes() !== 0 ||
+    date.getUTCSeconds() !== 0 ||
+    date.getUTCMilliseconds() !== 0;
+
+  if (hasTimeComponent) {
+    return date;
+  }
+
+  const endOfDay = new Date(date);
+  endOfDay.setUTCHours(23, 59, 59, 999);
+
+  return endOfDay;
+};
+
+export const getAuditLogsList = async (
+  query: unknown,
+): Promise<AdminListResponse<AdminAuditLogResponse>> => {
+  const parsed: ListAuditLogsQuery =
+    listAuditLogsQuerySchema.parse(query);
+
+  const filter: Record<string, unknown> = {};
+
+  if (parsed.actorId) {
+    filter.actorId = parsed.actorId;
+  }
+
+  if (parsed.actorRole) {
+    filter.actorRole = parsed.actorRole;
+  }
+
+  if (parsed.action) {
+    filter.action = parsed.action;
+  }
+
+  if (parsed.entityType) {
+    filter.entityType = parsed.entityType;
+  }
+
+  if (parsed.entityId) {
+    filter.entityId = parsed.entityId;
+  }
+
+  if (parsed.search) {
+    filter.$or = buildAuditSearchFilter(parsed.search);
+  }
+
+  if (parsed.fromDate || parsed.toDate) {
+    const createdAt: Record<string, Date> = {};
+
+    if (parsed.fromDate) {
+      createdAt.$gte = parsed.fromDate;
+    }
+
+    if (parsed.toDate) {
+      createdAt.$lte = toInclusiveUpperBound(
+        parsed.toDate,
+      );
+    }
+
+    filter.createdAt = createdAt;
+  }
+
+  /* Default: newest first (createdAt desc). */
+  const sort: Record<string, 1 | -1> = {
+    [parsed.sortBy]:
+      parsed.sortOrder === "asc" ? 1 : -1,
+  };
+
+  const { items, total } = await listAuditLogs(
+    filter,
+    sort,
+    parsed.page,
+    parsed.limit,
+  );
+
+  /* One batched query decorates the page's entries with the actors'
+     name/email — actors that are not real users (system actors, or
+     users since deleted) simply keep null. */
+  const actorIds = [
+    ...new Set(
+      items
+        .map((log) => log.actorId)
+        .filter((actorId) =>
+          mongoose.isValidObjectId(actorId),
+        ),
+    ),
+  ];
+  const actors = await findUsersByIds(actorIds);
+  const actorsById = new Map(
+    actors.map((user) => [user._id.toString(), user]),
+  );
+
+  return {
+    items: items.map((log) => {
+      const actor = actorsById.get(log.actorId) ?? null;
+      return toAdminAuditLogResponse(log, actor);
+    }),
     page: parsed.page,
     limit: parsed.limit,
     total,

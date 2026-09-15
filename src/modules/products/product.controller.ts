@@ -5,6 +5,8 @@ import type {
 
 import { sendSuccess } from "../../utils/apiResponse.js";
 
+import { listMyProductsQuerySchema } from "./product.schema.js";
+
 import {
   browseProducts,
   createProductForSeller,
@@ -41,9 +43,15 @@ export const listMyProductsController =
     req: Request,
     res: Response,
   ): Promise<void> => {
+    const parsed =
+      listMyProductsQuerySchema.parse(
+        req.query,
+      );
+
     const products =
       await listSellerProducts(
         req.user!.id,
+        parsed.search,
       );
 
     sendSuccess(

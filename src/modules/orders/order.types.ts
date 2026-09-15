@@ -41,6 +41,10 @@ export interface OrderResponse {
   paymentStatus: PaymentStatus;
   paymentId: string | null;
   status: OrderStatus;
+  /* When the order was delivered (anchor of the 7-day return window). */
+  deliveredAt: Date | null;
+  /* Set when a return was approved and the order became RETURNED. */
+  returnedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

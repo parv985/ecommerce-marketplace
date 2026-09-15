@@ -17,6 +17,7 @@ import { toast } from 'react-hot-toast'
 import { useSellerErrorHandler } from '@/hooks/useSellerErrorHandler'
 import { useRestrictedAction } from '@/hooks/useRestrictedAction'
 import { getChangedFields, notifyNoChanges } from '@/lib/formChanges'
+import { SellerProductSearch } from '@/components/seller/SellerProductSearch'
 import type { Product } from '@/types/api'
 
 /** Mirrors the backend limit: `POST /products/:id/images` takes 8 files and the service rejects more. */
@@ -72,7 +73,18 @@ export function SellerProductsPage() {
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [deletingPublicId, setDeletingPublicId] = useState<string | null>(null)
 
-  const { data: products, isLoading } = useQuery({ queryKey: ['my-products'], queryFn: productService.getMyProducts })
+  /*
+   * Seller Panel product search: the term is sent to `GET /products/my`
+   * and filtered server-side, scoped to the authenticated seller's own
+   * products (never another seller's). An empty term lists everything.
+   */
+  const [searchTerm, setSearchTerm] = useState('')
+  const listQueryKey = ['my-products', searchTerm] as const
+
+  const { data: products, isLoading } = useQuery({
+    queryKey: listQueryKey,
+    queryFn: () => productService.getMyProducts(searchTerm || undefined),
+  })
   const { data: categories } = useQuery({ queryKey: ['categories'], queryFn: categoryService.list })
   const { register, handleSubmit, reset, formState: { errors } } = useForm<ProductForm>({ resolver: zodResolver(productSchema) })
 
@@ -84,16 +96,20 @@ export function SellerProductsPage() {
   /*
    * Images are rendered all over the app (shop grid, product page, cart,
    * wishlist), so a change here refreshes the seller list and the catalog.
+   * Creating/updating/deactivating a product also moves the dashboard's
+   * product counters (total / active / low stock), so that cache is
+   * invalidated too and the dashboard refetches the live counts.
    */
   function refreshProductQueries() {
     queryClient.invalidateQueries({ queryKey: ['my-products'] })
     queryClient.invalidateQueries({ queryKey: ['products'] })
     queryClient.invalidateQueries({ queryKey: ['product'] })
+    queryClient.invalidateQueries({ queryKey: ['seller-dashboard'] })
   }
 
   /* Patches the list cache so an upload/delete shows instantly, before the refetch lands. */
   function patchImages(targetId: string, apply: (images: Product['images']) => Product['images']) {
-    queryClient.setQueryData<Product[]>(['my-products'], (old) =>
+    queryClient.setQueryData<Product[]>(listQueryKey, (old) =>
       old?.map(p => (p.id === targetId ? { ...p, images: apply(p.images ?? []) } : p)),
     )
   }
@@ -140,7 +156,7 @@ export function SellerProductsPage() {
         return
       }
       /* Seed the list with the created product so the image step has data immediately. */
-      queryClient.setQueryData<Product[]>(['my-products'], (old) => {
+      queryClient.setQueryData<Product[]>(listQueryKey, (old) => {
         const list = old ?? []
         return list.some(p => p.id === created.id)
           ? list.map(p => (p.id === created.id ? { ...p, ...created } : p))
@@ -268,41 +284,62 @@ export function SellerProductsPage() {
         <Button onClick={openCreateDialog}><Plus size={16} className="mr-1" /> Add Product</Button>
       </div>
 
+      {/* Seller-scoped product search — suggestions and results only ever
+          contain this seller's own products (enforced by the backend). */}
+      <div className="max-w-md mb-4">
+        <SellerProductSearch
+          value={searchTerm}
+          onApply={setSearchTerm}
+          onSelect={(product) => openEditDialog(product)}
+        />
+        {searchTerm && (
+          <p className="mt-2 text-xs text-[var(--muted)]">
+            Showing your products matching “{searchTerm}” ({products?.length ?? 0})
+          </p>
+        )}
+      </div>
+
       {isLoading ? (
         <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-20 bg-zinc-100 rounded animate-pulse" />)}</div>
       ) : !products?.length ? (
-        <div className="text-center py-12 text-[var(--muted)]">No products yet. Add your first product!</div>
+        searchTerm ? (
+          <div className="text-center py-12 text-[var(--muted)]">No products of yours match “{searchTerm}”.</div>
+        ) : (
+          <div className="text-center py-12 text-[var(--muted)]">No products yet. Add your first product!</div>
+        )
       ) : (
         <div className="space-y-3">
           {products.map(p => (
-            <div key={p.id} className="flex items-center gap-4 p-4 border rounded-lg">
-              <button
-                type="button"
-                onClick={() => openEditDialog(p, 'images')}
-                title={p.images?.length ? 'Manage images' : 'Add images'}
-                className="relative w-16 h-16 bg-zinc-100 rounded overflow-hidden shrink-0 cursor-pointer group"
-              >
-                {p.images?.[0]?.url ? <img src={p.images[0].url} alt="" className="w-full h-full object-cover" /> : null}
-                {!p.images?.[0]?.url ? <ImagePlus size={18} className="text-zinc-400 absolute inset-0 m-auto" /> : null}
-                <span className="absolute inset-0 bg-black/0 group-hover:bg-black/45 transition-colors flex items-center justify-center">
-                  <span className="text-white text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
-                    {p.images?.length ? 'Edit images' : 'Add images'}
+            <div key={p.id} className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 border rounded-lg bg-white">
+              <div className="flex items-center gap-4 min-w-0 flex-1">
+                <button
+                  type="button"
+                  onClick={() => openEditDialog(p, 'images')}
+                  title={p.images?.length ? 'Manage images' : 'Add images'}
+                  className="relative w-16 h-16 bg-zinc-100 rounded overflow-hidden shrink-0 cursor-pointer group"
+                >
+                  {p.images?.[0]?.url ? <img src={p.images[0].url} alt="" className="w-full h-full object-cover" /> : null}
+                  {!p.images?.[0]?.url ? <ImagePlus size={18} className="text-zinc-400 absolute inset-0 m-auto" /> : null}
+                  <span className="absolute inset-0 bg-black/0 group-hover:bg-black/45 transition-colors flex items-center justify-center">
+                    <span className="text-white text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                      {p.images?.length ? 'Edit images' : 'Add images'}
+                    </span>
                   </span>
-                </span>
-              </button>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm truncate">{p.name}</span>
-                  <Badge variant={statusColors[p.status]}>{p.status}</Badge>
-                  {p.images?.length ? (
-                    <Badge variant="default">{p.images.length}/{MAX_IMAGES} images</Badge>
-                  ) : (
-                    <Badge variant="warning">No image</Badge>
-                  )}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-sm truncate">{p.name}</span>
+                    <Badge variant={statusColors[p.status]}>{p.status}</Badge>
+                    {p.images?.length ? (
+                      <Badge variant="default">{p.images.length}/{MAX_IMAGES} images</Badge>
+                    ) : (
+                      <Badge variant="warning">No image</Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-[var(--muted)] mt-0.5">{formatPrice(p.price)} • Stock: {p.stock} • SKU: {p.sku}</p>
                 </div>
-                <p className="text-xs text-[var(--muted)]">{formatPrice(p.price)} • Stock: {p.stock} • SKU: {p.sku}</p>
               </div>
-              <div className="flex gap-1">
+              <div className="flex gap-1 self-end sm:self-auto shrink-0">
                 <Button variant="ghost" size="sm" onClick={() => openEditDialog(p, 'images')} title="Manage images"><ImagePlus size={14} /></Button>
                 <Button variant="ghost" size="sm" onClick={() => openEditDialog(p)}><Edit size={14} /></Button>
                 <Button variant="ghost" size="sm" onClick={() => deleteProduct.mutate(p.id)}><Trash2 size={14} /></Button>

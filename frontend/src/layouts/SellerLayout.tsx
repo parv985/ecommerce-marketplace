@@ -1,5 +1,5 @@
 import { NavLink, Outlet, Navigate } from 'react-router-dom'
-import { LayoutDashboard, Package, ShoppingCart, Truck, Percent, Ticket, Users, BarChart3, Bell, User, DollarSign } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingCart, Truck, Percent, Ticket, Users, BarChart3, Bell, User, DollarSign, RotateCcw } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { cn } from '@/lib/utils'
 import { useEffect, useState } from 'react'
@@ -9,6 +9,7 @@ const navItems = [
   { to: '/seller/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/seller/products', label: 'Products', icon: Package },
   { to: '/seller/orders', label: 'Orders', icon: ShoppingCart },
+  { to: '/seller/returns', label: 'Returns', icon: RotateCcw },
   { to: '/seller/inventory', label: 'Inventory', icon: Truck },
   { to: '/seller/discounts', label: 'Discounts', icon: Percent },
   { to: '/seller/coupons', label: 'Coupons', icon: Ticket },
@@ -110,15 +111,15 @@ export function SellerLayout() {
       </aside>
 
       {/* Mobile nav */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[var(--border)] z-40">
-        <div className="flex overflow-x-auto">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[var(--border)] z-40 shadow-sm">
+        <div className="flex overflow-x-auto justify-around py-1">
           {(isPending ? pendingNavItems : navItems.slice(0, 5)).map(({ to, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
               className={({ isActive }) => cn(
-                'flex flex-col items-center gap-1 px-4 py-2 text-[10px] shrink-0',
-                isActive ? 'text-[var(--primary)] font-semibold' : 'text-[var(--muted)]'
+                'flex flex-col items-center gap-1 px-3 py-1.5 text-[10px] shrink-0 min-w-[56px] transition-colors',
+                isActive ? 'text-[var(--primary)] font-semibold' : 'text-[var(--muted)] hover:text-[var(--fg)]'
               )}
             >
               <Icon size={18} strokeWidth={1.75} />

@@ -9,12 +9,13 @@ import { Pagination } from '@/components/ui/Pagination'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
 
-const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error' | 'secondary'> = {
+const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error' | 'secondary' | 'brand'> = {
   PENDING: 'warning',
   CONFIRMED: 'secondary',
   SHIPPED: 'secondary',
   DELIVERED: 'success',
   CANCELLED: 'error',
+  RETURNED: 'brand',
 }
 
 export function OrderListPage() {
@@ -36,11 +37,19 @@ export function OrderListPage() {
 
   return (
     <div className="container-app py-8">
-      <h1 className="text-2xl font-bold tracking-tight text-[var(--fg)] mb-6 pb-4 border-b border-[var(--border)]">
-        My Orders
-      </h1>
+      <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--border)] gap-3">
+        <h1 className="text-2xl font-bold tracking-tight text-[var(--fg)]">
+          My Orders
+        </h1>
+        <Link
+          to="/returns"
+          className="text-sm font-medium text-[var(--primary)] hover:underline shrink-0"
+        >
+          My Returns
+        </Link>
+      </div>
       <div className="flex gap-2 mb-6 flex-wrap">
-        {['', 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'].map(s => (
+        {['', 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'RETURNED'].map(s => (
           <button
             key={s}
             onClick={() => { setStatus(s); setPage(1); }}
@@ -67,14 +76,19 @@ export function OrderListPage() {
             <Link
               to={`/orders/${order.id}`}
               key={order.id}
-              className="block border border-[var(--border)] rounded-[var(--radius-lg)] p-4.5 bg-white hover:border-neutral-400 hover:shadow-[var(--shadow-sm)] transition-all"
+              className="block border border-[var(--border)] rounded-[var(--radius-lg)] p-4 sm:p-4.5 bg-white hover:border-neutral-400 hover:shadow-[var(--shadow-sm)] transition-all"
             >
-              <div className="flex items-center justify-between mb-2">
-                <div>
+              <div className="flex items-center justify-between mb-2 gap-2">
+                <div className="min-w-0">
                   <span className="font-semibold text-sm text-[var(--fg)]">Order #{order.orderNumber}</span>
-                  <span className="text-xs text-[var(--muted)] ml-2.5">{formatDate(order.createdAt)}</span>
+                  <span className="text-xs text-[var(--muted)] ml-2">{formatDate(order.createdAt)}</span>
                 </div>
-                <Badge variant={statusColors[order.status]}>{order.status}</Badge>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Badge variant={order.paymentStatus === 'PAID' ? 'success' : 'warning'}>
+                    {order.paymentStatus}
+                  </Badge>
+                  <Badge variant={statusColors[order.status]}>{order.status}</Badge>
+                </div>
               </div>
               <div className="text-xs text-[var(--fg-secondary)]">
                 {order.items.length} item{order.items.length === 1 ? '' : 's'} • <span className="font-semibold text-[var(--fg)]">{formatPrice(order.total)}</span>

@@ -53,13 +53,13 @@ export function AdminProductsPage() {
       </div>
       <div className="space-y-3">
         {data?.items?.map(p => (
-          <div key={p.id} className="border rounded-lg p-4 flex items-center justify-between">
-            <div>
-              <span className="font-medium">{p.name}</span>
+          <div key={p.id} className="border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
+            <div className="min-w-0">
+              <span className="font-medium text-sm">{p.name}</span>
               <span className="text-sm text-[var(--muted)] ml-2">{formatPrice(p.price)}</span>
               <Badge variant={statusColors[p.status]} className="ml-2">{p.status}</Badge>
             </div>
-            <div className="flex gap-1">
+            <div className="flex gap-1 self-end sm:self-auto shrink-0 flex-wrap">
               {['ACTIVE', 'DRAFT', 'INACTIVE'].filter(s => s !== p.status).map(s => (
                 <Button key={s} size="sm" variant="outline" disabled={updateStatus.isPending} onClick={() => changeStatus(p.id, s)}>{s}</Button>
               ))}

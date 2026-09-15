@@ -35,6 +35,48 @@ export const findCouponByCode = async (
   }).exec();
 };
 
+/*
+ * Mongo predicate matching coupons whose DERIVED status equals the
+ * requested one. Mirrors `resolveCouponStatus` exactly (manually
+ * ACTIVE, inside [startAt, endAt] and not fully used) so the seller
+ * list - and its `?status=` filter - can never show an expired or
+ * exhausted coupon as Active.
+ */
+export const buildCouponStatusFilter = (
+  status: CouponStatus,
+  now: Date,
+): Record<string, unknown> => {
+  if (status === CouponStatus.ACTIVE) {
+    return {
+      status: CouponStatus.ACTIVE,
+      startAt: { $lte: now },
+      endAt: { $gte: now },
+      $or: [
+        { usageLimit: null },
+        {
+          $expr: {
+            $lt: ["$usageCount", "$usageLimit"],
+          },
+        },
+      ],
+    };
+  }
+
+  return {
+    $or: [
+      { status: CouponStatus.INACTIVE },
+      { startAt: { $gt: now } },
+      { endAt: { $lt: now } },
+      {
+        usageLimit: { $ne: null },
+        $expr: {
+          $gte: ["$usageCount", "$usageLimit"],
+        },
+      },
+    ],
+  };
+};
+
 export const listCouponsBySeller = async (
   sellerId: string,
   filter: Record<string, unknown>,

@@ -405,7 +405,10 @@ const options: swaggerJSDoc.Options = {
             },
             price: {
               type: "number",
-              exclusiveMinimum: 0,
+              /* OpenAPI 3.0: exclusiveMinimum is a boolean modifier
+                 on `minimum` (price must be > 0). */
+              minimum: 0,
+              exclusiveMinimum: true,
               maximum: 10000000,
               example: 499.5,
             },
@@ -463,7 +466,10 @@ const options: swaggerJSDoc.Options = {
             },
             price: {
               type: "number",
-              exclusiveMinimum: 0,
+              /* OpenAPI 3.0: exclusiveMinimum is a boolean modifier
+                 on `minimum` (price must be > 0). */
+              minimum: 0,
+              exclusiveMinimum: true,
               maximum: 10000000,
             },
             stock: {
@@ -743,6 +749,8 @@ const options: swaggerJSDoc.Options = {
             status: {
               type: "string",
               enum: ["ACTIVE", "INACTIVE"],
+              description:
+                "Derived status, never stale: ACTIVE only while the manual switch is enabled, the current date is inside [startAt, endAt] and the usage limit has not been reached (expired or fully-used coupons are automatically INACTIVE).",
             },
             createdAt: {
               type: "string",
@@ -825,6 +833,8 @@ const options: swaggerJSDoc.Options = {
               type: "string",
               enum: ["ACTIVE", "INACTIVE"],
               default: "ACTIVE",
+              description:
+                "Manual switch only. The status returned by the API is derived from this flag, the coupon dates and the remaining usage limit.",
             },
           },
         },
@@ -886,6 +896,8 @@ const options: swaggerJSDoc.Options = {
             status: {
               type: "string",
               enum: ["ACTIVE", "INACTIVE"],
+              description:
+                "Manual switch only (re-enable a deactivated coupon). Expired or fully-used coupons always come back as INACTIVE.",
             },
           },
         },
@@ -945,6 +957,67 @@ const options: swaggerJSDoc.Options = {
             statusReason: {
               type: "string",
               nullable: true,
+            },
+            approvedAt: {
+              type: "string",
+              format: "date-time",
+              nullable: true,
+            },
+            decidedBy: {
+              type: "string",
+              nullable: true,
+            },
+            decidedRole: {
+              type: "string",
+              nullable: true,
+            },
+            stockRestoredAt: {
+              type: "string",
+              format: "date-time",
+              nullable: true,
+            },
+            refund: {
+              type: "object",
+              nullable: true,
+              description:
+                "Present once the return was approved: the money side of the refund (amount, status, method, gateway refund id, timestamps).",
+              properties: {
+                amount: {
+                  type: "number",
+                  description:
+                    "Amount refunded to the buyer: the paid order total, already net of sales and coupon discounts.",
+                },
+                status: {
+                  type: "string",
+                  enum: ["PENDING", "PROCESSED", "FAILED"],
+                },
+                method: {
+                  type: "string",
+                  enum: ["GATEWAY", "OFFLINE", "NONE"],
+                },
+                gatewayRefundId: {
+                  type: "string",
+                  nullable: true,
+                },
+                paymentId: {
+                  type: "string",
+                  nullable: true,
+                },
+                reason: {
+                  type: "string",
+                  nullable: true,
+                },
+                requestedAt: {
+                  type: "string",
+                  format: "date-time",
+                  nullable: true,
+                },
+                completedAt: {
+                  type: "string",
+                  format: "date-time",
+                  nullable: true,
+                },
+              },
             },
             createdAt: {
               type: "string",
@@ -1621,7 +1694,22 @@ const options: swaggerJSDoc.Options = {
                 "SHIPPED",
                 "DELIVERED",
                 "CANCELLED",
+                "RETURNED",
               ],
+              description:
+                "RETURNED is terminal and is only reached by approving a return (refund issued, purchase rolled back).",
+            },
+            deliveredAt: {
+              type: "string",
+              format: "date-time",
+              nullable: true,
+              description: "Anchor of the 7-day return window",
+            },
+            returnedAt: {
+              type: "string",
+              format: "date-time",
+              nullable: true,
+              description: "Set when a return was approved and the refund processed",
             },
             createdAt: {
               type: "string",
@@ -2236,6 +2324,119 @@ const options: swaggerJSDoc.Options = {
             },
             totalPages: {
               type: "integer",
+            },
+          },
+        },
+
+        /*
+         * One entry of the audit ledger as returned by
+         * GET /api/v1/admin/audit-logs.
+         */
+        AuditLog: {
+          type: "object",
+          properties: {
+            id: {
+              type: "string",
+              description: "Audit log entry ObjectId",
+            },
+            actorId: {
+              type: "string",
+              description:
+                'User ObjectId, or a system actor ("system", "webhook")',
+            },
+            actorName: {
+              type: "string",
+              nullable: true,
+              description:
+                "Actor's name resolved from the Users collection at read time; null for system actors and deleted users",
+              example: "Parv Admin",
+            },
+            actorEmail: {
+              type: "string",
+              nullable: true,
+              description:
+                "Actor's email resolved from the Users collection at read time; null for system actors and deleted users",
+              example: "admin@nexcart.test",
+            },
+            actorRole: {
+              type: "string",
+              description:
+                "Role recorded at write time: BUYER, SELLER, SUPER_ADMIN or SYSTEM",
+              example: "SUPER_ADMIN",
+            },
+            action: {
+              type: "string",
+              description:
+                "Action key, e.g. USER_STATUS_UPDATE, ORDER_CREATED, SELLER_REGISTERED",
+              example: "USER_STATUS_UPDATE",
+            },
+            entityType: {
+              type: "string",
+              description:
+                "Entity the action targeted, e.g. USER, ORDER, SELLER, PRODUCT, SETTLEMENT",
+              example: "USER",
+            },
+            entityId: {
+              type: "string",
+              nullable: true,
+              description:
+                "ObjectId of the affected entity, null when the entry has no entity",
+            },
+            before: {
+              type: "object",
+              nullable: true,
+              additionalProperties: true,
+              description:
+                "Free-form state before the action (shape depends on the action)",
+            },
+            after: {
+              type: "object",
+              nullable: true,
+              additionalProperties: true,
+              description:
+                "Free-form state after the action (shape depends on the action)",
+            },
+            metadata: {
+              type: "object",
+              nullable: true,
+              additionalProperties: true,
+              description:
+                "Free-form extra context (e.g. the reason supplied with a status change)",
+            },
+            createdAt: {
+              type: "string",
+              format: "date-time",
+            },
+          },
+        },
+
+        AuditLogList: {
+          type: "object",
+          properties: {
+            items: {
+              type: "array",
+              items: {
+                $ref: "#/components/schemas/AuditLog",
+              },
+            },
+            page: {
+              type: "integer",
+              description: "Current 1-based page",
+              example: 1,
+            },
+            limit: {
+              type: "integer",
+              description: "Page size that was applied",
+              example: 20,
+            },
+            total: {
+              type: "integer",
+              description:
+                "Total entries matching the filters (not just this page)",
+            },
+            totalPages: {
+              type: "integer",
+              description: "0 when nothing matches",
             },
           },
         },

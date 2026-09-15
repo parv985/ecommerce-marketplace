@@ -57,6 +57,10 @@ export interface IOrder {
   status: OrderStatus;
   /* Set when the order transitions to DELIVERED (return window anchor). */
   deliveredAt?: Date | null;
+  /* Set when a return is approved and the order becomes RETURNED. */
+  returnedAt?: Date | null;
+  /* Return request that closed this order, when it went through a return. */
+  returnRequestId?: Types.ObjectId | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -253,6 +257,17 @@ const orderSchema = new Schema<IOrder>(
 
     deliveredAt: {
       type: Date,
+      default: null,
+    },
+
+    returnedAt: {
+      type: Date,
+      default: null,
+    },
+
+    returnRequestId: {
+      type: Schema.Types.ObjectId,
+      ref: "ReturnRequest",
       default: null,
     },
   },

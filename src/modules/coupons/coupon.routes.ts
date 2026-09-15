@@ -64,13 +64,13 @@ const router = Router();
  *     tags:
  *       - Coupons
  *     summary: List my coupons
- *     description: Returns the coupons owned by the authenticated seller with optional status filter and pagination.
+ *     description: Returns the coupons owned by the authenticated seller with optional status filter and pagination. The `status` of every coupon is derived from the current date and the remaining usage limit, so expired or fully-used coupons are automatically reported (and filtered) as INACTIVE.
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - name: status
  *         in: query
- *         description: Filter by coupon status
+ *         description: Filter by derived coupon status (ACTIVE = not expired and usage limit not reached)
  *         schema:
  *           type: string
  *           enum: [ACTIVE, INACTIVE]

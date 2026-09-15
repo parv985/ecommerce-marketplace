@@ -1,3 +1,4 @@
+import path from "node:path";
 import bcrypt from "bcryptjs";
 
 import {
@@ -36,7 +37,7 @@ import {
 import type { ISeller } from "../../models/Seller.js";
 
 import { AppError } from "../../errors/AppError.js";
-import { deleteByPublicId, uploadBuffer } from "../../services/cloudinary.service.js";
+import { destroyByPublicId, uploadBuffer } from "../../services/cloudinary.service.js";
 
 
 export const registerSeller = async (
@@ -339,7 +340,8 @@ export const uploadSellerDocument = async (
     buffer: Buffer,
     originalName: string,
     documentType: string,
-): Promise<{ type: string; url: string; publicId: string }> => {
+    fileSize?: number,
+): Promise<{ type: string; url: string; publicId: string; fileName?: string; size?: number }> => {
     const seller = await findSellerByUserId(userId);
 
     if (!seller) {
@@ -359,7 +361,13 @@ export const uploadSellerDocument = async (
      */
     let result;
     try {
-        const filename = `doc_${seller._id}_${documentType}_${Date.now()}`;
+        /*
+         * Keep the original extension on "raw" uploads: Cloudinary serves raw
+         * assets verbatim, so without it the delivery URL has no extension
+         * and browsers cannot preview PDFs / images inline.
+         */
+        const ext = path.extname(originalName).toLowerCase().replace(/[^a-z0-9.]/g, "");
+        const filename = `doc_${seller._id}_${documentType}_${Date.now()}${ext}`;
         result = await uploadBuffer(
             buffer,
             "seller-documents",
@@ -383,6 +391,8 @@ export const uploadSellerDocument = async (
         type: documentType,
         url: result.url,
         publicId: result.publicId,
+        fileName: originalName,
+        ...(typeof fileSize === "number" ? { size: fileSize } : {}),
     };
 
     const updatedDocs = [...(seller.documents ?? []), newDocument];
@@ -428,9 +438,25 @@ export const deleteSellerDocument = async (
         );
     }
 
-    // Delete from Cloudinary (best-effort)
-    // Documents are stored as "raw" resource type
-    await deleteByPublicId(documentPublicId, "raw");
+    /*
+     * Delete from Cloudinary first (documents are stored as "raw").
+     * If Cloudinary fails we abort WITHOUT touching the DB so the reference
+     * is not orphaned and the seller can retry. A "not found" result means the
+     * asset is already gone, so we still clean up the stale DB reference.
+     */
+    try {
+        await destroyByPublicId(documentPublicId, "raw");
+    } catch (deleteError: unknown) {
+        const message =
+            deleteError instanceof Error
+                ? deleteError.message
+                : "Cloudinary delete failed";
+        throw new AppError(
+            `Document deletion failed: ${message}`,
+            502,
+            "CLOUDINARY_DELETE_FAILED",
+        );
+    }
 
     // Remove from array
     const updatedDocs = [...seller.documents];

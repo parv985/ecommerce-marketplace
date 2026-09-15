@@ -22,13 +22,14 @@ export function useRestrictedAction() {
   return useCallback((): boolean => {
     const { isAuthenticated, user, accountInactive } = useAuthStore.getState()
 
-    if (accountInactive || user?.isActive === false) {
+    // Authenticated user with an inactive account
+    if (accountInactive || (isAuthenticated && user?.isActive === false)) {
       toast.error('Your account is inactive')
       return false
     }
 
+    // Unauthenticated user — redirect to login without showing inactive account toast
     if (!isAuthenticated) {
-      toast.error('Your account is inactive')
       navigate('/login', { state: { from: location } })
       return false
     }

@@ -98,13 +98,13 @@ export function AccountPage() {
             ) : (
               <div className="space-y-3">
                 {addresses.map(addr => (
-                  <div key={addr.id} className="border rounded p-3 flex justify-between">
-                    <div>
-                      <span className="font-medium text-sm">{addr.label}</span>
-                      <p className="text-sm text-[var(--muted)]">{addr.recipientName} — {addr.addressLine1}, {addr.city}, {addr.state} {addr.pincode}</p>
+                  <div key={addr.id} className="border rounded p-3 flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <span className="font-medium text-sm block">{addr.label}</span>
+                      <p className="text-sm text-[var(--muted)] break-words">{addr.recipientName} — {addr.addressLine1}, {addr.city}, {addr.state} {addr.pincode}</p>
                     </div>
-                    <button onClick={() => deleteAddress.mutate(addr.id)} className="text-[var(--muted)] hover:text-[var(--destructive)]">
-                      <Trash2 size={14} />
+                    <button onClick={() => deleteAddress.mutate(addr.id)} className="text-[var(--muted)] hover:text-[var(--destructive)] shrink-0 p-1" aria-label="Delete address">
+                      <Trash2 size={16} />
                     </button>
                   </div>
                 ))}

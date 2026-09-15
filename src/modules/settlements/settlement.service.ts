@@ -10,12 +10,16 @@ import {
 } from "../../constants/notificationTypes.js";
 import { calculateCommission, getCommissionRate } from "./commission.service.js";
 import {
+  cancelEmptySettlement,
   createSettlement,
   findEligibleOrdersForPeriod,
   findSettlementById,
   findSettlementBySellerAndPeriod,
+  findSettlementForOrder,
   listSettlements,
   markReminderSent,
+  normalizeSettlementTotals,
+  reverseSettlementOrder,
   updateSettlementStatusById,
 } from "./settlement.repository.js";
 import {
@@ -449,6 +453,101 @@ export const remindSettlement = async (
   });
 
   return toSettlementResponse(updated!);
+};
+
+/*
+ * ---------------------------------------------------------------------
+ * Return rollbacks (platform commission / seller earnings)
+ * ---------------------------------------------------------------------
+ */
+
+export interface SettlementReversal {
+  /* False when no settlement had booked this order yet. */
+  reversed: boolean;
+  settlementId: string | null;
+  periodKey: string | null;
+  /* Seller revenue taken back out of the settlement. */
+  salesReversed: number;
+  /* Platform commission given back (no longer earned). */
+  commissionReversed: number;
+  /* Seller payable removed from the settlement. */
+  sellerPayableReversed: number;
+  settlementStatus: SettlementStatus | null;
+  /*
+   * True when the money had already gone out to the seller: the
+   * ledger is still corrected, and the reversed payable is what the
+   * platform claws back at the next settlement.
+   */
+  alreadyPaidOut: boolean;
+}
+
+const EMPTY_REVERSAL: SettlementReversal = {
+  reversed: false,
+  settlementId: null,
+  periodKey: null,
+  salesReversed: 0,
+  commissionReversed: 0,
+  sellerPayableReversed: 0,
+  settlementStatus: null,
+  alreadyPaidOut: false,
+};
+
+/*
+ * Reverses a returned order out of the settlement that booked it, so
+ * seller earnings and platform commission only ever cover sales that
+ * actually stuck.
+ *
+ * The snapshot amounts stored on the settlement are the ones reversed
+ * (never a recalculation from today's commission rate), and the pull
+ * is guarded on the order still being present, which makes a replayed
+ * reversal a no-op.
+ */
+export const reverseSettlementForOrder = async (
+  order: { _id: { toString(): string }; sellerId: { toString(): string } },
+): Promise<SettlementReversal> => {
+  const found = await findSettlementForOrder(
+    order.sellerId.toString(),
+    order._id.toString(),
+  );
+
+  if (!found) {
+    return EMPTY_REVERSAL;
+  }
+
+  const { settlement, entry } = found;
+  const settlementId = settlement._id.toString();
+
+  const reversed = await reverseSettlementOrder(
+    settlementId,
+    order._id.toString(),
+    entry,
+  );
+
+  /*
+   * Already reversed by a concurrent/resumed approval - report
+   * nothing so the caller does not double-count the adjustment.
+   */
+  if (!reversed) {
+    return EMPTY_REVERSAL;
+  }
+
+  await normalizeSettlementTotals(settlementId);
+
+  const updated =
+    (await cancelEmptySettlement(settlementId)) ??
+    (await findSettlementById(settlementId));
+
+  return {
+    reversed: true,
+    settlementId,
+    periodKey: settlement.periodKey,
+    salesReversed: entry.total,
+    commissionReversed: entry.commissionAmount,
+    sellerPayableReversed: entry.sellerPayable,
+    settlementStatus: updated?.status ?? null,
+    alreadyPaidOut:
+      settlement.status === SettlementStatus.PAID,
+  };
 };
 
 /*

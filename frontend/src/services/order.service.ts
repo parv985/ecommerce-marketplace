@@ -2,7 +2,7 @@ import api from './api'
 import type { ApiResponse, PaginatedResponse, Order, Invoice, CheckoutPreview } from '@/types/api'
 
 export const orderService = {
-  create: (data: { shippingAddressId: string; paymentMethod: 'COD' | 'ONLINE'; couponCode?: string }) =>
+  create: (data: { shippingAddressId: string; paymentMethod: 'CASH_ON_DELIVERY' | 'ONLINE'; couponCode?: string }) =>
     api.post<ApiResponse<Order[]>>('/orders', data).then(r => r.data),
 
   /**

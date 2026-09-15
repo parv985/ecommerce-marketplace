@@ -9,18 +9,16 @@ import { toast } from 'react-hot-toast'
 
 interface ProductCardProps {
   product: Product
+  priority?: boolean
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, priority = false }: ProductCardProps) {
   const [imageError, setImageError] = useState(false)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const accountInactive = useAuthStore((s) => s.accountInactive)
   const isActive = useAuthStore((s) => s.user?.isActive !== false)
   const { isWishlisted, toggle, isToggling } = useWishlist()
   const liked = isWishlisted(product.id)
-  // Wishlist is a buyer-specific action — hide it for signed-out and
-  // inactive users (the backend rejects it too).
-  const canUseWishlist = isAuthenticated && isActive && !accountInactive
 
   /*
    * Live seller sales discount (product or category) wins the display:
@@ -39,11 +37,16 @@ export function ProductCard({ product }: ProductCardProps) {
   return (
     <div className="group border border-[var(--border)] rounded-[var(--radius-lg)] overflow-hidden bg-white transition-all duration-200 hover:border-neutral-300 hover:shadow-[var(--shadow-md)] flex flex-col justify-between">
       <div>
-        <Link to={`/products/${product.id}`} className="block relative aspect-square bg-[#f6f5f2] overflow-hidden border-b border-[var(--border-subtle)]">
+        <Link
+          to={`/products/${product.id}`}
+          className="block relative aspect-square bg-[#f6f5f2] overflow-hidden border-b border-[var(--border-subtle)]"
+        >
           {product.images?.[0]?.url && !imageError ? (
             <img
               src={product.images[0].url}
               alt={product.name}
+              loading={priority ? 'eager' : 'lazy'}
+              decoding="async"
               className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
               onError={() => setImageError(true)}
             />
@@ -93,19 +96,29 @@ export function ProductCard({ product }: ProductCardProps) {
           )}
         </div>
       </div>
-      {canUseWishlist && product.stock > 0 && (
+      {product.stock > 0 && (
         <div className="px-3.5 pb-3 pt-0">
           <button
+            type="button"
             onClick={(e) => {
               e.preventDefault()
+              if (!isAuthenticated) {
+                toast.error('Sign in to add products to wishlist')
+                return
+              }
+              if (accountInactive || !isActive) {
+                toast.error('Your account is inactive')
+                return
+              }
               if (isToggling) return
               toggle.mutate(product.id, {
                 onSuccess: (result) => {
-                  toast(result === 'added' ? 'Added to wishlist' : 'Removed from wishlist')
+                  if (result === 'added') toast('Added to wishlist')
+                  else if (result === 'removed') toast('Removed from wishlist')
                 },
               })
             }}
-            className="text-xs text-[var(--muted)] hover:text-[var(--primary)] transition-colors flex items-center gap-1.5 font-medium"
+            className="text-xs text-[var(--muted)] hover:text-[var(--primary)] transition-colors flex items-center gap-1.5 font-medium cursor-pointer"
             style={{ color: liked ? 'var(--primary)' : undefined }}
           >
             <Heart size={13} className={liked ? 'fill-current' : ''} />

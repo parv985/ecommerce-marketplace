@@ -35,8 +35,40 @@ export const findProductByIdAndSeller = async (
 
 export const findProductsBySeller = async (
   sellerId: string,
+  search?: string,
 ): Promise<IProduct[]> => {
-  return Product.find({ sellerId })
+  /*
+   * Ownership is enforced by the sellerId filter itself — results can
+   * never contain another seller's products. The optional search term
+   * matches product name/description (case-insensitive, regex escaped).
+   */
+  const filter: Record<string, unknown> = {
+    sellerId,
+  };
+
+  if (search) {
+    const escaped = search.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      "\\$&",
+    );
+
+    filter.$or = [
+      {
+        name: {
+          $regex: escaped,
+          $options: "i",
+        },
+      },
+      {
+        description: {
+          $regex: escaped,
+          $options: "i",
+        },
+      },
+    ];
+  }
+
+  return Product.find(filter)
     .sort({ createdAt: -1 })
     .exec();
 };

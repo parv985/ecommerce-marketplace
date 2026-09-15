@@ -526,6 +526,167 @@ describe("Coupons", () => {
     expect(second.status).toBe(201);
   });
 
+  it("rejects an expired coupon as expired, never as invalid", async () => {
+    const seller = await createApprovedSeller();
+    const buyer = await registerBuyer();
+
+    const product = await createProduct(
+      seller.token,
+      { price: 500, stock: 5, status: "ACTIVE" },
+    );
+    const productId = product.body.data.id;
+
+    // Valid when created (endAt is after startAt) but already over.
+    await createCoupon(seller.token, {
+      code: "EXPIRED1",
+      startAt: inPast(10),
+      endAt: inPast(1),
+    });
+
+    const checkout = await addToCartAndCheckout(
+      buyer,
+      productId,
+      "EXPIRED1",
+    );
+
+    expect(checkout.status).toBe(400);
+    expect(checkout.body.code).toBe("COUPON_EXPIRED");
+    expect(checkout.body.message).toBe(
+      "Coupon code expired",
+    );
+  });
+
+  it("derives the seller status: an expired coupon is INACTIVE", async () => {
+    const seller = await createApprovedSeller();
+
+    const created = await createCoupon(seller.token, {
+      code: "EXPIRED2",
+      startAt: inPast(10),
+      endAt: inPast(1),
+    });
+
+    // Stored status stays ACTIVE (the manual switch), the API
+    // reports the derived one.
+    expect(created.status).toBe(201);
+    expect(created.body.data.status).toBe("INACTIVE");
+
+    const one = await api
+      .get(`/api/v1/coupons/${created.body.data.id}`)
+      .set("Authorization", `Bearer ${seller.token}`);
+    expect(one.status).toBe(200);
+    expect(one.body.data.status).toBe("INACTIVE");
+
+    const all = await api
+      .get("/api/v1/coupons")
+      .set("Authorization", `Bearer ${seller.token}`);
+    expect(all.body.data.items[0].status).toBe("INACTIVE");
+
+    // The status filter follows the derived status too.
+    const inactive = await api
+      .get("/api/v1/coupons?status=INACTIVE")
+      .set("Authorization", `Bearer ${seller.token}`);
+    expect(
+      inactive.body.data.items.map(
+        (coupon: { code: string }) => coupon.code,
+      ),
+    ).toContain("EXPIRED2");
+
+    const active = await api
+      .get("/api/v1/coupons?status=ACTIVE")
+      .set("Authorization", `Bearer ${seller.token}`);
+    expect(active.body.data.items).toHaveLength(0);
+  });
+
+  it("marks a fully-used coupon INACTIVE even before it expires", async () => {
+    const seller = await createApprovedSeller();
+    const buyerA = await registerBuyer();
+    const buyerB = await registerBuyer();
+
+    const product = await createProduct(
+      seller.token,
+      { price: 500, stock: 20, status: "ACTIVE" },
+    );
+    const productId = product.body.data.id;
+
+    const created = await createCoupon(seller.token, {
+      code: "USEDUP",
+      value: 10,
+      usageLimit: 1,
+      perUserLimit: 10,
+    });
+    const couponId = created.body.data.id;
+
+    const first = await addToCartAndCheckout(
+      buyerA,
+      productId,
+      "USEDUP",
+    );
+    expect(first.status).toBe(201);
+
+    const one = await api
+      .get(`/api/v1/coupons/${couponId}`)
+      .set("Authorization", `Bearer ${seller.token}`);
+
+    // Still inside the date window, but out of uses.
+    expect(
+      new Date(one.body.data.endAt).getTime(),
+    ).toBeGreaterThan(Date.now());
+    expect(one.body.data.status).toBe("INACTIVE");
+
+    const second = await addToCartAndCheckout(
+      buyerB,
+      productId,
+      "USEDUP",
+    );
+    expect(second.status).toBe(400);
+    expect(second.body.code).toBe(
+      "COUPON_USAGE_LIMIT_REACHED",
+    );
+    expect(second.body.message).toBe(
+      "Coupon code expired",
+    );
+
+    /*
+     * Cancelling releases the slot again, so the derived status must
+     * flip back to ACTIVE without any manual seller action.
+     */
+    await api
+      .post(`/api/v1/orders/${first.body.data[0].id}/cancel`)
+      .set("Authorization", `Bearer ${buyerA}`);
+
+    const afterRelease = await api
+      .get(`/api/v1/coupons/${couponId}`)
+      .set("Authorization", `Bearer ${seller.token}`);
+    expect(afterRelease.body.data.status).toBe("ACTIVE");
+  });
+
+  it("reports a coupon that has not started yet as inactive", async () => {
+    const seller = await createApprovedSeller();
+    const buyer = await registerBuyer();
+
+    const product = await createProduct(
+      seller.token,
+      { price: 500, stock: 5, status: "ACTIVE" },
+    );
+    const productId = product.body.data.id;
+
+    const created = await createCoupon(seller.token, {
+      code: "SOON",
+      startAt: inFuture(1),
+      endAt: inFuture(10),
+    });
+
+    expect(created.body.data.status).toBe("INACTIVE");
+
+    const checkout = await addToCartAndCheckout(
+      buyer,
+      productId,
+      "SOON",
+    );
+    expect(checkout.status).toBe(400);
+    expect(checkout.body.code).toBe("COUPON_INACTIVE");
+  });
+
   it("scopes coupons to a category restriction", async () => {
     const admin = await adminLogin();
     const category = await api

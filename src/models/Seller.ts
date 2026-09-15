@@ -39,6 +39,8 @@
       type: string;
       url: string;
       publicId: string;
+      fileName?: string;
+      size?: number;
     }[];
 
     status: SellerStatus;
@@ -155,6 +157,17 @@
             type: String,
             required: true,
             trim: true,
+          },
+
+          // Optional display metadata (older records may not have these)
+          fileName: {
+            type: String,
+            trim: true,
+          },
+
+          size: {
+            type: Number,
+            min: 0,
           },
         },
       ],

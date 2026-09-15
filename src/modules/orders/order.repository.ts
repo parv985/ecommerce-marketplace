@@ -2,6 +2,7 @@ import {
   Order,
   type IOrder,
 } from "../../models/Order.js";
+import { OrderStatus } from "../../constants/orderStatus.js";
 import { Seller } from "../../models/Seller.js";
 
 export const createOrders = async (
@@ -74,7 +75,14 @@ export const updateOrderStatusById = async (
   id: string,
   status: string,
   deliveredAt?: Date | null,
+  paymentStatus?: string,
 ): Promise<IOrder | null> => {
+  /*
+   * Every supplied field is applied in one atomic `$set`, so the
+   * delivery-status change and the COD payment-status flip happen in a
+   * single update — the database can never hold DELIVERED + PENDING
+   * for a cash-on-delivery order.
+   */
   return Order.findByIdAndUpdate(
     id,
     {
@@ -82,6 +90,9 @@ export const updateOrderStatusById = async (
         status,
         ...(deliveredAt !== undefined && {
           deliveredAt,
+        }),
+        ...(paymentStatus !== undefined && {
+          paymentStatus,
         }),
       },
     },
@@ -120,6 +131,34 @@ export const resetOrderCoupon = async (
     {
       new: true,
     },
+  ).exec();
+};
+
+/*
+ * Closes an order through the return flow: status RETURNED, payment
+ * REFUNDED and the audit anchors (when / which return request).
+ * Guarded on the current status so a replayed approval can never
+ * overwrite an order that was cancelled in the meantime.
+ */
+export const markOrderReturned = async (
+  id: string,
+  returnRequestId: string,
+  paymentStatus: string,
+): Promise<IOrder | null> => {
+  return Order.findOneAndUpdate(
+    {
+      _id: id,
+      status: { $ne: OrderStatus.RETURNED },
+    },
+    {
+      $set: {
+        status: OrderStatus.RETURNED,
+        paymentStatus,
+        returnedAt: new Date(),
+        returnRequestId,
+      },
+    },
+    { new: true },
   ).exec();
 };
 

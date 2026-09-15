@@ -11,6 +11,7 @@ export default defineConfig({
     },
   },
   server: {
+    host: '0.0.0.0',
     port: 3000,
     // Allow preview/proxy hosts (e.g. sandbox previews) in addition to
     // localhost so the dev server is reachable when hosted remotely.

@@ -187,9 +187,26 @@ export const listProductsQuerySchema = z
   })
   .strict();
 
+/*
+ * Query schema for the seller-scoped "my products" listing. The seller
+ * identity always comes from the authenticated user on the backend —
+ * only the optional free-text search term is accepted from the client.
+ */
+export const listMyProductsQuerySchema = z
+  .object({
+    search: z
+      .string()
+      .trim()
+      .max(100)
+      .optional(),
+  })
+  .strict();
+
 export type CreateProductInput =
   z.infer<typeof createProductSchema>;
 export type UpdateProductInput =
   z.infer<typeof updateProductSchema>;
 export type ListProductsQuery =
   z.infer<typeof listProductsQuerySchema>;
+export type ListMyProductsQuery =
+  z.infer<typeof listMyProductsQuerySchema>;

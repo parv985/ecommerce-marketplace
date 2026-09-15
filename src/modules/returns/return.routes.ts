@@ -175,7 +175,20 @@ router.get(
  *     tags:
  *       - Returns
  *     summary: Update a return request status
- *     description: Advances a return through PENDING -> APPROVED -> COMPLETED or rejects it (a reason is required for rejection). Only the order's seller or an admin can update. Completing a return restores the committed stock.
+ *     description: |
+ *       Advances a return through PENDING -> APPROVED -> COMPLETED or rejects it (a reason is required for rejection). Only the order's seller or an admin can update.
+ *
+ *       **Approving a return processes the refund and every rollback atomically:**
+ *       - the eligible amount (`order.total`, i.e. net of discounts and coupons) is refunded to the buyer - through the payment gateway for online orders, or recorded as an offline COD refund on the return;
+ *       - the order becomes `RETURNED` and its payment status `REFUNDED`;
+ *       - the returned units are credited back to the seller's inventory (with inventory transactions);
+ *       - any coupon usage is released and the coupon's usage counter is decremented;
+ *       - the order is reversed out of the seller's settlement, giving back the platform commission and the seller payable;
+ *       - the refund, the order timeline and the audit log are written in the same transaction.
+ *
+ *       The call is idempotent: approving twice (or retrying after a partial failure) never issues a second refund. COMPLETED only records that the goods are back with the seller - it never restores stock a second time.
+ *
+ *       On success the buyer receives the notification "Your return has been approved and your refund has been processed successfully."
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -202,7 +215,10 @@ router.get(
  *                 description: Required when rejecting
  *     responses:
  *       200:
- *         description: Return request updated
+ *         description: |
+ *           Return request updated. On APPROVED the response carries the
+ *           `refund` block (amount, status, method, gateway refund id,
+ *           timestamps) plus `approvedAt` and `stockRestoredAt`.
  *         content:
  *           application/json:
  *             schema:
@@ -215,13 +231,17 @@ router.get(
  *                 data:
  *                   $ref: "#/components/schemas/ReturnRequest"
  *       400:
- *         description: Invalid transition or missing rejection reason
+ *         description: Invalid transition, missing rejection reason, or the payment could not be refunded
  *       401:
  *         description: Not authenticated
  *       403:
  *         description: Not your order's return request
  *       404:
  *         description: Return request not found
+ *       409:
+ *         description: The order was cancelled, or another approval of the same return is already in progress
+ *       502:
+ *         description: The payment gateway rejected the refund (the return is left PENDING so it can be retried)
  *
  * /api/v1/returns/{id}/cancel:
  *   post:

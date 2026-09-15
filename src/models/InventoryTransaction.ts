@@ -8,6 +8,8 @@ export enum InventoryTransactionType {
   STOCK_DECREMENT = "STOCK_DECREMENT",
   STOCK_INCREMENT = "STOCK_INCREMENT",
   ORDER_CANCELLED = "ORDER_CANCELLED",
+  /* Stock credited back when a seller approves a buyer's return. */
+  RETURN_RESTOCK = "RETURN_RESTOCK",
   MANUAL_ADJUSTMENT = "MANUAL_ADJUSTMENT",
   INITIAL_STOCK = "INITIAL_STOCK",
 }

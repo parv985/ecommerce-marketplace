@@ -7,9 +7,11 @@ import { AppError } from "../../errors/AppError.js";
 import { OrderStatus } from "../../constants/orderStatus.js";
 import { SellerStatus } from "../../constants/sellerStatus.js";
 import { ReturnStatus } from "../../constants/returnStatus.js";
+import { RefundMethod } from "../../constants/payment.js";
 import {
   NotificationChannel,
   NotificationType,
+  RETURN_APPROVED_REFUND_MESSAGE,
 } from "../../constants/notificationTypes.js";
 import { sendNotificationEmail } from "../../services/email.service.js";
 import { logAudit } from "../../services/audit.service.js";
@@ -355,6 +357,130 @@ export const notifyReturnStatusChange = async (
   } catch (error) {
     console.error(
       "[NOTIFICATION] Return notification failed:",
+      error,
+    );
+  }
+};
+
+/*
+ * ---------------------------------------------------------------------
+ * Return approval + refund notifications
+ * ---------------------------------------------------------------------
+ */
+
+const formatMoney = (amount: number): string =>
+  `₹${amount}`;
+
+/*
+ * Buyer-facing confirmation that the return was approved AND the money
+ * is on its way back - one notification covering both facts, sent only
+ * after the refund and every rollback committed.
+ */
+export const notifyReturnApprovedWithRefund = async (
+  input: {
+    returnRequest: IReturnRequest;
+    order: IOrder;
+    refund: {
+      amount: number;
+      method: RefundMethod;
+    };
+  },
+): Promise<void> => {
+  const { returnRequest, order, refund } = input;
+
+  const title =
+    refund.amount > 0
+      ? `Return approved: ${formatMoney(refund.amount)} refund processed`
+      : "Return approved";
+
+  /*
+   * An order that was never paid has nothing to send back; saying a
+   * refund was processed would be a lie, so the copy adapts.
+   */
+  const message =
+    refund.method === RefundMethod.NONE
+      ? `Your return for order ${order.orderNumber} has been approved. No payment was captured for this order, so there is nothing to refund.`
+      : RETURN_APPROVED_REFUND_MESSAGE;
+
+  try {
+    await notifyUser({
+      recipientId: returnRequest.userId.toString(),
+      type: NotificationType.RETURN_STATUS,
+      title,
+      message,
+      entityType: "RETURN",
+      entityId: returnRequest._id.toString(),
+      channel: NotificationChannel.BOTH,
+      emailCategory: "payment",
+    });
+  } catch (error) {
+    console.error(
+      "[NOTIFICATION] Return refund notification failed:",
+      error,
+    );
+  }
+};
+
+/*
+ * Seller-facing summary of what the approval changed on their side:
+ * the refund, the stock credited back and the earnings/commission
+ * taken out of their settlement.
+ */
+export const notifySellerReturnRefund = async (
+  input: {
+    returnRequest: IReturnRequest;
+    order: IOrder;
+    refund: { amount: number; method: RefundMethod };
+    restockedUnits: number;
+    reversal?: {
+      reversed: boolean;
+      periodKey: string | null;
+      sellerPayableReversed: number;
+      commissionReversed: number;
+      alreadyPaidOut: boolean;
+    };
+  },
+): Promise<void> => {
+  const {
+    returnRequest,
+    order,
+    refund,
+    restockedUnits,
+    reversal,
+  } = input;
+
+  const parts = [
+    `Return for order ${order.orderNumber} was approved and ${formatMoney(refund.amount)} was refunded to the buyer.`,
+  ];
+
+  if (restockedUnits > 0) {
+    parts.push(
+      `${restockedUnits} unit(s) were added back to your inventory.`,
+    );
+  }
+
+  if (reversal?.reversed) {
+    parts.push(
+      reversal.alreadyPaidOut
+        ? `Settlement ${reversal.periodKey} was adjusted: ${formatMoney(reversal.sellerPayableReversed)} payable and ${formatMoney(reversal.commissionReversed)} commission reversed. As that settlement was already paid, the payable is recovered from your next settlement.`
+        : `Settlement ${reversal.periodKey} was adjusted: ${formatMoney(reversal.sellerPayableReversed)} payable and ${formatMoney(reversal.commissionReversed)} commission reversed.`,
+    );
+  }
+
+  try {
+    await notifyUser({
+      recipientId: returnRequest.sellerId.toString(),
+      type: NotificationType.RETURN_STATUS,
+      title: "Return approved and refunded",
+      message: parts.join(" "),
+      entityType: "RETURN",
+      entityId: returnRequest._id.toString(),
+      channel: NotificationChannel.IN_APP,
+      emailCategory: "payment",
+    });
+  } catch (error) {
+    console.error(
+      "[NOTIFICATION] Seller return notification failed:",
       error,
     );
   }

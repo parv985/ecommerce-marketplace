@@ -12,8 +12,12 @@ import {
 import type { ICoupon } from "../src/models/Coupon.js";
 import {
   computeCouponDiscount,
+  isCouponExpired,
   isCouponLive,
+  isCouponUsageLimitReached,
+  resolveCouponStatus,
 } from "../src/modules/coupons/coupon.service.js";
+import { buildCouponStatusFilter } from "../src/modules/coupons/coupon.repository.js";
 
 const HOUR = 3600 * 1000;
 const DAY = 24 * HOUR;
@@ -44,6 +48,51 @@ const makeCoupon = (
     ...overrides,
   };
 };
+
+describe("coupon status filter", () => {
+  /*
+   * The list filter must mirror `resolveCouponStatus` exactly, so these
+   * assertions are a regression guard: changing one without the other
+   * breaks the seller panel's status filter.
+   */
+  const now = new Date();
+
+  it("matches the derived rule for ACTIVE", () => {
+    expect(
+      buildCouponStatusFilter(CouponStatus.ACTIVE, now),
+    ).toEqual({
+      status: CouponStatus.ACTIVE,
+      startAt: { $lte: now },
+      endAt: { $gte: now },
+      $or: [
+        { usageLimit: null },
+        {
+          $expr: {
+            $lt: ["$usageCount", "$usageLimit"],
+          },
+        },
+      ],
+    });
+  });
+
+  it("is the exact complement for INACTIVE", () => {
+    expect(
+      buildCouponStatusFilter(CouponStatus.INACTIVE, now),
+    ).toEqual({
+      $or: [
+        { status: CouponStatus.INACTIVE },
+        { startAt: { $gt: now } },
+        { endAt: { $lt: now } },
+        {
+          usageLimit: { $ne: null },
+          $expr: {
+            $gte: ["$usageCount", "$usageLimit"],
+          },
+        },
+      ],
+    });
+  });
+});
 
 describe("coupon calculation", () => {
   it("applies a percentage coupon to the post-sales-discount value", () => {
@@ -155,5 +204,93 @@ describe("coupon liveness", () => {
     });
 
     expect(isCouponLive(coupon, now)).toBe(false);
+  });
+});
+
+describe("coupon derived status", () => {
+  const now = new Date();
+
+  it("is ACTIVE inside its window with uses left", () => {
+    expect(
+      resolveCouponStatus(makeCoupon(), now),
+    ).toBe(CouponStatus.ACTIVE);
+  });
+
+  it("is INACTIVE once the end date has passed", () => {
+    expect(
+      isCouponExpired(
+        makeCoupon({
+          endAt: new Date(Date.now() - DAY),
+        }),
+        now,
+      ),
+    ).toBe(true);
+
+    expect(
+      resolveCouponStatus(
+        makeCoupon({
+          endAt: new Date(Date.now() - DAY),
+        }),
+        now,
+      ),
+    ).toBe(CouponStatus.INACTIVE);
+  });
+
+  it("is INACTIVE when the usage limit has been reached", () => {
+    expect(
+      isCouponUsageLimitReached(
+        makeCoupon({ usageLimit: 5, usageCount: 5 }),
+      ),
+    ).toBe(true);
+
+    expect(
+      resolveCouponStatus(
+        makeCoupon({ usageLimit: 5, usageCount: 5 }),
+        now,
+      ),
+    ).toBe(CouponStatus.INACTIVE);
+
+    // One slot left -> still ACTIVE.
+    expect(
+      resolveCouponStatus(
+        makeCoupon({ usageLimit: 5, usageCount: 4 }),
+        now,
+      ),
+    ).toBe(CouponStatus.ACTIVE);
+
+    // Unlimited coupons never hit a limit.
+    expect(
+      resolveCouponStatus(
+        makeCoupon({ usageLimit: null, usageCount: 999 }),
+        now,
+      ),
+    ).toBe(CouponStatus.ACTIVE);
+  });
+
+  it("is INACTIVE before the start date or when deactivated", () => {
+    expect(
+      resolveCouponStatus(
+        makeCoupon({
+          startAt: new Date(Date.now() + DAY),
+        }),
+        now,
+      ),
+    ).toBe(CouponStatus.INACTIVE);
+
+    expect(
+      resolveCouponStatus(
+        makeCoupon({ status: CouponStatus.INACTIVE }),
+        now,
+      ),
+    ).toBe(CouponStatus.INACTIVE);
+  });
+
+  it("keeps isCouponLive aligned with the derived status", () => {
+    expect(
+      isCouponLive(
+        makeCoupon({ usageLimit: 1, usageCount: 1 }),
+        now,
+      ),
+    ).toBe(false);
   });
 });

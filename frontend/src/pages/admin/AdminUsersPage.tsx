@@ -51,37 +51,39 @@ export function AdminUsersPage() {
         ))}
       </div>
       <div className="border rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-zinc-50 border-b">
-            <tr>
-              <th className="text-left p-3 font-medium">User</th>
-              <th className="text-left p-3 font-medium">Role</th>
-              <th className="text-left p-3 font-medium">Status</th>
-              <th className="text-left p-3 font-medium">Joined</th>
-              <th className="p-3 font-medium">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data?.items?.map(u => (
-              <tr key={u.id} className="border-b">
-                <td className="p-3"><p className="font-medium">{u.name}</p><p className="text-xs text-[var(--muted)]">{u.email}</p></td>
-                <td className="p-3"><Badge variant={u.role === 'SUPER_ADMIN' ? 'error' : u.role === 'SELLER' ? 'secondary' : 'default'}>{u.role}</Badge></td>
-                <td className="p-3"><Badge variant={u.isActive ? 'success' : 'error'}>{u.isActive ? 'Active' : 'Inactive'}</Badge></td>
-                <td className="p-3 text-[var(--muted)]">{formatDate(u.createdAt)}</td>
-                <td className="p-3 text-center">
-                  <Button
-                    size="sm"
-                    variant={u.isActive ? 'destructive' : 'outline'}
-                    disabled={toggleStatus.isPending}
-                    onClick={() => changeStatus(u.id, !u.isActive)}
-                  >
-                    {u.isActive ? 'Deactivate' : 'Activate'}
-                  </Button>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[600px]">
+            <thead className="bg-zinc-50 border-b">
+              <tr>
+                <th className="text-left p-3 font-medium">User</th>
+                <th className="text-left p-3 font-medium">Role</th>
+                <th className="text-left p-3 font-medium">Status</th>
+                <th className="text-left p-3 font-medium">Joined</th>
+                <th className="p-3 font-medium text-center">Action</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {data?.items?.map(u => (
+                <tr key={u.id} className="border-b">
+                  <td className="p-3"><p className="font-medium">{u.name}</p><p className="text-xs text-[var(--muted)]">{u.email}</p></td>
+                  <td className="p-3"><Badge variant={u.role === 'SUPER_ADMIN' ? 'error' : u.role === 'SELLER' ? 'secondary' : 'default'}>{u.role}</Badge></td>
+                  <td className="p-3"><Badge variant={u.isActive ? 'success' : 'error'}>{u.isActive ? 'Active' : 'Inactive'}</Badge></td>
+                  <td className="p-3 text-[var(--muted)]">{formatDate(u.createdAt)}</td>
+                  <td className="p-3 text-center">
+                    <Button
+                      size="sm"
+                      variant={u.isActive ? 'destructive' : 'outline'}
+                      disabled={toggleStatus.isPending}
+                      onClick={() => changeStatus(u.id, !u.isActive)}
+                    >
+                      {u.isActive ? 'Deactivate' : 'Activate'}
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         {data && <div className="p-4"><Pagination currentPage={page} totalPages={data.totalPages} onPageChange={setPage} /></div>}
       </div>
     </div>

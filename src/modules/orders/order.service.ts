@@ -37,6 +37,7 @@ import {
   roundMoney,
 } from "../discounts/discount.pricing.js";
 import {
+  assertCouponNotExpiredOrExhausted,
   evaluateCouponForOrder,
   recordCouponUsage,
   releaseCouponSlotOnly,
@@ -93,6 +94,12 @@ const TRANSITIONS: Record<
   ],
   [OrderStatus.DELIVERED]: [],
   [OrderStatus.CANCELLED]: [],
+  /*
+   * RETURNED is terminal and unreachable through this endpoint: only
+   * the return flow (approve a return) may close an order this way,
+   * because that is what issues the refund and the rollbacks.
+   */
+  [OrderStatus.RETURNED]: [],
 };
 
 const canManageOrder = (
@@ -213,6 +220,8 @@ const toOrderResponse = async (
       ? order.paymentId.toString()
       : null,
     status: order.status,
+    deliveredAt: order.deliveredAt ?? null,
+    returnedAt: order.returnedAt ?? null,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
   };
@@ -431,8 +440,22 @@ const buildCheckoutPlan = async (
     const coupon =
       await findCouponByCode(couponCode);
 
+    if (!coupon) {
+      throw new AppError(
+        "Coupon is not valid for the items in your cart",
+        400,
+        "COUPON_NOT_APPLICABLE",
+      );
+    }
+
+    /*
+     * An expired or fully-used coupon reports its real state BEFORE
+     * the applicability check, so the buyer always gets
+     * "Coupon code expired" instead of a generic error.
+     */
+    assertCouponNotExpiredOrExhausted(coupon);
+
     if (
-      !coupon ||
       !bySeller.has(
         coupon.sellerId.toString(),
       )
@@ -969,11 +992,28 @@ export const updateOrderStatus = async (
     await releaseCouponUsage(orderId);
   }
 
+  /*
+   * Cash-on-delivery orders are settled in cash at the doorstep: the
+   * moment the order is marked DELIVERED the payment has been
+   * collected, so the same atomic update flips the payment status to
+   * PAID. The database can never hold DELIVERED + PENDING for a COD
+   * order. Online (Razorpay) payments are untouched — they settle
+   * through the payment gateway verification flow.
+   */
+  const codPaidOnDelivery =
+    data.status === OrderStatus.DELIVERED &&
+    order.paymentMethod ===
+      PaymentMethod.CASH_ON_DELIVERY &&
+    order.paymentStatus !== PaymentStatus.PAID;
+
   const updated = await updateOrderStatusById(
     orderId,
     data.status,
     data.status === OrderStatus.DELIVERED
       ? new Date()
+      : undefined,
+    codPaidOnDelivery
+      ? PaymentStatus.PAID
       : undefined,
   );
 
@@ -999,13 +1039,22 @@ export const updateOrderStatus = async (
     entityType: "ORDER",
     entityId: orderId,
     before: { status: order.status },
-    after: { status: updated.status },
+    after: {
+      status: updated.status,
+      ...(codPaidOnDelivery && {
+        paymentStatus: updated.paymentStatus,
+      }),
+    },
   });
 
   await notifyOrderStatusChange(
     updated,
     updated.status,
   );
+
+  if (codPaidOnDelivery) {
+    await notifyPaymentReceived(updated);
+  }
 
   return toOrderResponse(updated);
 };

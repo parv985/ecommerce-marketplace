@@ -105,10 +105,23 @@ export interface SellerProfile {
   updatedAt?: string
 }
 
+/**
+ * Canonical seller document types used by the frontend. The backend stores
+ * whatever string is sent, and older records may use the short aliases
+ * `GST` / `PAN` — see `normalizeDocumentType` in `@/lib/sellerDocuments`.
+ */
+export type SellerDocumentType = 'GST_CERTIFICATE' | 'PAN_CARD' | 'BANK_STATEMENT' | 'OTHER'
+
 export interface SellerDocument {
-  type: string
+  /** Document type — canonical `SellerDocumentType` or a legacy alias (`GST`, `PAN`). */
+  type: SellerDocumentType | string
   url: string
+  /** Cloudinary public_id (e.g. `seller-documents/doc_..`) — used for deletion. */
   publicId: string
+  /** Original file name (present on newer uploads). */
+  fileName?: string
+  /** File size in bytes (present on newer uploads). */
+  size?: number
 }
 
 // Products
@@ -210,9 +223,16 @@ export interface Cart {
 }
 
 // Orders
-export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED'
-export type PaymentStatus = 'UNPAID' | 'PAID' | 'REFUNDED'
-export type PaymentMethod = 'COD' | 'ONLINE';
+export type OrderStatus =
+  | 'PENDING'
+  | 'CONFIRMED'
+  | 'SHIPPED'
+  | 'DELIVERED'
+  | 'CANCELLED'
+  /** Terminal: a return was approved, refunded and rolled back. */
+  | 'RETURNED'
+export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED'
+export type PaymentMethod = 'CASH_ON_DELIVERY' | 'ONLINE';
 
 // Mirrors the backend `OrderItemResponse` (src/modules/orders/order.types.ts):
 // `subtotal` = price * quantity, `discountAmount` = sale discount for the line.
@@ -258,6 +278,10 @@ export interface Order {
   paymentStatus: PaymentStatus
   paymentId: string | null
   status: OrderStatus
+  /** Delivery timestamp - anchor of the 7-day return window. */
+  deliveredAt: string | null
+  /** Set when a return was approved and the refund processed. */
+  returnedAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -389,37 +413,92 @@ export interface Coupon {
 }
 
 // Reviews
+// Mirrors the backend `ReviewResponse` (src/modules/reviews/review.types.ts)
 export interface Review {
   id: string
-  user: UserSummary | string
-  product: string
+  userId: string
+  userName: string
+  userAvatar?: string | null
+  productId: string
   rating: number
-  comment?: string
+  comment?: string | null
   createdAt: string
   updatedAt: string
+  /** Legacy aliases for backwards compatibility */
+  user?: UserSummary | string
+  product?: string
 }
 
 export interface ProductReviews {
-  reviews: Review[]
+  productId: string
   averageRating: number
-  totalReviews: number
+  reviewCount: number
+  items: Review[]
   page: number
+  limit: number
+  total: number
   totalPages: number
+  /** Legacy aliases for backwards compatibility */
+  reviews?: Review[]
+  totalReviews?: number
 }
 
 // Returns
+// Mirrors the backend `ReturnResponse` (src/modules/returns/return.types.ts)
+// and `ReturnStatus` (src/constants/returnStatus.ts).
+// Lifecycle: PENDING → APPROVED → COMPLETED | PENDING → REJECTED | PENDING → CANCELLED
 export type ReturnStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'COMPLETED'
+
+/** Buyers may request a return within this many days of delivery (backend constant). */
+export const RETURN_WINDOW_DAYS = 7
+
+export type RefundStatus = 'PENDING' | 'PROCESSED' | 'FAILED'
+/** GATEWAY = reversed through the payment provider, OFFLINE = COD refund settled by the seller. */
+export type RefundMethod = 'GATEWAY' | 'OFFLINE' | 'NONE'
+
+// Mirrors the backend `ReturnRefundResponse`: the money side of an approved return.
+export interface ReturnRefund {
+  /** Amount sent back to the buyer (paid order total, net of discounts/coupons). */
+  amount: number
+  status: RefundStatus
+  method: RefundMethod
+  gatewayRefundId: string | null
+  paymentId: string | null
+  reason: string | null
+  requestedAt: string | null
+  completedAt: string | null
+}
 
 export interface ReturnRequest {
   id: string
-  order: Order | string
-  buyer: UserSummary | string
-  seller: SellerProfile | string
+  orderId: string
+  userId: string
+  sellerId: string
   reason: string
   status: ReturnStatus
-  rejectionReason?: string
+  /** Present when a seller/admin rejects the return. */
+  statusReason: string | null
+  /** Set when the seller/admin approved the return. */
+  approvedAt: string | null
+  decidedBy: string | null
+  decidedRole: string | null
+  /** Set once the returned stock was credited back to the seller. */
+  stockRestoredAt: string | null
+  /** Present from approval onwards: the refund issued to the buyer. */
+  refund: ReturnRefund | null
   createdAt: string
   updatedAt: string
+}
+
+export interface CreateReturnInput {
+  orderId: string
+  reason: string
+}
+
+export interface UpdateReturnStatusInput {
+  status: 'APPROVED' | 'REJECTED' | 'COMPLETED'
+  /** Required by the API when status is REJECTED. */
+  reason?: string
 }
 
 // Notifications
@@ -526,6 +605,48 @@ export interface RevenueData {
 export interface AdminUser extends UserSummary {
   isActive: boolean
   createdAt: string
+}
+
+// Mirrors the backend `AdminAuditLogResponse` (src/modules/admin/admin.types.ts)
+// returned by GET /admin/audit-logs. `before`/`after`/`metadata` are free-form
+// JSON whose shape depends on the action that wrote the entry.
+// `actorName`/`actorEmail` are resolved server-side from the Users collection
+// (null for system actors such as "system"/"webhook" and deleted users).
+export interface AuditLog {
+  id: string
+  actorId: string
+  actorName: string | null
+  actorEmail: string | null
+  actorRole: string
+  action: string
+  entityType: string
+  entityId: string | null
+  before: unknown
+  after: unknown
+  metadata: unknown
+  createdAt: string
+}
+
+// Query parameters accepted by GET /admin/audit-logs
+// (src/modules/admin/admin.schema.ts — listAuditLogsQuerySchema).
+export type AuditLogSortField = 'createdAt' | 'action' | 'entityType' | 'actorRole' | 'actorId'
+
+export interface AuditLogQuery {
+  actorId?: string
+  actorRole?: string
+  action?: string
+  entityType?: string
+  entityId?: string
+  /** Case-insensitive server-side search across actorId, action and entityId. */
+  search?: string
+  /** Inclusive lower bound on createdAt (YYYY-MM-DD or ISO timestamp). */
+  fromDate?: string
+  /** Inclusive upper bound on createdAt (a bare date covers the whole UTC day). */
+  toDate?: string
+  sortBy?: AuditLogSortField
+  sortOrder?: 'asc' | 'desc'
+  page?: number
+  limit?: number
 }
 
 // Mirrors the backend `SettlementResponse` / `SettlementOrderResponse`

@@ -6,8 +6,10 @@ import {
 import {
   PaymentGateway,
   PaymentRecordStatus,
+  RefundMethod,
   RefundStatus,
 } from "../../constants/payment.js";
+import type { ReturnRefundPlan } from "../returns/return.pricing.js";
 import { AppError } from "../../errors/AppError.js";
 import type { IOrder } from "../../models/Order.js";
 import type { IPayment } from "../../models/Payment.js";
@@ -570,4 +572,173 @@ export const refundPaidOrderInternal = async (
   });
 
   return toPaymentResponse(updated!);
+};
+
+/*
+ * ---------------------------------------------------------------------
+ * Return refunds
+ * ---------------------------------------------------------------------
+ */
+
+export interface ReturnRefundOutcome {
+  /* Money actually sent back to the buyer. */
+  amount: number;
+  status: RefundStatus;
+  method: RefundMethod;
+  gatewayRefundId: string | null;
+  paymentId: string | null;
+  reason: string;
+  completedAt: Date | null;
+}
+
+/*
+ * Issues the refund for an approved return.
+ *
+ * Unlike `refundPaidOrderInternal` (online + gateway only) this covers
+ * every way an order can have been paid, because an approved return
+ * must always leave the buyer whole:
+ *  - ONLINE + PAID  -> reversed through the gateway and recorded on the
+ *    Payment record exactly like any other refund.
+ *  - COD + PAID     -> the money never went through a gateway, so the
+ *    refund is recorded as OFFLINE and settled back by the seller; the
+ *    return document is the ledger entry.
+ *  - never captured -> nothing to move (amount 0), still recorded.
+ *
+ * Idempotent: an already-refunded payment returns the existing refund
+ * instead of creating a second gateway refund, which is what makes a
+ * retried approval safe.
+ *
+ * Deliberately runs OUTSIDE the database transaction that follows it:
+ * the gateway call cannot be rolled back and `withTransaction` may
+ * replay its callback, which would otherwise risk a second refund.
+ */
+export const refundOrderForReturn = async (
+  order: IOrder,
+  plan: ReturnRefundPlan,
+): Promise<ReturnRefundOutcome> => {
+  const completedAt = new Date();
+
+  if (plan.method === RefundMethod.NONE) {
+    return {
+      amount: 0,
+      status: RefundStatus.PROCESSED,
+      method: RefundMethod.NONE,
+      gatewayRefundId: null,
+      paymentId: null,
+      reason: plan.reason,
+      completedAt,
+    };
+  }
+
+  if (plan.method === RefundMethod.OFFLINE) {
+    return {
+      amount: plan.amount,
+      status: RefundStatus.PROCESSED,
+      method: RefundMethod.OFFLINE,
+      gatewayRefundId: null,
+      paymentId: null,
+      reason: plan.reason,
+      completedAt,
+    };
+  }
+
+  const payment = await findPaymentByOrderId(
+    order._id.toString(),
+  );
+
+  if (!payment) {
+    throw new AppError(
+      "No payment was initiated for this order",
+      400,
+      "PAYMENT_NOT_INITIATED",
+    );
+  }
+
+  /*
+   * Already refunded (a previous, partially applied approval, or a
+   * manual refund) - report that refund instead of issuing another.
+   */
+  if (
+    payment.status === PaymentRecordStatus.REFUNDED
+  ) {
+    return {
+      amount: payment.refund?.amount ?? payment.amount,
+      status: RefundStatus.PROCESSED,
+      method: RefundMethod.GATEWAY,
+      gatewayRefundId:
+        payment.refund?.gatewayRefundId ?? null,
+      paymentId: payment._id.toString(),
+      reason:
+        payment.refund?.reason ??
+        "Full refund for approved return",
+      completedAt:
+        payment.refund?.completedAt ?? completedAt,
+    };
+  }
+
+  if (payment.status !== PaymentRecordStatus.PAID) {
+    throw new AppError(
+      "Only paid orders can be refunded",
+      400,
+      "INVALID_PAYMENT_STATE",
+    );
+  }
+
+  /*
+   * A gateway refund already exists but the record was never
+   * finalised (a previous attempt died between the gateway call and
+   * the write). Report that refund instead of creating a second one -
+   * this is what makes a retried approval unable to double-refund.
+   */
+  if (payment.refund?.gatewayRefundId) {
+    return {
+      amount: payment.refund.amount ?? plan.amount,
+      status: payment.refund.status ?? RefundStatus.PENDING,
+      method: RefundMethod.GATEWAY,
+      gatewayRefundId: payment.refund.gatewayRefundId,
+      paymentId: payment._id.toString(),
+      reason: payment.refund.reason ?? plan.reason,
+      completedAt: payment.refund.completedAt ?? null,
+    };
+  }
+
+  const refund = await createGatewayRefund({
+    paymentId:
+      payment.gatewayPaymentId ??
+      payment.gatewayOrderId,
+    amount: plan.amount,
+    notes: {
+      orderId: order._id.toString(),
+      reason: "Return approved",
+    },
+  });
+
+  await markPaymentRefunded(payment._id.toString(), {
+    gatewayRefundId: refund.id,
+    amount: plan.amount,
+    status: refund.status,
+    reason: plan.reason,
+    requestedAt: completedAt,
+    completedAt:
+      refund.status === RefundStatus.PROCESSED
+        ? completedAt
+        : null,
+  });
+
+  return {
+    amount: plan.amount,
+    /*
+     * Razorpay completes refunds asynchronously; the refund.processed
+     * webhook finalises the record. The money is committed either way.
+     */
+    status: refund.status,
+    method: RefundMethod.GATEWAY,
+    gatewayRefundId: refund.id,
+    paymentId: payment._id.toString(),
+    reason: plan.reason,
+    completedAt:
+      refund.status === RefundStatus.PROCESSED
+        ? completedAt
+        : null,
+  };
 };

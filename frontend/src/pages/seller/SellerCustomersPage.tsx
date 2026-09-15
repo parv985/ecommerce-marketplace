@@ -11,8 +11,8 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import type { CustomerInfo, Order } from '@/types/api'
 import { Search } from 'lucide-react'
 
-const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error' | 'secondary'> = {
-  PENDING: 'warning', CONFIRMED: 'secondary', SHIPPED: 'secondary', DELIVERED: 'success', CANCELLED: 'error',
+const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error' | 'secondary' | 'brand'> = {
+  PENDING: 'warning', CONFIRMED: 'secondary', SHIPPED: 'secondary', DELIVERED: 'success', CANCELLED: 'error', RETURNED: 'brand',
 }
 
 /**
@@ -130,39 +130,41 @@ export function SellerCustomersPage() {
           className="w-full pl-9 pr-4 py-2 border rounded-md text-sm" />
       </div>
       <div className="border rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-zinc-50 border-b">
-            <tr>
-              <th className="text-left p-3 font-medium">Customer</th>
-              <th className="text-left p-3 font-medium">Orders</th>
-              <th className="text-left p-3 font-medium">Spent</th>
-              <th className="text-left p-3 font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr><td colSpan={4} className="p-3"><Skeleton className="h-10 w-full" /></td></tr>
-            ) : !data?.items?.length ? (
-              <tr><td colSpan={4} className="p-6 text-center text-[var(--muted)]">No customers yet. Buyers who order from you will appear here.</td></tr>
-            ) : (
-              data.items.map((c) => (
-                <tr key={c.customerId} className="border-b last:border-0">
-                  <td className="p-3">
-                    <p className="font-medium">{c.name}</p>
-                    <p className="text-xs text-[var(--muted)]">{c.email}</p>
-                  </td>
-                  <td className="p-3">{c.orderCount}</td>
-                  <td className="p-3 font-medium">{formatPrice(c.totalSpent)}</td>
-                  <td className="p-3">
-                    <Button size="sm" variant="outline" onClick={() => setSelected(c)}>
-                      View
-                    </Button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[500px]">
+            <thead className="bg-zinc-50 border-b">
+              <tr>
+                <th className="text-left p-3 font-medium">Customer</th>
+                <th className="text-left p-3 font-medium">Orders</th>
+                <th className="text-left p-3 font-medium">Spent</th>
+                <th className="text-left p-3 font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr><td colSpan={4} className="p-3"><Skeleton className="h-10 w-full" /></td></tr>
+              ) : !data?.items?.length ? (
+                <tr><td colSpan={4} className="p-6 text-center text-[var(--muted)]">No customers yet. Buyers who order from you will appear here.</td></tr>
+              ) : (
+                data.items.map((c) => (
+                  <tr key={c.customerId} className="border-b last:border-0">
+                    <td className="p-3">
+                      <p className="font-medium">{c.name}</p>
+                      <p className="text-xs text-[var(--muted)]">{c.email}</p>
+                    </td>
+                    <td className="p-3">{c.orderCount}</td>
+                    <td className="p-3 font-medium">{formatPrice(c.totalSpent)}</td>
+                    <td className="p-3">
+                      <Button size="sm" variant="outline" onClick={() => setSelected(c)}>
+                        View
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
         {data && data.totalPages > 1 && <div className="p-4"><Pagination currentPage={page} totalPages={data.totalPages} onPageChange={setPage} /></div>}
       </div>
 
