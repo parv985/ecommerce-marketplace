@@ -1,5 +1,20 @@
-import "dotenv/config";
+import { config } from "dotenv";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
+
+/*
+ * Resolve the backend's .env from this module's location instead of relying
+ * on process.cwd(). dotenv/config only checks the current working directory,
+ * which means starting the backend from another directory can leave every
+ * file-based variable undefined. config() is synchronous, so envSchema.parse
+ * below always runs after the file has been loaded.
+ */
+const envFilePath = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../.env",
+);
+config({ path: envFilePath, quiet: true });
 
 const envSchema = z.object({
   NODE_ENV: z
@@ -18,16 +33,12 @@ const envSchema = z.object({
     .string()
     .min(32, "JWT_ACCESS_SECRET must be at least 32 characters"),
 
-  JWT_ACCESS_EXPIRES_IN: z
-    .string()
-    .default("15m"),
+  JWT_ACCESS_EXPIRES_IN: z.string().default("15m"),
   JWT_REFRESH_SECRET: z
     .string()
     .min(32, "JWT_REFRESH_SECRET must be at least 32 characters"),
 
-  JWT_REFRESH_EXPIRES_IN: z
-    .string()
-    .default("7d"),
+  JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
 
   /*
    * Razorpay. When the key id/secret are unset the payment gateway
@@ -50,7 +61,7 @@ const envSchema = z.object({
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().optional(),
 
-  /* Redis (optional) */  
+  /* Redis (optional) */
   REDIS_URL: z.string().optional(),
 });
 export const env = envSchema.parse(process.env);

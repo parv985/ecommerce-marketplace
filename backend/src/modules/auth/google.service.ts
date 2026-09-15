@@ -12,18 +12,30 @@ const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 const googleRedirectUri = process.env.GOOGLE_REDIRECT_URI;
 
-if (!googleClientId || !googleClientSecret || !googleRedirectUri) {
-  throw new Error(
-    "Google OAuth is not configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI in .env " +
-      "(and make sure GOOGLE_REDIRECT_URI matches an Authorized redirect URI in the Google Cloud console).",
-  );
-}
+/*
+ * Google OAuth is an optional integration, like SMTP, Redis and Razorpay
+ * (which also stay inert when unconfigured). Do not crash the whole server
+ * at import time when the credentials are absent: build the client lazily
+ * and reject only when a Google sign-in endpoint is actually called.
+ */
+let googleClient: InstanceType<typeof google.auth.OAuth2> | null = null;
 
-const googleClient = new google.auth.OAuth2(
-  googleClientId,
-  googleClientSecret,
-  googleRedirectUri,
-);
+const getGoogleClient = (): InstanceType<typeof google.auth.OAuth2> => {
+  if (!googleClientId || !googleClientSecret || !googleRedirectUri) {
+    throw new AppError(
+      "Google OAuth is not configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI in .env " +
+        "(and make sure GOOGLE_REDIRECT_URI matches an Authorized redirect URI in the Google Cloud console).",
+      503,
+      "GOOGLE_OAUTH_NOT_CONFIGURED",
+    );
+  }
+  googleClient ??= new google.auth.OAuth2(
+    googleClientId,
+    googleClientSecret,
+    googleRedirectUri,
+  );
+  return googleClient;
+};
 
 export const loginWithGoogle = async (idToken: string) => {
   if (!idToken) {
@@ -32,17 +44,13 @@ export const loginWithGoogle = async (idToken: string) => {
 
   let payload;
   try {
-    const ticket = await googleClient.verifyIdToken({
+    const ticket = await getGoogleClient().verifyIdToken({
       idToken,
       ...(googleClientId ? { audience: googleClientId } : {}),
     });
     payload = ticket.getPayload();
   } catch (error) {
-    throw new AppError(
-      "Invalid Google ID token",
-      401,
-      "INVALID_GOOGLE_TOKEN",
-    );
+    throw new AppError("Invalid Google ID token", 401, "INVALID_GOOGLE_TOKEN");
   }
 
   if (!payload || !payload.email) {
@@ -104,9 +112,7 @@ export const loginWithGoogle = async (idToken: string) => {
     tokenId,
   });
 
-  const refreshTokenExpiresAt = new Date(
-    Date.now() + 7 * 24 * 60 * 60 * 1000,
-  );
+  const refreshTokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
   await createRefreshToken({
     userId: user._id.toString(),
@@ -136,7 +142,7 @@ export const handleGoogleCallback = async (code: string) => {
 
   let tokens;
   try {
-    const { tokens: googleTokens } = await googleClient.getToken(code);
+    const { tokens: googleTokens } = await getGoogleClient().getToken(code);
     tokens = googleTokens;
   } catch (error) {
     throw new AppError(
@@ -162,7 +168,7 @@ export const getGoogleAuthUrl = (): string => {
     "https://www.googleapis.com/auth/userinfo.email",
     "https://www.googleapis.com/auth/userinfo.profile",
   ];
-  return googleClient.generateAuthUrl({
+  return getGoogleClient().generateAuthUrl({
     access_type: "offline",
     scope: scopes,
     prompt: "consent",
@@ -170,4 +176,3 @@ export const getGoogleAuthUrl = (): string => {
 };
 
 export const getGoogleAuthorizationUrl = getGoogleAuthUrl;
-
