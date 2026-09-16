@@ -26,7 +26,7 @@ const envSchema = z.object({
   MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
 
   // Comma-separated list is allowed (production + preview origins).
-  CORS_ORIGIN: z.string().min(1).default("http://localhost:3000"),
+  CORS_ORIGIN: z.string().min(1).default("https://ecommerce-marketplace-coqps6dxb-parvkaneriya47-9168s-projects.vercel.app, http://localhost:5173"),
 
   CLIENT_URL: z.string().min(1).default("http://localhost:3000"),
 
