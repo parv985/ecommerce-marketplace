@@ -747,7 +747,7 @@ See dedicated sections: [§17 Audit Logging](#17-audit-logging) and [§16 Notifi
 | Refresh token | JWT (`type: "refresh"`, with `tokenId`) | **7 days** (`JWT_REFRESH_EXPIRES_IN`) | **httpOnly** cookie scoped to `/api/v1/auth`; only its **SHA-256 hash** is stored in the `RefreshToken` collection |
 | 2FA-pending token | JWT (`type: "2fa_pending"`) | minutes | returned in login response for 2FA users |
 | Password-reset token | random, **hashed** at rest | short | `PasswordResetToken` collection |
-| TOTP secret | 20-byte base32 | until disabled | DB, **AES-256-GCM encrypted** (key derived from `JWT_ACCESS_SECRET`), `select: false` |
+| TOTP secret | 20-byte base32 | until disabled | DB, **AES-256-GCM encrypted** (versioned `v1:iv:tag:ciphertext` payload; key from `TOTP_ENCRYPTION_KEY` when set, else derived from `JWT_ACCESS_SECRET`, and decryption tries both), `select: false` |
 | 2FA recovery codes | 8 single-use codes | until used/regenerated | DB, **hashed** (raw values shown exactly once) |
 
 **Refresh rotation:** `POST /auth/refresh` is **single-use** — it invalidates the presented refresh token and issues a new one (and new cookie). Reusing a rotated token is rejected. `POST /auth/logout` revokes the token and clears the cookie. JWT secrets are validated ≥ 32 chars by the env schema.
@@ -765,6 +765,7 @@ See dedicated sections: [§17 Audit Logging](#17-audit-logging) and [§16 Notifi
 - Google-Authenticator-compatible TOTP (custom implementation in `utils/totp.ts`, no extra dependency).
 - **Mandatory** for SELLER and SUPER_ADMIN on all protected routes via `requireTwoFactorSetup` (skipped only in test mode) — a seller/admin without 2FA can log in but gets `403 TWO_FACTOR_REQUIRED` on API calls; the frontend converts that into a redirect to `/seller/2fa-setup`.
 - Secret encrypted at rest; recovery codes hashed + single-use (atomic `$pull` with modifiedCount check).
+- A stored secret whose key material is gone answers `409 TWO_FACTOR_SECRET_UNREADABLE` (not a 500) and is repaired by re-enrolling; `npx tsx tests/reset-twofa.ts` diagnoses/migrates stored secrets — see backend/README.md → "2FA says the stored secret can't be decrypted".
 
 ### 8.4 Transport & hardening
 

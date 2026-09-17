@@ -37,7 +37,7 @@ A production-oriented REST API for a multi-vendor e-commerce marketplace, built 
    cp .env.example .env
    ```
 
-   Fill in at minimum `MONGODB_URI`, `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` (32+ characters — generate with `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`). Google OAuth variables are only needed if you use Google sign-in; the redirect URI must match the "Authorized redirect URIs" in the Google Cloud console. Cloudinary variables (`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`) are required for file uploads (product images, avatars, documents).
+   Fill in at minimum `MONGODB_URI`, `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` (32+ characters — generate with `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`). Also recommended: `TOTP_ENCRYPTION_KEY` (32+ characters), so rotating the JWT secrets can never invalidate stored 2FA secrets — see [2FA troubleshooting](#2fa-says-the-stored-secret-cant-be-decrypted-two_factor_secret_unreadable). Google OAuth variables are only needed if you use Google sign-in; the redirect URI must match the "Authorized redirect URIs" in the Google Cloud console. Cloudinary variables (`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`) are required for file uploads (product images, avatars, documents).
 
 3. Start the development server:
 
@@ -104,6 +104,7 @@ http://localhost:5000/api/v1/auth/google/callback        # local
 | `CLIENT_URL` | `https://<frontend-host>` (no trailing slash) — where the callback redirects after sign-in |
 | `CORS_ORIGIN` | `https://<frontend-host>` (comma-separate extra origins) |
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | ≥ 32 chars, distinct |
+| `TOTP_ENCRYPTION_KEY` | optional, ≥ 32 chars — protects stored TOTP secrets independently of JWT rotation (recommended) |
 
 **3. Frontend environment**: `VITE_API_URL=https://<backend-service>.onrender.com/api/v1`.
 
@@ -159,7 +160,7 @@ Repeats are safe: an already-refunded return returns its current state, `COMPLET
 
 ## Security Notes
 
-- Passwords hashed with bcryptjs (12 salt rounds); refresh tokens, reset tokens and recovery codes are stored hashed; TOTP secrets are encrypted at rest (AES-256-GCM keyed from `JWT_ACCESS_SECRET`).
+- Passwords hashed with bcryptjs (12 salt rounds); refresh tokens, reset tokens and recovery codes are stored hashed; TOTP secrets are encrypted at rest (AES-256-GCM, versioned `v1:iv:tag:ciphertext` payload, key from `TOTP_ENCRYPTION_KEY` when set, otherwise derived from `JWT_ACCESS_SECRET`).
 - `passwordHash`, token hashes, TOTP secrets and recovery codes are excluded from API responses (`select: false` + explicit response mappers).
 - Rate limiting: baseline 300 req/15min per IP, strict 20 req/15min on `/api/v1/auth` (login, register, password reset).
 - Payment status is never trusted from the client — signatures are re-derived server-side; webhooks verify `x-razorpay-signature` over the raw body and are idempotent under duplicate delivery.
@@ -167,6 +168,22 @@ Repeats are safe: an already-refunded return returns its current state, `COMPLET
 - Errors use a centralized `AppError` + error middleware; validation failures and 500s never leak internals.
 
 Reliability decisions (Redis/queues/locking/idempotency) are documented in `docs/architecture.md`.
+
+### 2FA says "the stored secret can't be decrypted" (`TWO_FACTOR_SECRET_UNREADABLE`)
+
+`POST /api/v1/auth/2fa/verify` decrypts the stored TOTP secret before checking the 6-digit code. If that ciphertext was written with different key material, its GCM authentication tag no longer checks out and decryption fails. The cause is **always the key, never the code**: `JWT_ACCESS_SECRET` was rotated after the secret was stored, or the row was written by another environment (a deployment sharing the same database with different secrets, a stale dev process started before `.env` changed, etc.). Before this was handled explicitly it surfaced as an unhandled `500 Something went wrong` with `Unsupported state or unable to authenticate data` in the terminal.
+
+Such ciphertext cannot be recovered, so the account has to re-enroll. `TOTP_ENCRYPTION_KEY` prevents it from ever happening again — set it once and rotating JWT secrets no longer touches 2FA secrets (existing rows keep working: decryption tries both keys).
+
+Diagnose and repair from `backend/` (targets whatever `MONGODB_URI` in `.env` points at):
+
+```bash
+npx tsx tests/reset-twofa.ts --check                  # which accounts are affected (emails + safe metadata only)
+npx tsx tests/reset-twofa.ts seller@example.com --yes # clear 2FA for that ONE account
+npx tsx tests/reset-twofa.ts --reencrypt --yes        # migrate readable rows to the currently configured key
+```
+
+Then the seller signs in (a saved recovery code also signs them in), runs `POST /auth/2fa/setup` again, scans the new QR code / enters the new secret, and confirms with `POST /auth/2fa/enable`. Neither the API nor the maintenance script ever prints a TOTP secret or key material — only emails, statuses, payload lengths and variable names.
 
 ## Testing
 

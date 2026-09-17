@@ -82,6 +82,13 @@ export function LoginPage() {
     window.location.href = googleSignInUrl(from)
   }
 
+  /*
+   * Distinct key: this view replaces the login view in the same tree, and
+   * React would otherwise reuse the login form's DOM node for the
+   * verification-code input, flipping it from uncontrolled (register) to
+   * controlled (value={twoFactorCode}) and logging
+   * "A component is changing an uncontrolled input to be controlled".
+   */
   if (show2FA) {
     return (
       <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center px-4">
@@ -91,7 +98,7 @@ export function LoginPage() {
             <p className="text-sm text-[var(--muted)]">Enter the 6-digit code from your authenticator app or a recovery code.</p>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleTwoFactor} className="space-y-4">
+            <form key="two-factor-form" onSubmit={handleTwoFactor} className="space-y-4">
               <Input
                 label="Verification Code"
                 placeholder="123456 or ABCD-EFGH-IJKL-NPQR"
@@ -122,7 +129,7 @@ export function LoginPage() {
               Your account is inactive. Please contact support for assistance.
             </div>
           )}
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form key="login-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <Input
               label="Email"
               type="email"

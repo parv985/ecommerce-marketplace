@@ -49,9 +49,13 @@ import {
 import {
     encryptSecret,
     decryptSecret,
+    describeSecretPayload,
+    describeEncryptionKeys,
+    SecretCipherError,
 } from "../../utils/secretCipher.js";
 import type { UserDocument } from "../../models/User.js";
 import { twoFactorCodeSchema } from "./auth.schema.js";
+import { logger } from "../../config/logger.js";
 
 
 const SALT_ROUNDS = 12;
@@ -370,6 +374,82 @@ export const resetPassword = async (
  */
 
 /*
+ * Decrypts the TOTP secret stored on a user.
+ *
+ * A payload that no longer authenticates is an account-state problem,
+ * not a server bug: it means the row was encrypted with different key
+ * material (typically JWT_ACCESS_SECRET was rotated, or the row was
+ * written by another environment sharing the database). Reporting it as
+ * an actionable 409 lets the UI tell the seller to re-enroll instead of
+ * showing the generic "Something went wrong" of a 500.
+ *
+ * Only non-sensitive metadata reaches the logs: the payload format
+ * lengths, the reason and the *name* of the configured key variable.
+ */
+const readTwoFactorSecret = (
+  user: UserDocument,
+): string => {
+  const payload = user.twoFactorSecretEncrypted;
+
+  if (!payload) {
+    throw new AppError(
+      "Two-factor authentication is not set up for this account",
+      400,
+      "TWO_FACTOR_NOT_ENABLED",
+    );
+  }
+
+  try {
+    return decryptSecret(payload);
+  } catch (error) {
+    if (!(error instanceof SecretCipherError)) {
+      throw error;
+    }
+
+    const payloadMeta = describeSecretPayload(payload);
+
+    logger.error(
+      [
+        "Stored two-factor secret could not be decrypted",
+        `userId=${user._id.toString()}`,
+        `reason=${error.reason}`,
+        `keys=${describeEncryptionKeys()}`,
+        `payloadVersion=${payloadMeta?.version ?? "legacy"}`,
+        `ivBytes=${payloadMeta?.ivBytes ?? "unknown"}`,
+        `authTagBytes=${payloadMeta?.authTagBytes ?? "unknown"}`,
+        `ciphertextBytes=${payloadMeta?.ciphertextBytes ?? "unknown"}`,
+      ].join(" "),
+    );
+
+    throw new AppError(
+      "Two-factor authentication needs to be set up again for this account: the stored secret can't be decrypted with the current encryption key. Sign in with a recovery code, or ask an administrator to reset 2FA, then enroll the authenticator app again.",
+      409,
+      "TWO_FACTOR_SECRET_UNREADABLE",
+    );
+  }
+};
+
+/*
+ * TOTP verification that never throws. A malformed stored secret must
+ * fail the verification, not crash the request with a 500.
+ */
+const isTotpCodeValid = (
+  secret: string,
+  code: string,
+): boolean => {
+  try {
+    return verifyTotpCode(secret, code);
+  } catch (error) {
+    logger.error(
+      "Stored two-factor secret is malformed and cannot be verified",
+      error,
+    );
+
+    return false;
+  }
+};
+
+/*
  * Completes a two-step login. Verifies the login token (proves the
  * password step) and then the TOTP code OR a recovery code. Recovery
  * codes are single-use and consumed atomically.
@@ -423,11 +503,9 @@ export const verifyTwoFactorLogin = async (
     return issueSession(user);
   }
 
-  const secret = decryptSecret(
-    user.twoFactorSecretEncrypted,
-  );
+  const secret = readTwoFactorSecret(user);
 
-  if (!verifyTotpCode(secret, input.code)) {
+  if (!isTotpCodeValid(secret, input.code)) {
     throw new AppError(
       "Invalid verification code",
       401,
@@ -534,11 +612,9 @@ export const enableTwoFactor = async (
     );
   }
 
-  const secret = decryptSecret(
-    user.twoFactorSecretEncrypted,
-  );
+  const secret = readTwoFactorSecret(user);
 
-  if (!verifyTotpCode(secret, data.code)) {
+  if (!isTotpCodeValid(secret, data.code)) {
     throw new AppError(
       "Invalid verification code",
       400,
@@ -593,10 +669,8 @@ export const disableTwoFactor = async (
   const secretValid =
     !viaRecovery &&
     user.twoFactorSecretEncrypted
-      ? verifyTotpCode(
-          decryptSecret(
-            user.twoFactorSecretEncrypted,
-          ),
+      ? isTotpCodeValid(
+          readTwoFactorSecret(user),
           data.code,
         )
       : false;
@@ -658,10 +732,8 @@ export const regenerateRecoveryCodes = async (
   }
 
   if (
-    !verifyTotpCode(
-      decryptSecret(
-        user.twoFactorSecretEncrypted,
-      ),
+    !isTotpCodeValid(
+      readTwoFactorSecret(user),
       data.code,
     )
   ) {

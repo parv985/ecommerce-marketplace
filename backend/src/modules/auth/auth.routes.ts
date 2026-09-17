@@ -430,6 +430,8 @@ router.get(
    *         description: Validation error or 2FA not enabled
    *       401:
    *         description: Invalid login token or verification code
+   *       409:
+   *         description: The stored 2FA secret can no longer be decrypted (the encryption key changed); the account must reset and re-enroll 2FA. Code `TWO_FACTOR_SECRET_UNREADABLE`.
    */
 router.post(
   "/2fa/verify",
