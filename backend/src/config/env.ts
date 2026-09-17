@@ -42,6 +42,40 @@ const envSchema = z.object({
   JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
 
   /*
+   * Dedicated key material for encrypting TOTP secrets at rest (see
+   * src/utils/secretCipher.ts). Optional: when it is unset the legacy
+   * derivation sha256(JWT_ACCESS_SECRET) is used, which is what every
+   * stored secret predates. Set it to decouple 2FA secrets from JWT
+   * rotation; secrets stored with the legacy key stay readable either
+   * way (decryption tries both), so enabling it is a zero-downtime,
+   * zero-lockout change. Generate with:
+   *   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+   */
+  TOTP_ENCRYPTION_KEY: z
+    .string()
+    .optional()
+    .transform((value) =>
+      value && value.trim().length > 0
+        ? value
+        : undefined,
+    )
+    .pipe(
+      /*
+       * An empty value in .env means "not configured", exactly like the
+       * other optional variables; anything else must be a real key, so a
+       * half-filled .env fails at boot instead of silently protecting
+       * secrets with a weak key.
+       */
+      z
+        .string()
+        .min(
+          32,
+          "TOTP_ENCRYPTION_KEY must be at least 32 characters",
+        )
+        .optional(),
+    ),
+
+  /*
    * Google OAuth 2.0. Optional at the schema level so the API still
    * boots (and email/password auth keeps working) when Google sign-in
    * is not configured - the auth routes answer with a clear

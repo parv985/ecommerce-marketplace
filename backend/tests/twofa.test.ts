@@ -7,6 +7,8 @@ import {
   it,
 } from "vitest";
 
+import crypto from "node:crypto";
+
 import {
   api,
   clearDb,
@@ -16,10 +18,45 @@ import {
   login,
   registerUser,
 } from "./helpers.js";
+import { User } from "../src/models/User.js";
 import {
   generateTotpCode,
   verifyTotpCode,
 } from "../src/utils/totp.js";
+
+/*
+ * Builds a payload in the stored format but encrypted with key material
+ * this process does not have - exactly what a row written before
+ * JWT_ACCESS_SECRET was rotated (or by another environment sharing the
+ * database) looks like.
+ */
+const encryptWithForeignKey = (
+  plaintext: string,
+  material: string,
+): string => {
+  const key = crypto
+    .createHash("sha256")
+    .update(material)
+    .digest();
+
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv(
+    "aes-256-gcm",
+    key,
+    iv,
+  );
+
+  const ciphertext = Buffer.concat([
+    cipher.update(plaintext, "utf8"),
+    cipher.final(),
+  ]);
+
+  return [
+    iv.toString("base64"),
+    cipher.getAuthTag().toString("base64"),
+    ciphertext.toString("base64"),
+  ].join(":");
+};
 
 describe("Two-factor authentication", () => {
   beforeAll(connect);
@@ -289,5 +326,241 @@ describe("Two-factor authentication", () => {
       .send({ code: "123456" });
 
     expect(enable.status).toBe(401);
+  });
+
+  it("answers 409 (not 500) when the stored secret was encrypted with another key", async () => {
+    const seller = await createApprovedSeller();
+
+    const setup = await api
+      .post("/api/v1/auth/2fa/setup")
+      .set(
+        "Authorization",
+        `Bearer ${seller.token}`,
+      );
+    const secret = setup.body.data.secret;
+
+    await api
+      .post("/api/v1/auth/2fa/enable")
+      .set(
+        "Authorization",
+        `Bearer ${seller.token}`,
+      )
+      .send({ code: generateTotpCode(secret) });
+
+    /*
+     * Simulate key rotation: the stored ciphertext no longer authenticates
+     * with the key this process derives.
+     */
+    const rotatedPayload = encryptWithForeignKey(
+      secret,
+      "a-key-this-process-does-not-know-about",
+    );
+
+    await User.updateOne(
+      { email: seller.email },
+      {
+        $set: {
+          twoFactorSecretEncrypted: rotatedPayload,
+        },
+      },
+    );
+
+    const loginRes = await api
+      .post("/api/v1/auth/login")
+      .send({
+        email: seller.email,
+        password: "Password123!",
+      });
+
+    const res = await api
+      .post("/api/v1/auth/2fa/verify")
+      .send({
+        loginToken: loginRes.body.data.loginToken,
+        code: generateTotpCode(secret),
+      });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe(
+      "TWO_FACTOR_SECRET_UNREADABLE",
+    );
+    expect(res.body.success).toBe(false);
+
+    /* No crypto internals, no key material, no stored payload. */
+    const body = JSON.stringify(res.body);
+
+    expect(body).not.toContain(secret);
+    expect(body).not.toContain("Unsupported state");
+    expect(body).not.toContain(rotatedPayload);
+    expect(body).not.toContain("a-key-this-process");
+
+    /* Recovery codes are still the documented way in. */
+    const recoveryCode =
+      setup.body.data.recoveryCodes[1];
+
+    const viaRecovery = await api
+      .post("/api/v1/auth/2fa/verify")
+      .send({
+        loginToken: loginRes.body.data.loginToken,
+        code: recoveryCode,
+      });
+
+    expect(viaRecovery.status).toBe(200);
+  });
+
+  it("answers 4xx for malformed or invalid two-factor verification requests", async () => {
+    const seller = await createApprovedSeller();
+
+    const setup = await api
+      .post("/api/v1/auth/2fa/setup")
+      .set(
+        "Authorization",
+        `Bearer ${seller.token}`,
+      );
+    const secret = setup.body.data.secret;
+
+    await api
+      .post("/api/v1/auth/2fa/enable")
+      .set(
+        "Authorization",
+        `Bearer ${seller.token}`,
+      )
+      .send({ code: generateTotpCode(secret) });
+
+    const loginRes = await api
+      .post("/api/v1/auth/login")
+      .send({
+        email: seller.email,
+        password: "Password123!",
+      });
+    const loginToken =
+      loginRes.body.data.loginToken;
+
+    /* Missing/blank code and missing loginToken are validation errors. */
+    const missingCode = await api
+      .post("/api/v1/auth/2fa/verify")
+      .send({ loginToken });
+
+    expect(missingCode.status).toBe(400);
+    expect(missingCode.body.code).toBe(
+      "VALIDATION_ERROR",
+    );
+
+    const blankCode = await api
+      .post("/api/v1/auth/2fa/verify")
+      .send({ loginToken, code: "   " });
+
+    expect(blankCode.status).toBe(400);
+
+    const missingToken = await api
+      .post("/api/v1/auth/2fa/verify")
+      .send({ code: "123456" });
+
+    expect(missingToken.status).toBe(400);
+
+    /* Forged, expired-looking or foreign tokens cannot complete a login. */
+    const forgedToken = await api
+      .post("/api/v1/auth/2fa/verify")
+      .send({
+        loginToken: `${loginToken}tampered`,
+        code: generateTotpCode(secret),
+      });
+
+    expect(forgedToken.status).toBe(401);
+    expect(forgedToken.body.code).toBe(
+      "INVALID_LOGIN_TOKEN",
+    );
+
+    const otherUsersToken = await api
+      .post("/api/v1/auth/login")
+      .send({
+        email: seller.email,
+        password: "Password123!",
+      });
+
+    const wrongCode = await api
+      .post("/api/v1/auth/2fa/verify")
+      .send({
+        loginToken: otherUsersToken.body.data.loginToken,
+        code: "000000",
+      });
+
+    expect(wrongCode.status).toBe(401);
+    expect(wrongCode.body.code).toBe(
+      "INVALID_TWO_FACTOR_CODE",
+    );
+
+    /* Nothing from the crypto layer may show up in error bodies. */
+    for (const response of [
+      missingCode,
+      blankCode,
+      missingToken,
+      forgedToken,
+      wrongCode,
+    ]) {
+      const body = JSON.stringify(response.body);
+
+      expect(body).not.toContain(secret);
+      expect(body).not.toContain(
+        "Unsupported state",
+      );
+      expect(body).not.toContain(
+        "twoFactorSecretEncrypted",
+      );
+    }
+  });
+
+  it("answers 409 for a corrupted stored payload and never 500", async () => {
+    const seller = await createApprovedSeller();
+
+    const setup = await api
+      .post("/api/v1/auth/2fa/setup")
+      .set(
+        "Authorization",
+        `Bearer ${seller.token}`,
+      );
+
+    await api
+      .post("/api/v1/auth/2fa/enable")
+      .set(
+        "Authorization",
+        `Bearer ${seller.token}`,
+      )
+      .send({
+        code: generateTotpCode(
+          setup.body.data.secret,
+        ),
+      });
+
+    await User.updateOne(
+      { email: seller.email },
+      {
+        $set: {
+          twoFactorSecretEncrypted:
+            "truncated-ciphertext",
+        },
+      },
+    );
+
+    const loginRes = await api
+      .post("/api/v1/auth/login")
+      .send({
+        email: seller.email,
+        password: "Password123!",
+      });
+
+    const res = await api
+      .post("/api/v1/auth/2fa/verify")
+      .send({
+        loginToken: loginRes.body.data.loginToken,
+        code: "123456",
+      });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe(
+      "TWO_FACTOR_SECRET_UNREADABLE",
+    );
+    expect(
+      JSON.stringify(res.body),
+    ).not.toContain("truncated-ciphertext");
   });
 });

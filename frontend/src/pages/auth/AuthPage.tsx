@@ -200,6 +200,16 @@ export default function AuthPage() {
   }
 
   // ── 2FA view ──
+  /*
+   * This view replaces the login view in the same tree, so the two forms
+   * carry distinct keys. Without them React reuses the login form's DOM
+   * node for the verification-code input (same element type, same
+   * position) and flips that <input> from uncontrolled (react-hook-form's
+   * register) to controlled (`value={twoFactorCode}`), logging
+   * "A component is changing an uncontrolled input to be controlled".
+   * A distinct key mounts a fresh subtree, so the code input is
+   * controlled from its very first render.
+   */
   if (show2FA) {
     return (
       <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center px-4">
@@ -211,7 +221,7 @@ export default function AuthPage() {
             </p>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleTwoFactor} className="space-y-4">
+            <form key="two-factor-form" onSubmit={handleTwoFactor} className="space-y-4">
               <Input
                 label="Verification Code"
                 placeholder="123456 or ABCD-EFGH-IJKL-NPQR"
@@ -482,7 +492,7 @@ export default function AuthPage() {
               Your account is inactive. Please contact support for assistance.
             </div>
           )}
-          <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
+          <form key="login-form" onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
             <Input
               label="Email"
               type="email"
