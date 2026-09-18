@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { config } from "dotenv";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -5,16 +6,25 @@ import { z } from "zod";
 
 /*
  * Resolve the backend's .env from this module's location instead of relying
- * on process.cwd(). dotenv/config only checks the current working directory,
- * which means starting the backend from another directory can leave every
- * file-based variable undefined. config() is synchronous, so envSchema.parse
- * below always runs after the file has been loaded.
+ * on process.cwd(). Check both the backend folder (../../.env) and the repo
+ * root (../../../.env) so starting from any directory or running tools loads
+ * the environment variables correctly.
  */
-const envFilePath = resolve(
+const backendEnvPath = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "../../.env",
 );
-config({ path: envFilePath, quiet: true });
+const rootEnvPath = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../../.env",
+);
+
+if (existsSync(rootEnvPath)) {
+  config({ path: rootEnvPath, quiet: true });
+}
+if (existsSync(backendEnvPath)) {
+  config({ path: backendEnvPath, quiet: true, override: true });
+}
 
 const envSchema = z.object({
   NODE_ENV: z

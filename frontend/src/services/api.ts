@@ -101,11 +101,12 @@ api.interceptors.response.use(
       return Promise.reject(error)
     }
 
-    // Skip token refresh for auth endpoints (login/register) — a 401 there
+    // Skip token refresh for auth endpoints (login/register/2fa) — a 401 there
     // means invalid credentials, not an expired token.
     const skipRefresh = originalRequest.url?.includes('/auth/login') ||
       originalRequest.url?.includes('/auth/register') ||
-      originalRequest.url?.includes('/auth/google')
+      originalRequest.url?.includes('/auth/google') ||
+      originalRequest.url?.includes('/auth/2fa/verify')
 
     if (error.response?.status === 401 && !originalRequest._retry && !skipRefresh) {
       // If there is no stored access token, the user is unauthenticated.

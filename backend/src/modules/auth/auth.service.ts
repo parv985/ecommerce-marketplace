@@ -166,13 +166,17 @@ const issueSession = async (
    * Audit every issued session (direct login and 2FA-completed
    * login). Never includes the tokens themselves.
    */
-  await logAudit({
-    actorId: user._id.toString(),
-    actorRole: user.role,
-    action: "LOGIN",
-    entityType: "USER",
-    entityId: user._id.toString(),
-  });
+  try {
+    await logAudit({
+      actorId: user._id.toString(),
+      actorRole: user.role,
+      action: "LOGIN",
+      entityType: "USER",
+      entityId: user._id.toString(),
+    });
+  } catch {
+    // Audit logging failure should not block authentication.
+  }
 
   return {
     accessToken,
