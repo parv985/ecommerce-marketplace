@@ -379,7 +379,7 @@ export const uploadSellerDocument = async (
             uploadError instanceof Error
                 ? uploadError.message
                 : "Cloudinary upload failed";
-           
+
         throw new AppError(
             `Document upload failed: ${message}`,
             502,

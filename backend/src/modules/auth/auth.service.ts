@@ -7,51 +7,51 @@ import { AppError } from "../../errors/AppError.js";
 import { User } from "../../models/User.js";
 
 import {
-    generateAccessToken,
-    generateRefreshToken,
+  generateAccessToken,
+  generateRefreshToken,
 } from "../../utils/jwt.js";
 import { sendPasswordResetEmail } from "../../services/email.service.js";
 import { logAudit } from "../../services/audit.service.js";
 import { hashToken } from "../../utils/tokenHash.js";
 
 import {
-    markPasswordResetTokenUsed,
-    createPasswordResetToken,
-    createRefreshToken,
-    createUser,
-    findPasswordResetToken,
-    findUserByEmail,
-    findUserById,
-    findUserForTwoFactor,
-    revokeRefreshToken
+  markPasswordResetTokenUsed,
+  createPasswordResetToken,
+  createRefreshToken,
+  createUser,
+  findPasswordResetToken,
+  findUserByEmail,
+  findUserById,
+  findUserForTwoFactor,
+  revokeRefreshToken
 } from "./auth.repository.js";
 
 import type {
-    ForgotPasswordInput,
-    LoginInput,
-    RegisterInput,
-    ResetPasswordInput,
-    TwoFactorVerifyInput,
-    TwoFactorCodeInput,
+  ForgotPasswordInput,
+  LoginInput,
+  RegisterInput,
+  ResetPasswordInput,
+  TwoFactorVerifyInput,
+  TwoFactorCodeInput,
 } from "./auth.schema.js";
 
 import {
-    generateTwoFactorToken,
-    verifyTwoFactorToken,
-    type TwoFactorPendingPayload,
+  generateTwoFactorToken,
+  verifyTwoFactorToken,
+  type TwoFactorPendingPayload,
 } from "../../utils/jwt.js";
 import {
-    generateTotpSecret,
-    generateTotpCode,
-    verifyTotpCode,
-    buildOtpauthUrl,
+  generateTotpSecret,
+  generateTotpCode,
+  verifyTotpCode,
+  buildOtpauthUrl,
 } from "../../utils/totp.js";
 import {
-    encryptSecret,
-    decryptSecret,
-    describeSecretPayload,
-    describeEncryptionKeys,
-    SecretCipherError,
+  encryptSecret,
+  decryptSecret,
+  describeSecretPayload,
+  describeEncryptionKeys,
+  SecretCipherError,
 } from "../../utils/secretCipher.js";
 import type { UserDocument } from "../../models/User.js";
 import { twoFactorCodeSchema } from "./auth.schema.js";
@@ -77,9 +77,9 @@ const generateRecoveryCode = (): string => {
     for (let i = 0; i < 4; i += 1) {
       chars +=
         RECOVERY_ALPHABET[
-          crypto.randomInt(
-            RECOVERY_ALPHABET.length,
-          )
+        crypto.randomInt(
+          RECOVERY_ALPHABET.length,
+        )
         ];
     }
 
@@ -199,96 +199,96 @@ const issueSession = async (
 };
 
 export const registerUser = async (
-    input: RegisterInput,
+  input: RegisterInput,
 ) => {
-    const existing = await findUserByEmail(input.email);
+  const existing = await findUserByEmail(input.email);
 
-    if (existing) {
-        throw new AppError(
-            "Email already in use",
-            409,
-            "EMAIL_TAKEN",
-        );
-    }
+  if (existing) {
+    throw new AppError(
+      "Email already in use",
+      409,
+      "EMAIL_TAKEN",
+    );
+  }
 
-    const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
+  const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
 
-    const user = await createUser({
-        name: input.name,
-        email: input.email,
-        passwordHash,
-    });
+  const user = await createUser({
+    name: input.name,
+    email: input.email,
+    passwordHash,
+  });
 
-    return {
-        id: user._id.toString(),
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        isEmailVerified: user.isEmailVerified,
-        avatarUrl: user.avatarUrl ?? null,
-        isActive: user.isActive,
-    };
+  return {
+    id: user._id.toString(),
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    isEmailVerified: user.isEmailVerified,
+    avatarUrl: user.avatarUrl ?? null,
+    isActive: user.isActive,
+  };
 };
 
 export const loginUser = async (
-    input: LoginInput,
+  input: LoginInput,
 ) => {
-    const user = await findUserByEmail(input.email);
+  const user = await findUserByEmail(input.email);
 
-    if (!user || !user.passwordHash) {
-        throw new AppError(
-            "Invalid email or password",
-            401,
-            "INVALID_CREDENTIALS",
-        );
-    }
-
-    if (!user.isActive) {
-        throw new AppError(
-            "Your account is inactive",
-            403,
-            "ACCOUNT_INACTIVE",
-        );
-    }
-
-    const isPasswordValid = await bcrypt.compare(
-        input.password,
-        user.passwordHash,
+  if (!user || !user.passwordHash) {
+    throw new AppError(
+      "Invalid email or password",
+      401,
+      "INVALID_CREDENTIALS",
     );
+  }
 
-    if (!isPasswordValid) {
-        throw new AppError(
-            "Invalid email or password",
-            401,
-            "INVALID_CREDENTIALS",
-        );
-    }
+  if (!user.isActive) {
+    throw new AppError(
+      "Your account is inactive",
+      403,
+      "ACCOUNT_INACTIVE",
+    );
+  }
 
-    /*
-     * Two-step login for sellers and admins with 2FA enabled: the
-     * password step returns a short-lived login token instead of real
-     * tokens. Only POST /auth/2fa/verify (TOTP or recovery code)
-     * converts it into access/refresh tokens. Buyer accounts keep the
-     * single-step flow.
-     */
-    if (
-      user.twoFactorEnabled &&
-      (user.role === UserRole.SELLER ||
-        user.role === UserRole.SUPER_ADMIN)
-    ) {
-      const loginToken = generateTwoFactorToken({
-        userId: user._id.toString(),
-        role: user.role,
-        type: "2fa_pending",
-      });
+  const isPasswordValid = await bcrypt.compare(
+    input.password,
+    user.passwordHash,
+  );
 
-      return {
-        twoFactorRequired: true,
-        loginToken,
-      };
-    }
+  if (!isPasswordValid) {
+    throw new AppError(
+      "Invalid email or password",
+      401,
+      "INVALID_CREDENTIALS",
+    );
+  }
 
-    return issueSession(user);
+  /*
+   * Two-step login for sellers and admins with 2FA enabled: the
+   * password step returns a short-lived login token instead of real
+   * tokens. Only POST /auth/2fa/verify (TOTP or recovery code)
+   * converts it into access/refresh tokens. Buyer accounts keep the
+   * single-step flow.
+   */
+  if (
+    user.twoFactorEnabled &&
+    (user.role === UserRole.SELLER ||
+      user.role === UserRole.SUPER_ADMIN)
+  ) {
+    const loginToken = generateTwoFactorToken({
+      userId: user._id.toString(),
+      role: user.role,
+      type: "2fa_pending",
+    });
+
+    return {
+      twoFactorRequired: true,
+      loginToken,
+    };
+  }
+
+  return issueSession(user);
 };
 export const logoutUser = async (
   refreshToken: string,
@@ -672,11 +672,11 @@ export const disableTwoFactor = async (
 
   const secretValid =
     !viaRecovery &&
-    user.twoFactorSecretEncrypted
+      user.twoFactorSecretEncrypted
       ? isTotpCodeValid(
-          readTwoFactorSecret(user),
-          data.code,
-        )
+        readTwoFactorSecret(user),
+        data.code,
+      )
       : false;
 
   if (!viaRecovery && !secretValid) {

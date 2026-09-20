@@ -1,196 +1,196 @@
-  import {
-    Schema,
-    model,
-    type Types,
-  } from "mongoose";
+import {
+  Schema,
+  model,
+  type Types,
+} from "mongoose";
 
-  import { SellerStatus } from "../constants/sellerStatus.js";
+import { SellerStatus } from "../constants/sellerStatus.js";
 
-  export interface ISeller {
-    _id: Types.ObjectId;
+export interface ISeller {
+  _id: Types.ObjectId;
 
-    userId: Types.ObjectId;
+  userId: Types.ObjectId;
 
-    businessName: string;
+  businessName: string;
 
-    phone?: string;
+  phone?: string;
 
-    gstin: string;
+  gstin: string;
 
-    pan: string;
+  pan: string;
 
-    bankAccountHolderName: string;
+  bankAccountHolderName: string;
 
-    bankAccountNumber: string;
+  bankAccountNumber: string;
 
-    ifscCode: string;
+  ifscCode: string;
 
-    addressLine1: string;
+  addressLine1: string;
 
-    addressLine2?: string;
+  addressLine2?: string;
 
-    city: string;
+  city: string;
 
-    state: string;
+  state: string;
 
-    pincode: string;
+  pincode: string;
 
-    documents: {
-      type: string;
-      url: string;
-      publicId: string;
-      fileName?: string;
-      size?: number;
-    }[];
+  documents: {
+    type: string;
+    url: string;
+    publicId: string;
+    fileName?: string;
+    size?: number;
+  }[];
 
-    status: SellerStatus;
+  status: SellerStatus;
 
-    statusReason?: string | null;
+  statusReason?: string | null;
 
-    createdAt: Date;
+  createdAt: Date;
 
-    updatedAt: Date;
-  }
+  updatedAt: Date;
+}
 
-  const sellerSchema = new Schema<ISeller>(
-    {
-      userId: {
-        type: Schema.Types.ObjectId,
-        ref: "User",
-        required: true,
-        unique: true,
-        index: true,
-      },
+const sellerSchema = new Schema<ISeller>(
+  {
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      unique: true,
+      index: true,
+    },
 
-      businessName: {
-        type: String,
-        required: true,
-        trim: true,
-      },
+    businessName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
-      phone: {
-        type: String,
-        trim: true,
-      },
+    phone: {
+      type: String,
+      trim: true,
+    },
 
-      gstin: {
-        type: String,
-        required: true,
-        trim: true,
-        uppercase: true,
-        unique: true,
-        index: true,
-      },
+    gstin: {
+      type: String,
+      required: true,
+      trim: true,
+      uppercase: true,
+      unique: true,
+      index: true,
+    },
 
-      pan: {
-        type: String,
-        required: true,
-        trim: true,
-        uppercase: true,
-        unique: true,
-        index: true,
-      },
+    pan: {
+      type: String,
+      required: true,
+      trim: true,
+      uppercase: true,
+      unique: true,
+      index: true,
+    },
 
-      bankAccountHolderName: {
-        type: String,
-        required: true,
-        trim: true,
-      },
+    bankAccountHolderName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
-      bankAccountNumber: {
-        type: String,
-        required: true,
-        trim: true,
-      },
+    bankAccountNumber: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
-      ifscCode: {
-        type: String,
-        required: true,
-        trim: true,
-        uppercase: true,
-      },
+    ifscCode: {
+      type: String,
+      required: true,
+      trim: true,
+      uppercase: true,
+    },
 
-      addressLine1: {
-        type: String,
-        required: true,
-        trim: true,
-      },
+    addressLine1: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
-      addressLine2: {
-        type: String,
-        trim: true,
-      },
+    addressLine2: {
+      type: String,
+      trim: true,
+    },
 
-      city: {
-        type: String,
-        required: true,
-        trim: true,
-      },
+    city: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
-      state: {
-        type: String,
-        required: true,
-        trim: true,
-      },
+    state: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
-      pincode: {
-        type: String,
-        required: true,
-        trim: true,
-      },
+    pincode: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
-      documents: [
-        {
-          type: {
-            type: String,
-            required: true,
-            trim: true,
-          },
-
-          url: {
-            type: String,
-            required: true,
-            trim: true,
-          },
-
-          publicId: {
-            type: String,
-            required: true,
-            trim: true,
-          },
-
-          // Optional display metadata (older records may not have these)
-          fileName: {
-            type: String,
-            trim: true,
-          },
-
-          size: {
-            type: Number,
-            min: 0,
-          },
+    documents: [
+      {
+        type: {
+          type: String,
+          required: true,
+          trim: true,
         },
-      ],
 
-      status: {
-        type: String,
-        enum: Object.values(SellerStatus),
-        default: SellerStatus.PENDING,
-        index: true,
+        url: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+
+        publicId: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+
+        // Optional display metadata (older records may not have these)
+        fileName: {
+          type: String,
+          trim: true,
+        },
+
+        size: {
+          type: Number,
+          min: 0,
+        },
       },
+    ],
 
-      statusReason: {
-        type: String,
-        default: null,
-        trim: true,
-      },
+    status: {
+      type: String,
+      enum: Object.values(SellerStatus),
+      default: SellerStatus.PENDING,
+      index: true,
     },
-    {
-      timestamps: true,
-    },
-  );
 
-  export const Seller = model<ISeller>(
-    "Seller",
-    sellerSchema,
-  );
+    statusReason: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+  },
+  {
+    timestamps: true,
+  },
+);
+
+export const Seller = model<ISeller>(
+  "Seller",
+  sellerSchema,
+);

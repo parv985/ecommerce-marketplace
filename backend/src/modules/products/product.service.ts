@@ -107,9 +107,9 @@ const toProductResponse = async (
     sku: product.sku ?? null,
     category: product.category
       ? {
-          id: product.category.toString(),
-          name: categoryName,
-        }
+        id: product.category.toString(),
+        name: categoryName,
+      }
       : null,
     price: product.price,
     stock: product.stock,
@@ -203,9 +203,9 @@ export const getProductDetails = async (
 ): Promise<ProductResponse> => {
   const product = sellerId
     ? await findProductByIdAndSeller(
-        productId,
-        sellerId,
-      )
+      productId,
+      sellerId,
+    )
     : await findProductById(productId);
 
   if (!product) {
@@ -230,7 +230,7 @@ export const getPublicProductDetails =
     if (
       !product ||
       product.status !==
-        ProductStatus.ACTIVE
+      ProductStatus.ACTIVE
     ) {
       throw new AppError(
         "Product not found",
@@ -467,12 +467,12 @@ export const browseProducts = async (
         sku: item.sku ?? null,
         category: item.category
           ? {
-              id: item.category.toString(),
-              name:
-                names.get(
-                  item.category.toString(),
-                ) ?? null,
-            }
+            id: item.category.toString(),
+            name:
+              names.get(
+                item.category.toString(),
+              ) ?? null,
+          }
           : null,
         price: item.price,
         stock: item.stock,
@@ -604,5 +604,7 @@ export const deleteProductImage = async (
     action: "PRODUCT_IMAGE_DELETED",
     entityType: "PRODUCT",
     entityId: productId,
+  });
+};
   });
 };

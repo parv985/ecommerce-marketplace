@@ -257,4 +257,3 @@ export type UpdateSellerProfileSchemaInput =
   z.infer<
     typeof updateSellerProfileSchema
   >;
-  

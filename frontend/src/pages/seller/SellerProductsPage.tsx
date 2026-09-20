@@ -300,7 +300,7 @@ export function SellerProductsPage() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-20 bg-zinc-100 rounded animate-pulse" />)}</div>
+        <div className="space-y-3">{[1, 2, 3].map(i => <div key={i} className="h-20 bg-zinc-100 rounded animate-pulse" />)}</div>
       ) : !products?.length ? (
         searchTerm ? (
           <div className="text-center py-12 text-[var(--muted)]">No products of yours match “{searchTerm}”.</div>
