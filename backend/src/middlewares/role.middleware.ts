@@ -8,7 +8,7 @@ import { UserRole } from "../constants/roles.js";
 import { AppError } from "../errors/AppError.js";
 
 export const authorize = (
-  ...allowedRoles: UserRole[]
+  ...allowedRoles: (UserRole | string)[]
 ) => {
   return (
     req: Request,
@@ -27,7 +27,27 @@ export const authorize = (
       return;
     }
 
-    if (allowedRoles.length > 0 && !allowedRoles.includes(req.user.role)) {
+    const userRole = String(req.user.role || "").toUpperCase();
+    const isSuperAdmin =
+      userRole === UserRole.SUPER_ADMIN ||
+      userRole === "ADMIN" ||
+      userRole === "SUPERADMIN";
+
+    const isAllowed =
+      allowedRoles.length === 0 ||
+      allowedRoles.some((role) => {
+        const normalizedAllowed = String(role).toUpperCase();
+        if (
+          normalizedAllowed === UserRole.SUPER_ADMIN ||
+          normalizedAllowed === "ADMIN" ||
+          normalizedAllowed === "SUPERADMIN"
+        ) {
+          return isSuperAdmin;
+        }
+        return normalizedAllowed === userRole;
+      });
+
+    if (!isAllowed) {
       next(
         new AppError(
           "You do not have permission to perform this action",

@@ -1,4 +1,4 @@
-import api from './api'
+import api, { setAccessToken } from './api'
 import type {
   ApiResponse,
   LoginResponse,
@@ -47,7 +47,13 @@ export const authApi = {
     api.post<ApiResponse<null>>('/auth/logout').then(r => r.data),
 
   refresh: () =>
-    api.post<ApiResponse<{ accessToken: string }>>('/auth/refresh').then(r => r.data),
+    api.post<ApiResponse<{ accessToken: string }>>('/auth/refresh').then(r => {
+      const token = r.data?.data?.accessToken
+      if (token) {
+        setAccessToken(token)
+      }
+      return r.data
+    }),
 
   forgotPassword: (email: string) =>
     api.post<ApiResponse<null>>('/auth/forgot-password', { email }).then(r => r.data),

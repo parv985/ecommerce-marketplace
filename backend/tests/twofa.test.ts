@@ -224,13 +224,15 @@ describe("Two-factor authentication", () => {
   });
 
   it("disables 2FA only with a valid code, restoring direct login", async () => {
-    const seller = await createApprovedSeller();
+    const email = `buyer2fa-disable${Date.now()}@test.com`;
+    await registerUser(email);
+    const { token } = await login(email);
 
     const setup = await api
       .post("/api/v1/auth/2fa/setup")
       .set(
         "Authorization",
-        `Bearer ${seller.token}`,
+        `Bearer ${token}`,
       );
     const secret = setup.body.data.secret;
 
@@ -238,7 +240,7 @@ describe("Two-factor authentication", () => {
       .post("/api/v1/auth/2fa/enable")
       .set(
         "Authorization",
-        `Bearer ${seller.token}`,
+        `Bearer ${token}`,
       )
       .send({ code: generateTotpCode(secret) });
 
@@ -246,7 +248,7 @@ describe("Two-factor authentication", () => {
       .post("/api/v1/auth/2fa/disable")
       .set(
         "Authorization",
-        `Bearer ${seller.token}`,
+        `Bearer ${token}`,
       )
       .send({ code: "123456" });
 
@@ -256,7 +258,7 @@ describe("Two-factor authentication", () => {
       .post("/api/v1/auth/2fa/disable")
       .set(
         "Authorization",
-        `Bearer ${seller.token}`,
+        `Bearer ${token}`,
       )
       .send({ code: generateTotpCode(secret) });
 
@@ -265,7 +267,7 @@ describe("Two-factor authentication", () => {
     const loginRes = await api
       .post("/api/v1/auth/login")
       .send({
-        email: seller.email,
+        email,
         password: "Password123!",
       });
 

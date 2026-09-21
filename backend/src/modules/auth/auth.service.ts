@@ -3,8 +3,10 @@ import bcrypt from "bcryptjs";
 
 import { env } from "../../config/env.js";
 import { UserRole } from "../../constants/roles.js";
+import { SellerStatus } from "../../constants/sellerStatus.js";
 import { AppError } from "../../errors/AppError.js";
 import { User } from "../../models/User.js";
+import { Seller } from "../../models/Seller.js";
 
 import {
   generateAccessToken,
@@ -265,6 +267,61 @@ export const loginUser = async (
   }
 
   /*
+   * Seller account validation & onboarding:
+   * - A pending seller must NOT be able to log in ("Waiting for admin approval.")
+   * - A rejected or suspended seller cannot log in.
+   * - An approved seller who has not yet enabled 2FA immediately starts 2FA setup.
+   */
+  if (user.role === UserRole.SELLER) {
+    const seller = await Seller.findOne({ userId: user._id });
+    if (seller) {
+      if (seller.status === SellerStatus.PENDING) {
+        throw new AppError(
+          "Waiting for admin approval.",
+          403,
+          "SELLER_PENDING_APPROVAL",
+        );
+      }
+      if (seller.status === SellerStatus.REJECTED) {
+        throw new AppError(
+          seller.statusReason
+            ? `Your seller application was rejected: ${seller.statusReason}`
+            : "Your seller application was rejected.",
+          403,
+          "SELLER_REJECTED",
+        );
+      }
+      if (seller.status === SellerStatus.SUSPENDED) {
+        throw new AppError(
+          "Your seller account is suspended.",
+          403,
+          "SELLER_SUSPENDED",
+        );
+      }
+    }
+
+    if (!user.twoFactorEnabled) {
+      const setup = await setupTwoFactor(user._id.toString());
+      const loginToken = generateTwoFactorToken({
+        userId: user._id.toString(),
+        role: user.role,
+        type: "2fa_pending",
+      });
+
+      return {
+        twoFactorRequired: true,
+        twoFactorSetupRequired: true,
+        loginToken,
+        twoFactorSetup: {
+          secret: setup.secret,
+          otpauthUrl: setup.otpauthUrl,
+          recoveryCodes: setup.recoveryCodes,
+        },
+      };
+    }
+  }
+
+  /*
    * Two-step login for sellers and admins with 2FA enabled: the
    * password step returns a short-lived login token instead of real
    * tokens. Only POST /auth/2fa/verify (TOTP or recovery code)
@@ -284,6 +341,7 @@ export const loginUser = async (
 
     return {
       twoFactorRequired: true,
+      twoFactorSetupRequired: false,
       loginToken,
     };
   }
@@ -489,7 +547,7 @@ export const verifyTwoFactorLogin = async (
   }
 
   if (
-    !user.twoFactorEnabled ||
+    !user.twoFactorEnabled &&
     !user.twoFactorSecretEncrypted
   ) {
     throw new AppError(
@@ -504,6 +562,13 @@ export const verifyTwoFactorLogin = async (
    * consume ensures a code can never be replayed).
    */
   if (await consumeRecoveryCode(user, input.code)) {
+    if (!user.twoFactorEnabled) {
+      await User.updateOne(
+        { _id: user._id },
+        { $set: { twoFactorEnabled: true } },
+      );
+      user.twoFactorEnabled = true;
+    }
     return issueSession(user);
   }
 
@@ -517,6 +582,14 @@ export const verifyTwoFactorLogin = async (
     );
   }
 
+  if (!user.twoFactorEnabled) {
+    await User.updateOne(
+      { _id: user._id },
+      { $set: { twoFactorEnabled: true } },
+    );
+    user.twoFactorEnabled = true;
+  }
+
   return issueSession(user);
 };
 
@@ -526,9 +599,9 @@ export const verifyTwoFactorLogin = async (
  * with the otpauth:// URL the frontend renders as a QR code. 2FA is
  * not active until enableTwoFactor confirms a code.
  */
-export const setupTwoFactor = async (
+export async function setupTwoFactor(
   userId: string,
-) => {
+) {
   const user = await findUserById(userId);
 
   if (!user) {

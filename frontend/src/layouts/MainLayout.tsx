@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { authApi } from '@/services/auth.service'
 import { useAccountStatus } from '@/hooks/useAccountStatus'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { cn } from '@/lib/utils'
 
 export function MainLayout() {
   const { isAuthenticated, isLoading, user, setLoading, logout } = useAuthStore()
@@ -99,14 +100,16 @@ export function MainLayout() {
     )
   }
 
+  const isSellerPanel = location.pathname.startsWith('/seller')
+
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className={cn("min-h-screen flex flex-col", isSellerPanel && "h-screen overflow-hidden")}>
       <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
       <Header />
-      <main className="flex-1">
+      <main className={cn("flex-1", isSellerPanel && "min-h-0 overflow-hidden")}>
         <Outlet />
       </main>
-      {!isSeller && <Footer />}
+      {!isSeller && !isSellerPanel && <Footer />}
     </div>
   )
 }

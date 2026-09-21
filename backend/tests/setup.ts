@@ -16,13 +16,15 @@ if (!devUri) {
   );
 }
 
-const base = devUri.split("?")[0].replace(/\/$/, "");
-const query = devUri.includes("?")
-  ? `?${devUri.split("?")[1]}`
-  : "";
-
-process.env.MONGODB_URI =
-  `${base}/ecommerce_marketplace_test${query}`;
+try {
+  const parsed = new URL(devUri);
+  parsed.pathname = "/ecommerce_marketplace_test";
+  process.env.MONGODB_URI = parsed.toString();
+} catch {
+  const baseWithoutPath = devUri.split("?")[0].replace(/\/[^/]*$/, "");
+  const query = devUri.includes("?") ? `?${devUri.split("?")[1]}` : "";
+  process.env.MONGODB_URI = `${baseWithoutPath}/ecommerce_marketplace_test${query}`;
+}
 process.env.NODE_ENV = "test";
 
 /*

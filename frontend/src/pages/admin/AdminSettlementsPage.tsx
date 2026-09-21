@@ -98,13 +98,14 @@ export function AdminSettlementsPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-settlements'] })
       setShowGenerate(false)
       setGenerateMonth('')
-      if (!res?.data?.length) {
-        toast('No eligible delivered & paid orders found for this month. Nothing was generated.')
+      const count = res.data?.length ?? 0
+      if (count === 0) {
+        toast.success('No eligible orders found to generate settlements for this month')
       } else {
-        toast.success(`Settlements generated for ${res.data.length} seller${res.data.length === 1 ? '' : 's'}`)
+        toast.success(`Generated ${count} settlement(s)`)
       }
     },
-    onError: (e: any) => toast.error(e.response?.data?.message || extractErrorMessage(e) || 'Failed to generate settlements'),
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to generate settlements'),
   })
 
   const transition = useMutation({
@@ -243,9 +244,9 @@ export function AdminSettlementsPage() {
           {data?.items?.length === 0 && (
             <EmptyState
               icon={<Wallet size={44} strokeWidth={1.5} />}
-              title={openFilters ? 'No settlements match these filters' : 'No settlements found'}
+              title="No settlements found"
               description={openFilters
-                ? 'Try clearing the status or month filter to see more settlements.'
+                ? 'No settlements found for the selected status or month filter.'
                 : 'Generate settlements for a month to get started.'}
             />
           )}

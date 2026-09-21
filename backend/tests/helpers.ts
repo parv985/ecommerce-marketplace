@@ -5,6 +5,7 @@ import request from "supertest";
 import app from "../src/app.js";
 import { User } from "../src/models/User.js";
 import { UserRole } from "../src/constants/roles.js";
+import { generateAccessToken } from "../src/utils/jwt.js";
 
 export const api = request(app);
 
@@ -200,13 +201,6 @@ export const createApprovedSeller = async (): Promise<{
   await registerSeller(email);
   const adminToken = await adminLogin();
 
-  const loginRes = await api
-    .post("/api/v1/auth/login")
-    .send({ email, password: PASSWORD });
-
-  const token =
-    loginRes.body?.data?.accessToken as string;
-
   const sellers = await api
     .get("/api/v1/admin/sellers?status=PENDING")
     .set("Authorization", `Bearer ${adminToken}`);
@@ -220,15 +214,22 @@ export const createApprovedSeller = async (): Promise<{
 
   const profileId = seller!.id;
 
-  // Enable 2FA for the seller so they can perform write operations
-  await enableTwoFactorForUser(profileId);
-
   await api
     .patch(
       `/api/v1/admin/sellers/${profileId}/status`,
     )
     .set("Authorization", `Bearer ${adminToken}`)
     .send({ status: "APPROVED" });
+
+  const user = await User.findOne({ email });
+
+  const token = user
+    ? generateAccessToken({
+        userId: user._id.toString(),
+        role: user.role,
+        type: "access",
+      })
+    : "";
 
   return { email, token, profileId };
 };

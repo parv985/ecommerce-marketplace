@@ -43,7 +43,7 @@ export function AdminUsersPage() {
     <div>
       <h1 className="text-2xl font-bold mb-6">Manage Users</h1>
       <div className="flex gap-2 mb-4">
-        {['', 'BUYER', 'SELLER', 'SUPER_ADMIN'].map(r => (
+        {['', 'BUYER', 'SELLER'].map(r => (
           <button key={r} onClick={() => { setRoleFilter(r); setPage(1); }}
             className={`px-3 py-1 text-sm rounded ${roleFilter === r ? 'bg-slate-900 text-white' : 'bg-slate-100 hover:bg-slate-200'}`}>
             {r || 'All'}

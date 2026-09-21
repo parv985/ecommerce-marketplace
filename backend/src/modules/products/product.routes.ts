@@ -4,7 +4,6 @@ import { validate } from "../../middlewares/validation.middleware.js";
 import { uploadProductImages as uploadProductImagesMulter } from "../../middlewares/upload.middleware.js";
 import { authorize } from "../../middlewares/role.middleware.js";
 import { authenticate } from "../auth/auth.middleware.js";
-import { requireTwoFactorSetup } from "../../middlewares/twoFactor.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { UserRole } from "../../constants/roles.js";
 import {
@@ -143,7 +142,6 @@ router.post(
   "/",
   authenticate,
   authorize(UserRole.SELLER),
-  requireTwoFactorSetup,
   validate(createProductSchema),
   asyncHandler(createProductController),
 );
@@ -364,7 +362,6 @@ router.patch(
   "/:id",
   authenticate,
   authorize(UserRole.SELLER),
-  requireTwoFactorSetup,
   validate(productIdParamsSchema, "params"),
   validate(updateProductSchema),
   asyncHandler(updateProductController),

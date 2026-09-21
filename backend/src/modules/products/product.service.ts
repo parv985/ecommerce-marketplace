@@ -154,7 +154,7 @@ export const createProductForSeller = async (
     price: data.price,
     stock: data.stock,
     images: data.images,
-    status: data.status,
+    status: ProductStatus.PENDING,
   });
 
   await logAudit({
@@ -269,6 +269,14 @@ export const updateSellerProduct = async (
       "Product not found",
       404,
       "PRODUCT_NOT_FOUND",
+    );
+  }
+
+  if (data.status === ProductStatus.ACTIVE && product.status !== ProductStatus.ACTIVE) {
+    throw new AppError(
+      "Sellers cannot activate products directly. Product listing requests require admin approval.",
+      403,
+      "PRODUCT_ACTIVATION_REQUIRES_APPROVAL",
     );
   }
 
@@ -604,7 +612,5 @@ export const deleteProductImage = async (
     action: "PRODUCT_IMAGE_DELETED",
     entityType: "PRODUCT",
     entityId: productId,
-  });
-};
   });
 };

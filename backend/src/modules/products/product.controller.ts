@@ -32,7 +32,7 @@ export const createProductController =
 
     sendSuccess(
       res,
-      "Product created successfully",
+      "Product selling request sent to admin for approval.",
       product,
       201,
     );

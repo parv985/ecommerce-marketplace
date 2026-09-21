@@ -133,6 +133,12 @@ export const listAllProducts = async (
   return { items, total };
 };
 
+export const findProductById = async (
+  id: string,
+): Promise<IProduct | null> => {
+  return Product.findById(id).exec();
+};
+
 export const updateProductStatusById = async (
   id: string,
   status: string,

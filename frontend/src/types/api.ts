@@ -33,7 +33,9 @@ export interface LoginResponse {
   accessToken: string
   user: UserSummary
   twoFactorRequired?: boolean
+  twoFactorSetupRequired?: boolean
   loginToken?: string
+  twoFactorSetup?: TwoFactorSetupResponse
 }
 
 export interface TwoFactorSetupResponse {

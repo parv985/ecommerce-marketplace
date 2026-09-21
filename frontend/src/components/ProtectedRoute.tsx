@@ -34,15 +34,23 @@ export function ProtectedRoute({ children, roles, requireAuth = true }: Protecte
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
-  if (roles && user && !roles.includes(user.role)) {
-    // Redirect to the appropriate dashboard for the user's role
-    if (user.role === 'SELLER') {
-      return <Navigate to="/seller/dashboard" replace />
+  if (roles && user) {
+    const isSuperAdmin = user.role === 'SUPER_ADMIN' || (user.role as string) === 'ADMIN'
+    const hasRole = roles.some(r => {
+      if (r === 'SUPER_ADMIN') return isSuperAdmin
+      return r === user.role
+    })
+
+    if (!hasRole) {
+      // Redirect to the appropriate dashboard for the user's role
+      if (user.role === 'SELLER') {
+        return <Navigate to="/seller/dashboard" replace />
+      }
+      if (isSuperAdmin) {
+        return <Navigate to="/admin/dashboard" replace />
+      }
+      return <Navigate to="/" replace />
     }
-    if (user.role === 'SUPER_ADMIN') {
-      return <Navigate to="/admin/dashboard" replace />
-    }
-    return <Navigate to="/" replace />
   }
 
   return <>{children}</>

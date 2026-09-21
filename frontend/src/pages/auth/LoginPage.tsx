@@ -11,6 +11,7 @@ import { googleSignInUrl } from '@/config/api'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { Shield, Copy, CheckCircle2 } from 'lucide-react'
 
 const loginSchema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -25,6 +26,8 @@ export function LoginPage() {
   const location = useLocation()
   const [loading, setLoading] = useState(false)
   const [show2FA, setShow2FA] = useState(false)
+  const [twoFactorSetup, setTwoFactorSetup] = useState<{ secret: string; otpauthUrl: string; recoveryCodes: string[] } | null>(null)
+  const [copiedSecret, setCopiedSecret] = useState(false)
   const [loginToken, setLoginToken] = useState('')
   const [twoFactorCode, setTwoFactorCode] = useState('')
 
@@ -40,6 +43,11 @@ export function LoginPage() {
       const res = await authApi.login(data)
       if (res.data.twoFactorRequired && res.data.loginToken) {
         setLoginToken(res.data.loginToken)
+        if (res.data.twoFactorSetupRequired && res.data.twoFactorSetup) {
+          setTwoFactorSetup(res.data.twoFactorSetup)
+        } else {
+          setTwoFactorSetup(null)
+        }
         setShow2FA(true)
         return
       }
@@ -49,9 +57,18 @@ export function LoginPage() {
         navigate(from, { replace: true })
       }
     } catch (err: any) {
+      const status = err?.response?.status
+      const code = err?.response?.data?.code
+      const message = err?.response?.data?.message
+
       if (err?.response?.data?.code === 'TWO_FACTOR_REQUIRED') {
         setLoginToken(err.response.data.loginToken || '')
+        if (err.response.data.twoFactorSetup) {
+          setTwoFactorSetup(err.response.data.twoFactorSetup)
+        }
         setShow2FA(true)
+      } else if (status === 403 && (code === 'SELLER_PENDING_APPROVAL' || message?.toLowerCase().includes('approval'))) {
+        toast.error('Waiting for admin approval.')
       } else {
         toast.error(extractErrorMessage(err))
       }
@@ -65,7 +82,7 @@ export function LoginPage() {
     if (!twoFactorCode.trim()) return
     try {
       setLoading(true)
-      const res = await authApi.verify2FA(loginToken, twoFactorCode)
+      const res = await authApi.verify2FA(loginToken, twoFactorCode.trim())
       setAuth(res.data.user, res.data.accessToken)
       toast.success('Two-factor authentication successful!')
       navigate(from, { replace: true })
@@ -90,6 +107,105 @@ export function LoginPage() {
    * "A component is changing an uncontrolled input to be controlled".
    */
   if (show2FA) {
+    if (twoFactorSetup) {
+      return (
+        <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center px-4 py-8">
+          <Card className="w-full max-w-lg">
+            <CardHeader className="text-center">
+              <div className="mx-auto w-12 h-12 bg-amber-50 rounded-full flex items-center justify-center mb-2 border border-amber-200">
+                <Shield size={24} className="text-amber-700" />
+              </div>
+              <CardTitle className="text-2xl">Set Up Two-Factor Authentication</CardTitle>
+              <p className="text-sm text-[var(--muted)]">
+                Scan the QR code with your authenticator app (Google Authenticator, Authy, etc.) and enter the 6-digit verification code to complete login.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <form key="two-factor-setup-form" onSubmit={handleTwoFactor} className="space-y-4">
+                <div className="flex flex-col items-center justify-center">
+                  <div className="bg-white p-3 border border-[var(--border)] rounded-[var(--radius-lg)] shadow-sm">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(twoFactorSetup.otpauthUrl)}`}
+                      alt="2FA QR Code"
+                      className="w-44 h-44 object-contain"
+                    />
+                  </div>
+                  <p className="text-xs text-[var(--muted)] mt-2">Scan with Google Authenticator, Microsoft Authenticator, or Authy</p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-medium text-[var(--fg-secondary)] mb-1">Or enter this secret key manually:</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 bg-zinc-100 px-3 py-1.5 rounded-[var(--radius-sm)] text-xs font-mono break-all select-all text-zinc-800">
+                      {twoFactorSetup.secret}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(twoFactorSetup.secret)
+                        setCopiedSecret(true)
+                        toast.success('Secret key copied!')
+                        setTimeout(() => setCopiedSecret(false), 2000)
+                      }}
+                      className="p-1.5 hover:bg-zinc-100 rounded-[var(--radius-sm)] text-xs text-[var(--muted)] hover:text-[var(--fg)] border border-[var(--border)] shrink-0 transition-colors"
+                      title="Copy secret"
+                    >
+                      {copiedSecret ? <CheckCircle2 size={16} className="text-emerald-600" /> : <Copy size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                {twoFactorSetup.recoveryCodes?.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-xs font-medium text-[var(--fg-secondary)]">One-time recovery codes:</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(twoFactorSetup.recoveryCodes.join('\n'))
+                          toast.success('Recovery codes copied!')
+                        }}
+                        className="text-xs text-[var(--primary)] hover:underline font-medium"
+                      >
+                        Copy all codes
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 bg-zinc-50 border border-[var(--border-subtle)] rounded-[var(--radius-sm)] p-2 text-[11px] font-mono max-h-20 overflow-y-auto">
+                      {twoFactorSetup.recoveryCodes.map((c, i) => (
+                        <span key={i} className="text-zinc-600">{c}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <Input
+                    label="Enter 6-Digit Verification Code"
+                    placeholder="123456"
+                    value={twoFactorCode}
+                    onChange={(e) => setTwoFactorCode(e.target.value)}
+                    maxLength={6}
+                    autoComplete="one-time-code"
+                  />
+                </div>
+
+                <Button type="submit" className="w-full" disabled={loading || twoFactorCode.trim().length < 6}>
+                  {loading ? 'Verifying...' : 'Verify & Enter Seller Panel'}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => { setShow2FA(false); setTwoFactorSetup(null); setTwoFactorCode(''); }}
+                  className="w-full text-sm text-[var(--muted)] hover:underline"
+                >
+                  Back to login
+                </button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )
+    }
+
     return (
       <div className="min-h-[calc(100vh-8rem)] flex items-center justify-center px-4">
         <Card className="w-full max-w-md">
@@ -109,6 +225,13 @@ export function LoginPage() {
               <Button type="submit" className="w-full" disabled={loading || !twoFactorCode.trim()}>
                 {loading ? 'Verifying...' : 'Verify'}
               </Button>
+              <button
+                type="button"
+                onClick={() => { setShow2FA(false); setTwoFactorSetup(null); setTwoFactorCode(''); }}
+                className="w-full text-sm text-[var(--muted)] hover:underline"
+              >
+                Back to login
+              </button>
             </form>
           </CardContent>
         </Card>

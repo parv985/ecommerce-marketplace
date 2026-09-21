@@ -11,6 +11,7 @@ import {
   api,
   clearDb,
   connect,
+  createApprovedSeller,
   createProduct,
   disconnect,
   login,
@@ -50,9 +51,19 @@ describe("Sellers", () => {
     );
   });
 
+  it("blocks a pending seller from logging in with 'Waiting for admin approval.'", async () => {
+    await registerSeller("pending@test.com");
+    const res = await api
+      .post("/api/v1/auth/login")
+      .send({ email: "pending@test.com", password: "Password123!" });
+
+    expect(res.status).toBe(403);
+    expect(res.body.message).toBe("Waiting for admin approval.");
+    expect(res.body.code).toBe("SELLER_PENDING_APPROVAL");
+  });
+
   it("returns the seller profile for the authenticated seller", async () => {
-    await registerSeller("s4@test.com");
-    const { token } = await login("s4@test.com");
+    const { token } = await createApprovedSeller();
 
     const res = await api
       .get("/api/v1/sellers/me")
@@ -62,12 +73,11 @@ describe("Sellers", () => {
     expect(res.body.data.businessName).toBe(
       "Test Traders",
     );
-    expect(res.body.data.status).toBe("PENDING");
+    expect(res.body.data.status).toBe("APPROVED");
   });
 
   it("updates the seller profile", async () => {
-    await registerSeller("s5@test.com");
-    const { token } = await login("s5@test.com");
+    const { token } = await createApprovedSeller();
 
     const res = await api
       .patch("/api/v1/sellers/me")
@@ -85,8 +95,7 @@ describe("Sellers", () => {
   });
 
   it("rejects changes to GSTIN and PAN (immutable)", async () => {
-    await registerSeller("s6@test.com");
-    const { token } = await login("s6@test.com");
+    const { token } = await createApprovedSeller();
 
     const res = await api
       .patch("/api/v1/sellers/me")
@@ -112,15 +121,5 @@ describe("Sellers", () => {
     const res = await api.get("/api/v1/sellers/me");
 
     expect(res.status).toBe(401);
-  });
-
-  it("prevents a pending seller from creating products", async () => {
-    await registerSeller("s8@test.com");
-    const { token } = await login("s8@test.com");
-
-    const res = await createProduct(token);
-
-    expect(res.status).toBe(403);
-    expect(res.body.code).toBe("SELLER_NOT_APPROVED");
   });
 });

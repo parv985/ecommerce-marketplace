@@ -11,6 +11,7 @@ import type { IProduct } from "../../models/Product.js";
 import type { IOrder } from "../../models/Order.js";
 import type { IAuditLog } from "../../models/AuditLog.js";
 import {
+  findProductById,
   findSellerById,
   findUserById,
   findUsersByIds,
@@ -312,11 +313,22 @@ export const getAdminProductsList = async (
 };
 
 export const setProductStatus = async (
+  actor: { id: string; role: string },
   productId: string,
   input: unknown,
 ): Promise<AdminProductResponse> => {
   const data: UpdateProductStatusInput =
     updateProductStatusSchema.parse(input);
+
+  const existing = await findProductById(productId);
+
+  if (!existing) {
+    throw new AppError(
+      "Product not found",
+      404,
+      "PRODUCT_NOT_FOUND",
+    );
+  }
 
   const updated = await updateProductStatusById(
     productId,
@@ -330,6 +342,17 @@ export const setProductStatus = async (
       "PRODUCT_NOT_FOUND",
     );
   }
+
+  await logAudit({
+    actorId: actor.id,
+    actorRole: actor.role,
+    action: "PRODUCT_STATUS_CHANGED",
+    entityType: "PRODUCT",
+    entityId: productId,
+    before: { status: existing.status },
+    after: { status: updated.status },
+    metadata: { name: updated.name },
+  });
 
   /* Invalidate product catalog cache so the public browse endpoint
      reflects the status change immediately. */

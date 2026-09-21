@@ -43,7 +43,7 @@ export function Header() {
   const isSellerPanel = location.pathname.startsWith('/seller')
 
   return (
-    <header className="sticky top-0 z-50 bg-white border-b border-[var(--border)] shadow-[var(--shadow-sm)]">
+    <header className="sticky top-0 z-50 bg-white border-b border-[var(--border)] shadow-[var(--shadow-sm)] shrink-0">
       {/* Announcement bar — light & subtle */}
       <div className="hidden md:block border-b border-[var(--border-subtle)] bg-[var(--surface-warm)] text-xs text-[var(--fg-secondary)]">
         <div className="container-app flex items-center justify-end py-2">

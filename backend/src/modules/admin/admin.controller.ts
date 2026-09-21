@@ -115,6 +115,7 @@ export const updateProductStatusController =
     res: Response,
   ): Promise<void> => {
     const product = await setProductStatus(
+      req.user!,
       req.params.id,
       req.body,
     );

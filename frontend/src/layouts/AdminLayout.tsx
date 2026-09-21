@@ -52,25 +52,25 @@ export function AdminLayout() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[calc(100vh-4rem)]">
-        <aside className="hidden lg:block w-64 border-r border-[var(--border)] bg-[#f8f7f4] shrink-0 p-4">
+      <div className="flex h-full w-full overflow-hidden">
+        <aside className="hidden lg:block w-64 border-r border-[var(--border)] bg-[#f8f7f4] shrink-0 p-4 h-full overflow-y-auto">
           <div className="space-y-2">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="h-8 bg-neutral-200 rounded-[var(--radius)] animate-pulse" />
             ))}
           </div>
         </aside>
-        <main className="flex-1 p-6 bg-[var(--bg)]" />
+        <main className="flex-1 h-full overflow-y-auto p-6 bg-[var(--bg)]" />
       </div>
     )
   }
 
-  if (user && user.role !== 'SUPER_ADMIN') return <Navigate to="/" replace />
+  if (user && user.role !== 'SUPER_ADMIN' && (user.role as string) !== 'ADMIN') return <Navigate to="/" replace />
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)]">
+    <div className="flex h-full w-full overflow-hidden">
       {/* ── Sidebar ── */}
-      <aside className="hidden lg:flex lg:flex-col w-64 border-r border-[var(--border)] bg-[#f8f7f4] shrink-0">
+      <aside className="hidden lg:flex lg:flex-col w-64 border-r border-[var(--border)] bg-[#f8f7f4] shrink-0 h-full overflow-y-auto">
         {/* Profile area — clickable */}
         <div className="p-4 border-b border-[var(--border)] relative" ref={menuRef}>
           <p className="text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider">Admin Panel</p>
@@ -167,7 +167,7 @@ export function AdminLayout() {
       </div>
 
       {/* ── Main content ── */}
-      <main className="flex-1 p-6 pb-20 lg:pb-6 bg-[var(--bg)]">
+      <main className="flex-1 h-full overflow-y-auto p-6 pb-20 lg:pb-6 bg-[var(--bg)]">
         <Outlet />
       </main>
     </div>

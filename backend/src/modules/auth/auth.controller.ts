@@ -180,11 +180,13 @@ export const login = async (
   if ("twoFactorRequired" in result) {
     /*
      * Password verified but 2FA pending: no tokens are issued yet,
-     * so the response carries only the short-lived login token.
+     * so the response carries the short-lived login token and optional setup payload.
      */
     sendSuccess(res, "Two-factor authentication required", {
       twoFactorRequired: true,
+      twoFactorSetupRequired: ("twoFactorSetupRequired" in result && result.twoFactorSetupRequired) || false,
       loginToken: result.loginToken,
+      ...("twoFactorSetup" in result && result.twoFactorSetup ? { twoFactorSetup: result.twoFactorSetup } : {}),
     });
 
     return;

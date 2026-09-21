@@ -26,6 +26,9 @@ export function AdminRootLayout() {
     authApi.getMe()
       .then((user) => {
         useAuthStore.getState().setUser(user)
+        if (user.role !== 'SUPER_ADMIN' && (user.role as string) !== 'ADMIN') {
+          logout()
+        }
       })
       .catch(() => {
         authApi.refresh()
@@ -33,6 +36,9 @@ export function AdminRootLayout() {
             try {
               const user = await authApi.getMe()
               useAuthStore.getState().setUser(user)
+              if (user.role !== 'SUPER_ADMIN' && (user.role as string) !== 'ADMIN') {
+                logout()
+              }
             } catch {
               logout()
             }
@@ -57,7 +63,7 @@ export function AdminRootLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="h-screen overflow-hidden bg-slate-50">
       <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
       <Outlet />
     </div>
