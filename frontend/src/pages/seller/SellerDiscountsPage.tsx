@@ -114,16 +114,33 @@ export function SellerDiscountsPage() {
       </div>
       <div className="space-y-3">
         {(data?.items ?? []).map(d => (
-          <div key={d.id} className="border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white">
-            <div>
-              <span className="font-medium">
-                {d.discountType === 'PERCENTAGE' ? `${d.discountValue}% off` : 'Fixed discount'}
-              </span>
-              <span className="ml-2 text-xs text-[var(--muted)]">
-                ({formatDate(d.startAt)} - {formatDate(d.endAt)})
-              </span>
+          <div key={d.id} className="border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold text-sm text-[var(--fg)]">
+                  {d.name || (d.discountType === 'PERCENTAGE' ? `${d.discountValue}% Discount` : 'Discount')}
+                </span>
+                <span className="text-xs font-medium px-2 py-0.5 rounded bg-orange-50 text-orange-700 border border-orange-200">
+                  {d.discountType === 'PERCENTAGE' ? `${d.discountValue}% off` : 'Fixed discount'}
+                </span>
+                <span className="text-xs text-[var(--muted)]">
+                  ({formatDate(d.startAt)} - {formatDate(d.endAt)})
+                </span>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap text-xs">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 text-slate-800 font-medium">
+                  <span className="text-[var(--muted)] font-normal">Scope:</span>
+                  {d.productId || d.scope === 'PRODUCT' ? 'Product' : 'Category'}
+                </span>
+                <span className="text-[var(--muted)]">
+                  Applies to:{' '}
+                  <span className="font-medium text-[var(--fg)]">
+                    {d.productName || d.categoryName || (d.productId ? 'Selected Product' : 'Selected Category')}
+                  </span>
+                </span>
+              </div>
             </div>
-            <Badge variant={d.status === 'ACTIVE' ? 'success' : 'default'} className="self-start sm:self-auto">
+            <Badge variant={d.status === 'ACTIVE' ? 'success' : 'default'} className="self-start sm:self-auto shrink-0">
               {d.status === 'ACTIVE' ? 'Active' : 'Inactive'}
             </Badge>
           </div>

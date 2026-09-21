@@ -38,6 +38,9 @@ import type { ISeller } from "../../models/Seller.js";
 
 import { AppError } from "../../errors/AppError.js";
 import { destroyByPublicId, uploadBuffer } from "../../services/cloudinary.service.js";
+import { Address } from "../../models/Address.js";
+import { User } from "../../models/User.js";
+import { Order } from "../../models/Order.js";
 
 
 export const registerSeller = async (
@@ -122,6 +125,7 @@ export const registerSeller = async (
                 name: data.name,
                 email: data.email,
                 passwordHash,
+                phone: data.phone,
             });
 
 
@@ -137,6 +141,9 @@ export const registerSeller = async (
 
                 businessName:
                     data.businessName,
+
+                phone:
+                    data.phone,
 
                 gstin:
                     data.gstin,
@@ -286,6 +293,67 @@ export const getSellerProfile = async (
         );
     }
 
+    const isValidPhone = (p: unknown): p is string => {
+        return typeof p === "string" && p.trim().length > 0 && p.trim() !== "-";
+    };
+
+    let resolvedPhone: string | null = null;
+    const rawSeller = (seller as any)._doc || seller;
+
+    if (isValidPhone(rawSeller.phone)) {
+        resolvedPhone = rawSeller.phone.trim();
+    } else if (isValidPhone(rawSeller.phoneNumber)) {
+        resolvedPhone = rawSeller.phoneNumber.trim();
+    } else if (isValidPhone(rawSeller.mobile)) {
+        resolvedPhone = rawSeller.mobile.trim();
+    } else if (isValidPhone(rawSeller.contactNumber)) {
+        resolvedPhone = rawSeller.contactNumber.trim();
+    }
+
+    // 1. Check User document
+    if (!resolvedPhone) {
+        const rawUser = (await User.findById(seller.userId).lean().exec()) as any;
+        if (rawUser) {
+            if (isValidPhone(rawUser.phone)) {
+                resolvedPhone = rawUser.phone.trim();
+            } else if (isValidPhone(rawUser.phoneNumber)) {
+                resolvedPhone = rawUser.phoneNumber.trim();
+            } else if (isValidPhone(rawUser.mobile)) {
+                resolvedPhone = rawUser.mobile.trim();
+            }
+        }
+    }
+
+    // 2. Check Address collection
+    if (!resolvedPhone) {
+        const address = await Address.findOne({ userId: seller.userId })
+            .sort({ updatedAt: -1 })
+            .lean()
+            .exec();
+        if (address && isValidPhone(address.phone)) {
+            resolvedPhone = address.phone.trim();
+        }
+    }
+
+    // 3. Check Orders collection
+    if (!resolvedPhone) {
+        const order = await Order.findOne({
+            $or: [{ userId: seller.userId }, { sellerId: seller._id }],
+        })
+            .sort({ createdAt: -1 })
+            .lean()
+            .exec();
+        if (order && isValidPhone(order.shippingAddress?.phone)) {
+            resolvedPhone = order.shippingAddress.phone.trim();
+        }
+    }
+
+    // If phone was resolved and wasn't persisted on seller profile, save it now
+    if (resolvedPhone && seller.phone !== resolvedPhone) {
+        seller.phone = resolvedPhone;
+        await updateSellerProfileById(seller._id.toString(), { phone: resolvedPhone });
+    }
+
     return toSellerProfileResponse(seller);
 };
 
@@ -322,6 +390,11 @@ export const updateSellerProfile = async (
             404,
             "SELLER_NOT_FOUND",
         );
+    }
+
+    if (data.phone) {
+        await User.findByIdAndUpdate(seller.userId, { phone: data.phone }).exec();
+        await Address.updateMany({ userId: seller.userId }, { phone: data.phone }).exec();
     }
 
     await logAudit({

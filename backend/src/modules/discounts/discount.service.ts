@@ -32,15 +32,44 @@ import type {
 const toDiscountResponse = (
   discount: IDiscount,
 ): DiscountResponse => {
+  const prodObj =
+    discount.productId &&
+    typeof discount.productId === "object" &&
+    "name" in (discount.productId as any)
+      ? (discount.productId as any)
+      : null;
+
+  const catObj =
+    discount.categoryId &&
+    typeof discount.categoryId === "object" &&
+    "name" in (discount.categoryId as any)
+      ? (discount.categoryId as any)
+      : null;
+
+  const productId = prodObj
+    ? prodObj._id.toString()
+    : discount.productId
+    ? discount.productId.toString()
+    : null;
+  const productName = prodObj?.name ?? null;
+
+  const categoryId = catObj
+    ? catObj._id.toString()
+    : discount.categoryId
+    ? discount.categoryId.toString()
+    : null;
+  const categoryName = catObj?.name ?? null;
+
+  const scope: "PRODUCT" | "CATEGORY" = productId ? "PRODUCT" : "CATEGORY";
+
   return {
     id: discount._id.toString(),
     sellerId: discount.sellerId.toString(),
-    productId: discount.productId
-      ? discount.productId.toString()
-      : null,
-    categoryId: discount.categoryId
-      ? discount.categoryId.toString()
-      : null,
+    productId,
+    productName,
+    categoryId,
+    categoryName,
+    scope,
     discountType: discount.discountType,
     discountValue: discount.discountValue,
     startAt: discount.startAt,

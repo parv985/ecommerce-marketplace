@@ -6,7 +6,7 @@ import { SellerStatus } from "../../constants/sellerStatus.js";
 import { AppError } from "../../errors/AppError.js";
 import { UserRole } from "../../constants/roles.js";
 import { logAudit } from "../../services/audit.service.js";
-import type { ICoupon } from "../../models/Coupon.js";
+import { Coupon, type ICoupon } from "../../models/Coupon.js";
 import { roundMoney } from "../discounts/discount.pricing.js";
 import { findSellerByUserId } from "../sellers/seller.repository.js";
 import { countProductsOwnedBySeller } from "../products/product.repository.js";
@@ -17,8 +17,10 @@ import {
   countCouponUsageByUser,
   createCoupon,
   createCouponUsage,
+  findCouponById,
   findCouponByIdAndSeller,
   findCouponByCode,
+  findUsageByOrderId,
   listCouponsBySeller,
   releaseCouponSlot,
   updateCouponById,
@@ -99,6 +101,37 @@ const toCouponResponse = (
   coupon: ICoupon,
   now: Date = new Date(),
 ): CouponResponse => {
+  const products: Array<{ id: string; name: string }> = [];
+  const productIds: string[] = [];
+
+  for (const p of coupon.productIds as any[]) {
+    if (p && typeof p === "object" && "_id" in p) {
+      productIds.push(p._id.toString());
+      if (p.name) products.push({ id: p._id.toString(), name: p.name });
+    } else if (p) {
+      productIds.push(p.toString());
+    }
+  }
+
+  const categories: Array<{ id: string; name: string }> = [];
+  const categoryIds: string[] = [];
+
+  for (const c of coupon.categoryIds as any[]) {
+    if (c && typeof c === "object" && "_id" in c) {
+      categoryIds.push(c._id.toString());
+      if (c.name) categories.push({ id: c._id.toString(), name: c.name });
+    } else if (c) {
+      categoryIds.push(c.toString());
+    }
+  }
+
+  let scope: "ALL_PRODUCTS" | "SPECIFIC_PRODUCTS" | "CATEGORIES" = "ALL_PRODUCTS";
+  if (productIds.length > 0) {
+    scope = "SPECIFIC_PRODUCTS";
+  } else if (categoryIds.length > 0) {
+    scope = "CATEGORIES";
+  }
+
   return {
     id: coupon._id.toString(),
     sellerId: coupon.sellerId.toString(),
@@ -107,12 +140,11 @@ const toCouponResponse = (
     value: coupon.value,
     minOrderValue: coupon.minOrderValue,
     maxDiscount: coupon.maxDiscount ?? null,
-    productIds: coupon.productIds.map((id) =>
-      id.toString(),
-    ),
-    categoryIds: coupon.categoryIds.map((id) =>
-      id.toString(),
-    ),
+    productIds,
+    categoryIds,
+    products,
+    categories,
+    scope,
     startAt: coupon.startAt,
     endAt: coupon.endAt,
     usageLimit: coupon.usageLimit ?? null,
@@ -693,4 +725,52 @@ export const releaseCouponSlotOnly = async (
   couponId: string,
 ): Promise<void> => {
   await releaseCouponSlot(couponId);
+};
+
+/*
+ * Finalizes coupon usage only after an order has successfully completed payment
+ * (online payment confirmed or webhook processed). If the order has a coupon
+ * attached and usage hasn't been recorded yet, this atomically increments the
+ * usage count and persists the usage record.
+ */
+export const finalizeCouponUsageOnPaymentSuccess = async (
+  orderId: string,
+): Promise<void> => {
+  const { findOrderById } = await import("../orders/order.repository.js");
+  const order = await findOrderById(orderId);
+  if (!order || !order.couponId) {
+    return;
+  }
+
+  // Idempotency check: avoid double-counting between verification and webhook
+  const existingUsage = await findUsageByOrderId(orderId);
+  if (existingUsage) {
+    return;
+  }
+
+  const coupon = await findCouponById(order.couponId.toString());
+  if (!coupon) {
+    return;
+  }
+
+  const claimed = await claimCouponSlot(coupon._id.toString(), new Date());
+  if (!claimed) {
+    await Coupon.updateOne(
+      { _id: coupon._id },
+      { $inc: { usageCount: 1 } },
+    ).exec();
+  }
+
+  try {
+    await createCouponUsage({
+      couponId: coupon._id.toString(),
+      userId: order.userId.toString(),
+      orderId: order._id.toString(),
+      discountAmount: order.couponDiscount,
+      enforcePerUserOne: coupon.perUserLimit === 1,
+    });
+  } catch (error) {
+    await releaseCouponSlot(coupon._id.toString());
+    console.error(`Failed to record coupon usage for order ${orderId}:`, error);
+  }
 };

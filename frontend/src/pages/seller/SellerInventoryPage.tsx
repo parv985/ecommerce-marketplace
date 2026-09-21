@@ -21,25 +21,24 @@ export function SellerInventoryPage() {
   const queryClient = useQueryClient()
 
   /*
-   * Fetch products belonging to the authenticated seller. Only products
-   * that have been approved by the Super Admin (status === 'ACTIVE') are
-   * displayed in the seller's active inventory ledger.
+   * Fetch products belonging to the authenticated seller. Includes both
+   * newly created products (PENDING/DRAFT) and admin-approved products (ACTIVE).
    */
   const { data: products, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['my-products'],
     queryFn: () => productService.getMyProducts(),
   })
 
-  const approvedProducts = useMemo(() => {
-    return (products ?? []).filter(p => p.status === 'ACTIVE')
+  const inventoryProducts = useMemo(() => {
+    return (products ?? []).filter(p => p.status !== 'INACTIVE')
   }, [products])
 
   const itemsPerPage = 20
-  const totalPages = Math.ceil(approvedProducts.length / itemsPerPage) || 1
+  const totalPages = Math.ceil(inventoryProducts.length / itemsPerPage) || 1
   const paginatedProducts = useMemo(() => {
     const start = (page - 1) * itemsPerPage
-    return approvedProducts.slice(start, start + itemsPerPage)
-  }, [approvedProducts, page, itemsPerPage])
+    return inventoryProducts.slice(start, start + itemsPerPage)
+  }, [inventoryProducts, page, itemsPerPage])
 
   const adjust = useMutation({
     mutationFn: () => inventoryService.adjustStock(adjustProductId, { quantity: adjustQty, reason: adjustReason }),
@@ -92,7 +91,7 @@ export function SellerInventoryPage() {
                   <th className="text-left p-3 font-medium">Product</th>
                   <th className="text-left p-3 font-medium">Type</th>
                   <th className="text-left p-3 font-medium">Quantity</th>
-                  <th className="text-left p-3 font-medium">Reason</th>
+                  <th className="text-left p-3 font-medium">Status</th>
                   <th className="text-left p-3 font-medium">Date</th>
                   <th className="p-3 font-medium text-center">Action</th>
                 </tr>
@@ -130,9 +129,23 @@ export function SellerInventoryPage() {
                       </span>
                     </td>
                     <td className="p-3">
-                      <span className="px-2 py-0.5 rounded text-xs bg-green-50 text-green-700 border border-green-200 font-medium">
-                        Approved
-                      </span>
+                      {p.status === 'ACTIVE' ? (
+                        <span className="px-2 py-0.5 rounded text-xs bg-green-50 text-green-700 border border-green-200 font-medium">
+                          Approved
+                        </span>
+                      ) : p.status === 'PENDING' ? (
+                        <span className="px-2 py-0.5 rounded text-xs bg-amber-50 text-amber-700 border border-amber-200 font-medium">
+                          Pending Approval
+                        </span>
+                      ) : p.status === 'DRAFT' ? (
+                        <span className="px-2 py-0.5 rounded text-xs bg-zinc-100 text-zinc-700 border border-zinc-200 font-medium">
+                          Draft
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded text-xs bg-zinc-100 text-zinc-600 font-medium">
+                          {p.status}
+                        </span>
+                      )}
                     </td>
                     <td className="p-3 text-[var(--muted)]">{formatDate(p.updatedAt || p.createdAt)}</td>
                     <td className="p-3 text-center">
@@ -154,12 +167,12 @@ export function SellerInventoryPage() {
             </table>
           </div>
 
-          {approvedProducts.length === 0 && (
+          {inventoryProducts.length === 0 && (
             <div className="p-8">
               <EmptyState
                 icon={<Truck size={44} strokeWidth={1.5} />}
                 title="No products found in inventory"
-                description="Products approved by the administrator will automatically appear here."
+                description="Your products and inventory will automatically appear here."
               />
             </div>
           )}

@@ -14,6 +14,37 @@ import { toast } from 'react-hot-toast'
 
 const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error'> = { ACTIVE: 'success', DRAFT: 'warning', INACTIVE: 'error' }
 
+const statusActionStyles: Record<string, string> = {
+  ACTIVE: 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600',
+  DRAFT: 'bg-amber-500 hover:bg-amber-600 text-white border-amber-500',
+  INACTIVE: 'bg-rose-600 hover:bg-rose-700 text-white border-rose-600',
+}
+
+function getFilterButtonClass(s: string, currentStatus: string): string {
+  const isSelected = currentStatus === s
+  if (!s) {
+    return isSelected
+      ? 'bg-slate-900 text-white font-medium shadow-xs'
+      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+  }
+  if (s === 'ACTIVE') {
+    return isSelected
+      ? 'bg-emerald-600 text-white font-medium shadow-xs'
+      : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+  }
+  if (s === 'DRAFT') {
+    return isSelected
+      ? 'bg-amber-500 text-white font-medium shadow-xs'
+      : 'bg-amber-100 text-amber-900 hover:bg-amber-200'
+  }
+  if (s === 'INACTIVE') {
+    return isSelected
+      ? 'bg-rose-600 text-white font-medium shadow-xs'
+      : 'bg-rose-100 text-rose-800 hover:bg-rose-200'
+  }
+  return ''
+}
+
 export function AdminProductsPage() {
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('')
@@ -50,7 +81,7 @@ export function AdminProductsPage() {
       <div className="flex gap-2 mb-4 flex-wrap">
         {['', 'ACTIVE', 'DRAFT', 'INACTIVE'].map(s => (
           <button key={s} onClick={() => { setStatus(s); setPage(1); }}
-            className={`px-3 py-1 text-sm rounded ${status === s ? 'bg-slate-900 text-white' : 'bg-slate-100 hover:bg-slate-200'}`}>
+            className={`px-3 py-1 text-sm rounded cursor-pointer transition-colors ${getFilterButtonClass(s, status)}`}>
             {s || 'All'}
           </button>
         ))}
@@ -85,7 +116,15 @@ export function AdminProductsPage() {
               </div>
               <div className="flex gap-1 self-end sm:self-auto shrink-0 flex-wrap">
                 {['ACTIVE', 'DRAFT', 'INACTIVE'].filter(s => s !== p.status).map(s => (
-                  <Button key={s} size="sm" variant="outline" disabled={updateStatus.isPending} onClick={() => changeStatus(p.id, s)}>{s}</Button>
+                  <Button
+                    key={s}
+                    size="sm"
+                    disabled={updateStatus.isPending}
+                    onClick={() => changeStatus(p.id, s)}
+                    className={statusActionStyles[s]}
+                  >
+                    {s}
+                  </Button>
                 ))}
               </div>
             </div>

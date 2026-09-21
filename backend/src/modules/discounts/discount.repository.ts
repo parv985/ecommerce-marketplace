@@ -22,7 +22,10 @@ export const findDiscountByIdAndSeller = async (
   return Discount.findOne({
     _id: id,
     sellerId,
-  }).exec();
+  })
+    .populate("productId", "name")
+    .populate("categoryId", "name")
+    .exec();
 };
 
 export const listDiscountsBySeller = async (
@@ -36,6 +39,8 @@ export const listDiscountsBySeller = async (
 }> => {
   const [items, total] = await Promise.all([
     Discount.find({ sellerId, ...filter })
+      .populate("productId", "name")
+      .populate("categoryId", "name")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)

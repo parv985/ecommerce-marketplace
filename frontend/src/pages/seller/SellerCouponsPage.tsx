@@ -125,17 +125,51 @@ export function SellerCouponsPage() {
           const active = state === 'ACTIVE'
           return (
           <div key={c.id} className="border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white">
-            <div>
-              <span className="font-mono font-bold">{c.code}</span>
-              <span className="ml-2 text-sm text-[var(--muted)]">
-                {c.type === 'PERCENTAGE' ? `${c.value}% off` : `₹${c.value} off`}
-              </span>
-              <span className="ml-2 text-xs text-[var(--muted)]">
-                Used: {c.usageCount}/{c.usageLimit ?? '∞'}
-              </span>
-              <span className="ml-2 text-xs text-[var(--muted)]">
-                ({formatDate(c.startAt)} - {formatDate(c.endAt)})
-              </span>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-mono font-bold text-base">{c.code}</span>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                  {c.type === 'PERCENTAGE' ? `${c.value}% off` : `₹${c.value} off`}
+                </span>
+                <span className="text-xs text-[var(--muted)]">
+                  Used: {c.usageCount}/{c.usageLimit ?? '∞'}
+                </span>
+                <span className="text-xs text-[var(--muted)]">
+                  ({formatDate(c.startAt)} - {formatDate(c.endAt)})
+                </span>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap text-xs">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 text-slate-800 font-medium">
+                  <span className="text-[var(--muted)] font-normal">Scope:</span>
+                  {c.scope === 'SPECIFIC_PRODUCTS' || (c.productIds && c.productIds.length > 0)
+                    ? 'Specific Products'
+                    : c.scope === 'CATEGORIES' || (c.categoryIds && c.categoryIds.length > 0)
+                    ? 'Categories'
+                    : 'All Products (Storewide)'}
+                </span>
+                {c.products && c.products.length > 0 && (
+                  <span className="text-[var(--muted)]">
+                    Products:{' '}
+                    <span className="font-medium text-[var(--fg)]">
+                      {c.products.map(p => p.name).join(', ')}
+                    </span>
+                  </span>
+                )}
+                {c.categories && c.categories.length > 0 && (
+                  <span className="text-[var(--muted)]">
+                    Categories:{' '}
+                    <span className="font-medium text-[var(--fg)]">
+                      {c.categories.map(cat => cat.name).join(', ')}
+                    </span>
+                  </span>
+                )}
+                {(!c.products || c.products.length === 0) && (!c.categories || c.categories.length === 0) && (!c.productIds || c.productIds.length === 0) && (!c.categoryIds || c.categoryIds.length === 0) && (
+                  <span className="text-[var(--muted)]">
+                    Applies to:{' '}
+                    <span className="font-medium text-[var(--fg)]">All Products</span>
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
               {!active && (

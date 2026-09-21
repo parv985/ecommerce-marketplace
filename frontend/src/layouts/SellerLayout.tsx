@@ -1,9 +1,12 @@
-import { NavLink, Outlet, Navigate } from 'react-router-dom'
+import { NavLink, Outlet, Navigate, useLocation } from 'react-router-dom'
 import { LayoutDashboard, Package, ShoppingCart, Truck, Percent, Ticket, Users, BarChart3, Bell, User, DollarSign, RotateCcw } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/authStore'
 import { cn } from '@/lib/utils'
 import { useEffect, useState } from 'react'
 import { authApi } from '@/services/auth.service'
+import { sellerService } from '@/services/seller.service'
+import { notificationService } from '@/services/notification.service'
 
 const navItems = [
   { to: '/seller/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -27,8 +30,10 @@ const pendingNavItems = [
 
 export function SellerLayout() {
   const { user } = useAuthStore()
+  const location = useLocation()
   const [sellerStatus, setSellerStatus] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [clearedPaths, setClearedPaths] = useState<Set<string>>(() => new Set())
 
   useEffect(() => {
     if (user?.role !== 'SELLER') return
@@ -38,10 +43,63 @@ export function SellerLayout() {
       .finally(() => setLoading(false))
   }, [user])
 
-  if (user && user.role !== 'SELLER') return <Navigate to="/" replace />
-
   const isPending = sellerStatus === 'PENDING' || sellerStatus === 'REJECTED' || sellerStatus === 'SUSPENDED'
   const activeNavItems = isPending ? pendingNavItems : navItems
+
+  // Dashboard counts (orders and returns)
+  const { data: dashboardData } = useQuery({
+    queryKey: ['seller-dashboard'],
+    queryFn: () => sellerService.getDashboard(),
+    enabled: user?.role === 'SELLER' && !isPending,
+    refetchInterval: 15000,
+  })
+
+  // Customers count
+  const { data: customersData } = useQuery({
+    queryKey: ['seller-customers-count'],
+    queryFn: () => sellerService.getCustomers({ limit: 1 }),
+    enabled: user?.role === 'SELLER' && !isPending,
+    refetchInterval: 30000,
+  })
+
+  // Notifications unread count
+  const { data: unreadNotificationsData } = useQuery({
+    queryKey: ['unread-notifications-count'],
+    queryFn: () => notificationService.getUnreadCount(),
+    enabled: user?.role === 'SELLER' && !isPending,
+    refetchInterval: 15000,
+  })
+
+  // Immediately clear/hide badge count when visiting that page
+  useEffect(() => {
+    const matchingPath = ['/seller/returns', '/seller/orders', '/seller/customers', '/seller/notifications'].find(
+      p => location.pathname.startsWith(p)
+    )
+    if (matchingPath) {
+      setClearedPaths(prev => {
+        if (prev.has(matchingPath)) return prev
+        const next = new Set(prev)
+        next.add(matchingPath)
+        return next
+      })
+    }
+  }, [location.pathname])
+
+  const pendingReturnsCount = dashboardData?.returns?.pending ?? 0
+  const pendingOrdersCount = dashboardData?.orders?.pending ?? 0
+  const totalCustomersCount = customersData?.total ?? 0
+  const unreadNotificationsCount = unreadNotificationsData?.unread ?? 0
+
+  const getBadgeCount = (to: string) => {
+    if (clearedPaths.has(to) || location.pathname.startsWith(to)) return 0
+    if (to === '/seller/returns') return pendingReturnsCount
+    if (to === '/seller/orders') return pendingOrdersCount
+    if (to === '/seller/customers') return totalCustomersCount
+    if (to === '/seller/notifications') return unreadNotificationsCount
+    return 0
+  }
+
+  if (user && user.role !== 'SELLER') return <Navigate to="/" replace />
 
   if (loading) {
     return (
@@ -92,40 +150,58 @@ export function SellerLayout() {
           )}
         </div>
         <nav className="p-2.5 space-y-1">
-          {activeNavItems.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) => cn(
-                'flex items-center gap-2.5 px-3 py-2 rounded-[var(--radius)] text-sm font-medium transition-all duration-150',
-                isActive
-                  ? 'bg-[var(--primary)] text-white shadow-sm'
-                  : 'text-[var(--fg-secondary)] hover:text-[var(--fg)] hover:bg-[var(--accent)]'
-              )}
-            >
-              <Icon size={16} strokeWidth={1.75} />
-              {label}
-            </NavLink>
-          ))}
+          {activeNavItems.map(({ to, label, icon: Icon }) => {
+            const count = getBadgeCount(to)
+            return (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) => cn(
+                  'flex items-center gap-2.5 px-3 py-2 rounded-[var(--radius)] text-sm font-medium transition-all duration-150',
+                  isActive
+                    ? 'bg-[var(--primary)] text-white shadow-sm'
+                    : 'text-[var(--fg-secondary)] hover:text-[var(--fg)] hover:bg-[var(--accent)]'
+                )}
+              >
+                <Icon size={16} strokeWidth={1.75} />
+                <span className="flex-1">{label}</span>
+                {count > 0 && (
+                  <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold leading-none bg-rose-600 text-white rounded-full min-w-[18px]">
+                    {count > 99 ? '99+' : count}
+                  </span>
+                )}
+              </NavLink>
+            )
+          })}
         </nav>
       </aside>
 
       {/* Mobile nav */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[var(--border)] z-40 shadow-sm">
         <div className="flex overflow-x-auto justify-around py-1">
-          {(isPending ? pendingNavItems : navItems.slice(0, 5)).map(({ to, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) => cn(
-                'flex flex-col items-center gap-1 px-3 py-1.5 text-[10px] shrink-0 min-w-[56px] transition-colors',
-                isActive ? 'text-[var(--primary)] font-semibold' : 'text-[var(--muted)] hover:text-[var(--fg)]'
-              )}
-            >
-              <Icon size={18} strokeWidth={1.75} />
-              <span>{(isPending ? pendingNavItems : navItems).find(i => i.to === to)?.label}</span>
-            </NavLink>
-          ))}
+          {(isPending ? pendingNavItems : navItems).map(({ to, icon: Icon }) => {
+            const count = getBadgeCount(to)
+            return (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) => cn(
+                  'relative flex flex-col items-center gap-1 px-3 py-1.5 text-[10px] shrink-0 min-w-[56px] transition-colors',
+                  isActive ? 'text-[var(--primary)] font-semibold' : 'text-[var(--muted)] hover:text-[var(--fg)]'
+                )}
+              >
+                <div className="relative">
+                  <Icon size={18} strokeWidth={1.75} />
+                  {count > 0 && (
+                    <span className="absolute -top-1 -right-2 inline-flex items-center justify-center px-1 text-[9px] font-bold leading-none bg-rose-600 text-white rounded-full min-w-[14px] h-[14px]">
+                      {count > 99 ? '99+' : count}
+                    </span>
+                  )}
+                </div>
+                <span>{(isPending ? pendingNavItems : navItems).find(i => i.to === to)?.label}</span>
+              </NavLink>
+            )
+          })}
         </div>
       </div>
 

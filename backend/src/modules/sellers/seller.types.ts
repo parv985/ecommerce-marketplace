@@ -6,6 +6,7 @@ export interface SellerRegistrationInput {
   password: string;
 
   businessName: string;
+  phone?: string;
 
   gstin: string;
   pan: string;

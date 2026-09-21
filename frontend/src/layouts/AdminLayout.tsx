@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
-import { NavLink, Outlet, Navigate, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, Navigate, useNavigate, useLocation } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import {
   LayoutDashboard, Users, Store, Tags, Package, ShoppingCart,
   Wallet, Bell, ScrollText, User, LogOut, ChevronDown,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { authApi } from '@/services/auth.service'
+import { adminService } from '@/services/admin.service'
 import { cn } from '@/lib/utils'
 
 const navItems = [
@@ -23,8 +25,53 @@ const navItems = [
 export function AdminLayout() {
   const { user, isLoading, logout } = useAuthStore()
   const navigate = useNavigate()
+  const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const [clearedPaths, setClearedPaths] = useState<Set<string>>(() => new Set())
+
+  // Pending sellers count
+  const { data: pendingSellersData } = useQuery({
+    queryKey: ['admin-pending-sellers-count'],
+    queryFn: () => adminService.getSellers({ status: 'PENDING', limit: 1 }),
+    refetchInterval: 15000,
+  })
+
+  // Pending products count
+  const { data: pendingProductsData } = useQuery({
+    queryKey: ['admin-pending-products-count'],
+    queryFn: () => adminService.getProducts({ status: 'PENDING', limit: 1 }),
+    refetchInterval: 15000,
+  })
+
+  // Immediately clear / hide the badge count when the admin visits the corresponding page
+  useEffect(() => {
+    if (location.pathname.startsWith('/admin/sellers')) {
+      setClearedPaths(prev => {
+        if (prev.has('/admin/sellers')) return prev
+        const next = new Set(prev)
+        next.add('/admin/sellers')
+        return next
+      })
+    } else if (location.pathname.startsWith('/admin/products')) {
+      setClearedPaths(prev => {
+        if (prev.has('/admin/products')) return prev
+        const next = new Set(prev)
+        next.add('/admin/products')
+        return next
+      })
+    }
+  }, [location.pathname])
+
+  const pendingSellersCount = pendingSellersData?.total ?? 0
+  const pendingProductsCount = pendingProductsData?.total ?? 0
+
+  const getBadgeCount = (to: string) => {
+    if (clearedPaths.has(to) || location.pathname.startsWith(to)) return 0
+    if (to === '/admin/sellers') return pendingSellersCount
+    if (to === '/admin/products') return pendingProductsCount
+    return 0
+  }
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -129,40 +176,58 @@ export function AdminLayout() {
 
         {/* Navigation */}
         <nav className="p-2.5 space-y-1 flex-1">
-          {navItems.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) => cn(
-                'flex items-center gap-2.5 px-3 py-2 rounded-[var(--radius)] text-sm font-medium transition-all duration-150',
-                isActive
-                  ? 'bg-[var(--primary)] text-white shadow-sm'
-                  : 'text-[var(--fg-secondary)] hover:text-[var(--fg)] hover:bg-[var(--accent)]'
-              )}
-            >
-              <Icon size={16} strokeWidth={1.75} />
-              {label}
-            </NavLink>
-          ))}
+          {navItems.map(({ to, label, icon: Icon }) => {
+            const count = getBadgeCount(to)
+            return (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) => cn(
+                  'flex items-center gap-2.5 px-3 py-2 rounded-[var(--radius)] text-sm font-medium transition-all duration-150',
+                  isActive
+                    ? 'bg-[var(--primary)] text-white shadow-sm'
+                    : 'text-[var(--fg-secondary)] hover:text-[var(--fg)] hover:bg-[var(--accent)]'
+                )}
+              >
+                <Icon size={16} strokeWidth={1.75} />
+                <span className="flex-1">{label}</span>
+                {count > 0 && (
+                  <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold leading-none bg-rose-600 text-white rounded-full min-w-[18px]">
+                    {count > 99 ? '99+' : count}
+                  </span>
+                )}
+              </NavLink>
+            )
+          })}
         </nav>
       </aside>
 
       {/* ── Mobile bottom nav ── */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[var(--border)] z-40 shadow-sm">
         <div className="flex overflow-x-auto justify-around py-1">
-          {navItems.slice(0, 5).map(({ to, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) => cn(
-                'flex flex-col items-center gap-1 px-3 py-1.5 text-[10px] shrink-0 min-w-[56px] transition-colors',
-                isActive ? 'text-[var(--primary)] font-semibold' : 'text-[var(--muted)] hover:text-[var(--fg)]'
-              )}
-            >
-              <Icon size={18} strokeWidth={1.75} />
-              <span>{navItems.find(i => i.to === to)?.label}</span>
-            </NavLink>
-          ))}
+          {navItems.slice(0, 5).map(({ to, icon: Icon }) => {
+            const count = getBadgeCount(to)
+            return (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) => cn(
+                  'relative flex flex-col items-center gap-1 px-3 py-1.5 text-[10px] shrink-0 min-w-[56px] transition-colors',
+                  isActive ? 'text-[var(--primary)] font-semibold' : 'text-[var(--muted)] hover:text-[var(--fg)]'
+                )}
+              >
+                <div className="relative">
+                  <Icon size={18} strokeWidth={1.75} />
+                  {count > 0 && (
+                    <span className="absolute -top-1 -right-2 inline-flex items-center justify-center px-1 text-[9px] font-bold leading-none bg-rose-600 text-white rounded-full min-w-[14px] h-[14px]">
+                      {count > 99 ? '99+' : count}
+                    </span>
+                  )}
+                </div>
+                <span>{navItems.find(i => i.to === to)?.label}</span>
+              </NavLink>
+            )
+          })}
         </div>
       </div>
 

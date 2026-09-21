@@ -1,10 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { MouseEvent, ReactNode } from 'react'
-import { toast } from 'react-hot-toast'
 import { BadgeCheck, LockKeyhole } from 'lucide-react'
 import { APP_NAME, APP_DESCRIPTION, APP_TAGLINE, APP_COPYRIGHT } from '@/config/brand'
-import { useAuthStore } from '@/stores/authStore'
 import { PolicyModal, type FooterPolicy } from './footer/PolicyModal'
 import './footer/footer.css'
 
@@ -59,27 +57,7 @@ const BRAND_MARKS = [
 export function Footer() {
   const [policy, setPolicy] = useState<FooterPolicy | null>(null)
 
-  const { isAuthenticated, user } = useAuthStore()
-  const isBuyer = isAuthenticated && user?.role === 'BUYER'
 
-  /*
-   * Sellers and buyers cannot use the seller registration funnel. Show
-   * exactly one role-appropriate toast and stay on the page; the fixed
-   * toast ids also de-duplicate any StrictMode double-invocation.
-   */
-  const handleBecomeSeller = (event: MouseEvent<HTMLAnchorElement>) => {
-    const { isAuthenticated, user } = useAuthStore.getState()
-
-    if (!isAuthenticated || !user) return
-
-    if (user.role === 'SELLER') {
-      event.preventDefault()
-      toast.error('You are already registered as a seller.', { id: 'become-seller-already-registered' })
-    } else if (user.role === 'BUYER') {
-      event.preventDefault()
-      toast.error('Buyers cannot sell products.', { id: 'become-seller-buyer' })
-    }
-  }
 
   return (
     <footer className="mt-auto border-t border-[var(--border)] bg-[var(--surface-warm)] text-[var(--fg-secondary)]">
@@ -109,9 +87,7 @@ export function Footer() {
 
           <FooterColumn title="Shop" items={SHOP_LINKS} />
           <FooterColumn title="Account" items={ACCOUNT_LINKS} />
-          {!isBuyer && (
-            <FooterColumn title="For Sellers" items={SELLER_LINKS} onLinkClick={handleBecomeSeller} />
-          )}
+          <FooterColumn title="For Sellers" items={SELLER_LINKS} />
           <FooterColumn title="Customer Support" items={SUPPORT_LINKS} onPolicyOpen={setPolicy} />
           <FooterColumn title="Legal" items={LEGAL_LINKS} onPolicyOpen={setPolicy} />
         </div>

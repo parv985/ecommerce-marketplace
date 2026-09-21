@@ -623,13 +623,18 @@ export const createOrderFromCart = async (
     }
 
     /*
-     * Reserve the coupon usage slot atomically before persisting the
-     * order so an exhausted coupon can never be applied. Reservation
-     * happens only after every stock decrement succeeded.
+     * For Cash on Delivery orders, order placement completes the order, so
+     * reserve the coupon usage slot atomically before persisting the order.
+     * For online payments, reservation and usage counting are deferred until
+     * payment is successfully verified.
      */
+    const isCashOnDelivery =
+      (data.paymentMethod ?? PaymentMethod.CASH_ON_DELIVERY) ===
+      PaymentMethod.CASH_ON_DELIVERY;
+
     let reservedPerUserLimit: number | null = null;
 
-    if (couponPlan) {
+    if (couponPlan && isCashOnDelivery) {
       const claimed = await reserveCouponSlot(
         couponPlan.couponId,
       );
@@ -688,7 +693,7 @@ export const createOrderFromCart = async (
     try {
       created = await createOrders(ordersToCreate);
     } catch (error) {
-      if (couponPlan) {
+      if (couponPlan && isCashOnDelivery) {
         await releaseCouponSlotOnly(
           couponPlan.couponId,
         );
@@ -698,12 +703,13 @@ export const createOrderFromCart = async (
     }
 
   /*
-   * Record the coupon usage against the created order. If recording
-   * fails (rare concurrent per-user duplicate), the reserved slot is
+   * Record the coupon usage against the created order for Cash On Delivery orders.
+   * For online orders, usage is finalized after successful payment completion.
+   * If recording fails (rare concurrent per-user duplicate), the reserved slot is
    * released and the order's coupon fields are reset so no discount is
    * leaked without a usage record.
    */
-  if (couponPlan) {
+  if (couponPlan && isCashOnDelivery) {
     const couponOrder = created.find(
       (order) =>
         order.sellerId.toString() ===

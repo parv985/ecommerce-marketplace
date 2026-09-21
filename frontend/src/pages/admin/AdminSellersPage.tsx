@@ -1,12 +1,16 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Store, AlertCircle, RefreshCw } from 'lucide-react'
 import { adminService } from '@/services/admin.service'
 import { formatDate } from '@/lib/utils'
+import { extractErrorMessage } from '@/services/api'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { TextArea } from '@/components/ui/TextArea'
 import { Dialog } from '@/components/ui/Dialog'
 import { Pagination } from '@/components/ui/Pagination'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { notifyNoChanges } from '@/lib/formChanges'
 import { toast } from 'react-hot-toast'
 
@@ -21,7 +25,7 @@ export function AdminSellersPage() {
   const [reason, setReason] = useState('')
   const queryClient = useQueryClient()
 
-  const { data } = useQuery({
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['admin-sellers', page, statusFilter],
     queryFn: () => adminService.getSellers({ page, status: statusFilter || undefined }),
   })
@@ -78,31 +82,62 @@ export function AdminSellersPage() {
           </button>
         ))}
       </div>
-      <div className="space-y-3">
-        {data?.items?.map(s => (
-          <div key={s.id} className="border rounded-lg p-4 bg-white">
-            <div className="flex items-center justify-between mb-2 gap-2">
-              <div className="min-w-0">
-                <span className="font-medium">{s.businessName || 'N/A'}</span>
-                <span className="text-xs text-[var(--muted)] ml-2 font-mono">GSTIN: {s.gstin}</span>
-              </div>
-              <Badge variant={statusColors[s.status]}>{s.status}</Badge>
-            </div>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="text-sm text-[var(--muted)]">
-                <span>{typeof s.user === 'object' ? s.user.name : ''}</span> • {formatDate(s.createdAt)}
-              </div>
-              <div className="flex gap-1 self-end sm:self-auto flex-wrap">
-                {s.status !== 'APPROVED' && <Button size="sm" variant="outline" onClick={() => setActionDialog({ id: s.id, action: 'APPROVED', name: s.businessName })}>Approve</Button>}
-                {s.status === 'PENDING' && <Button size="sm" variant="outline" onClick={() => setActionDialog({ id: s.id, action: 'REJECTED', name: s.businessName })}>Reject</Button>}
-                {s.status === 'APPROVED' && <Button size="sm" variant="outline" onClick={() => setActionDialog({ id: s.id, action: 'PAUSED', name: s.businessName })}>Pause</Button>}
-                {(s.status === 'APPROVED' || s.status === 'PAUSED') && <Button size="sm" variant="destructive" onClick={() => setActionDialog({ id: s.id, action: 'SUSPENDED', name: s.businessName })}>Suspend</Button>}
-              </div>
-            </div>
+      {isLoading ? (
+        <div className="space-y-3">
+          {Array(4).fill(0).map((_, i) => (
+            <Skeleton key={i} className="h-24 rounded-[var(--radius)]" />
+          ))}
+        </div>
+      ) : isError ? (
+        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+          <div className="p-3 rounded-full bg-[var(--destructive-subtle)] text-[var(--destructive)] mb-4">
+            <AlertCircle size={28} strokeWidth={1.75} />
           </div>
-        ))}
-        {data && <Pagination currentPage={page} totalPages={data.totalPages} onPageChange={setPage} />}
-      </div>
+          <h3 className="text-lg font-medium mb-1">Could not load sellers</h3>
+          <p className="text-sm text-[var(--muted)] max-w-sm mb-4">{extractErrorMessage(error)}</p>
+          <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw size={14} className={`mr-2 ${isFetching ? 'animate-spin' : ''}`} />
+            Try again
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {data?.items?.map(s => (
+            <div key={s.id} className="border rounded-lg p-4 bg-white">
+              <div className="flex items-center justify-between mb-2 gap-2">
+                <div className="min-w-0">
+                  <span className="font-medium">{s.businessName || 'N/A'}</span>
+                  <span className="text-xs text-[var(--muted)] ml-2 font-mono">GSTIN: {s.gstin}</span>
+                </div>
+                <Badge variant={statusColors[s.status]}>{s.status}</Badge>
+              </div>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="text-sm text-[var(--muted)]">
+                  <span>{typeof s.user === 'object' ? s.user.name : ''}</span> • {formatDate(s.createdAt)}
+                </div>
+                <div className="flex gap-1 self-end sm:self-auto flex-wrap">
+                  {s.status !== 'APPROVED' && <Button size="sm" variant="outline" onClick={() => setActionDialog({ id: s.id, action: 'APPROVED', name: s.businessName })}>Approve</Button>}
+                  {s.status === 'PENDING' && <Button size="sm" variant="outline" onClick={() => setActionDialog({ id: s.id, action: 'REJECTED', name: s.businessName })}>Reject</Button>}
+                  {s.status === 'APPROVED' && <Button size="sm" variant="outline" onClick={() => setActionDialog({ id: s.id, action: 'PAUSED', name: s.businessName })}>Pause</Button>}
+                  {(s.status === 'APPROVED' || s.status === 'PAUSED') && <Button size="sm" variant="destructive" onClick={() => setActionDialog({ id: s.id, action: 'SUSPENDED', name: s.businessName })}>Suspend</Button>}
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {(!data?.items || data.items.length === 0) && (
+            <EmptyState
+              icon={<Store size={44} strokeWidth={1.5} />}
+              title="No seller found"
+              description={statusFilter ? `No sellers found with status "${statusFilter}".` : 'No sellers have registered yet.'}
+            />
+          )}
+
+          {data && data.totalPages > 1 && (
+            <Pagination currentPage={page} totalPages={data.totalPages} onPageChange={setPage} />
+          )}
+        </div>
+      )}
 
       <Dialog open={!!actionDialog} onClose={() => { setActionDialog(null); setReason(''); }} title={`${actionDialog?.action} Seller`}>
         <p className="text-sm mb-3">Are you sure you want to <strong>{actionDialog?.action?.toLowerCase()}</strong> "{actionDialog?.name}"?</p>

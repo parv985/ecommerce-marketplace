@@ -8,6 +8,8 @@ import { deleteByPublicId, uploadBuffer } from "../../services/cloudinary.servic
 import type { IProduct } from "../../models/Product.js";
 import { resolveDiscountsForProducts } from "../discounts/discount.pricing.js";
 import { findSellerByUserId } from "../sellers/seller.repository.js";
+import { recordStockChange } from "../inventory/inventory.service.js";
+import { InventoryTransactionType } from "../../models/InventoryTransaction.js";
 import {
   createProduct,
   findActiveCategoryById,
@@ -156,6 +158,19 @@ export const createProductForSeller = async (
     images: data.images,
     status: ProductStatus.PENDING,
   });
+
+  if (data.stock > 0) {
+    await recordStockChange({
+      productId: product._id.toString(),
+      sellerId,
+      type: InventoryTransactionType.INITIAL_STOCK,
+      quantity: data.stock,
+      previousStock: 0,
+      actorId: sellerId,
+      actorRole: UserRole.SELLER,
+      reason: "Initial product stock",
+    });
+  }
 
   await logAudit({
     actorId: sellerId,

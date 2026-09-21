@@ -391,12 +391,10 @@ export default function AuthPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setRegisterRole('SELLER')}
+                onClick={() => navigate('/seller/register')}
                 className={cn(
                   'flex-1 py-2 text-xs font-semibold rounded-[calc(var(--radius)-2px)] transition-all duration-150',
-                  registerRole === 'SELLER'
-                    ? 'bg-white text-[var(--fg)] shadow-sm'
-                    : 'text-[var(--fg-secondary)] hover:text-[var(--fg)]'
+                  'text-[var(--fg-secondary)] hover:text-[var(--fg)]'
                 )}
               >
                 Seller Account
@@ -663,6 +661,12 @@ export default function AuthPage() {
             <button onClick={() => setMode('register')} className="text-[var(--primary)] font-medium hover:underline">
               Create an account
             </button>
+          </p>
+          <p className="mt-2 text-center text-sm text-[var(--muted)]">
+            Want to sell on NexCart?{' '}
+            <Link to="/seller/register" className="text-[var(--primary)] font-medium hover:underline">
+              Become a Seller
+            </Link>
           </p>
         </CardContent>
       </Card>

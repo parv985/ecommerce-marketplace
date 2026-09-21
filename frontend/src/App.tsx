@@ -6,6 +6,7 @@ import { AdminRootLayout } from '@/layouts/AdminRootLayout'
 import { SellerLayout } from '@/layouts/SellerLayout'
 import { AdminLayout } from '@/layouts/AdminLayout'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
+import { GlobalApiLoader } from '@/components/ui/GlobalApiLoader'
 
 /* ── Lazy-loaded route components ── */
 
@@ -82,6 +83,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <GlobalApiLoader />
         <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* ── Admin routes (separate layout, no marketplace header/footer) ── */}

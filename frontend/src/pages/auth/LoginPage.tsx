@@ -307,6 +307,12 @@ export function LoginPage() {
             Don't have an account?{' '}
             <Link to="/register" className="text-[var(--primary)] font-medium hover:underline">Sign up</Link>
           </p>
+          <p className="mt-2 text-center text-sm text-[var(--muted)]">
+            Want to sell on NexCart?{' '}
+            <Link to="/seller/register" className="text-[var(--primary)] font-medium hover:underline">
+              Become a Seller
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>

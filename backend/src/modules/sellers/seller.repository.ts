@@ -64,12 +64,14 @@ export const createSellerUser = async (
     name: string;
     email: string;
     passwordHash: string;
+    phone?: string;
   },
 ): Promise<UserDocument> => {
   return User.create({
     name: data.name,
     email: data.email.toLowerCase(),
     passwordHash: data.passwordHash,
+    phone: data.phone,
     role: UserRole.SELLER,
     isEmailVerified: false,
     isActive: true,

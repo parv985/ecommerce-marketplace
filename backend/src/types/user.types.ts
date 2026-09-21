@@ -3,6 +3,7 @@ import { UserRole } from "../constants/roles.js";
 export interface IUser {
   name: string;
   email: string;
+  phone?: string | null;
   passwordHash?: string | null;
   role: UserRole;
   googleId?: string | null;

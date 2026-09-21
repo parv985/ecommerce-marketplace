@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { ShoppingCart, User, Menu, X, Bell, LogOut, Package, LayoutDashboard, Shield, RotateCcw } from 'lucide-react'
+import { ShoppingCart, User, Menu, X, Bell, LogOut, Package, LayoutDashboard, Shield, RotateCcw, Heart } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { cn } from '@/lib/utils'
 import { authApi } from '@/services/auth.service'
 import { toast } from 'react-hot-toast'
 import { useCart } from '@/hooks/useCart'
+import { useWishlist } from '@/hooks/useWishlist'
 import { ProductSearchBar } from '@/components/ProductSearchBar'
 import { Button } from '@/components/ui/Button'
 import { APP_NAME, APP_TAGLINE } from '@/config/brand'
@@ -15,6 +16,7 @@ export function Header() {
   const navigate = useNavigate()
   const location = useLocation()
   const { data: cart } = useCart()
+  const { wishlistData } = useWishlist()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -92,6 +94,18 @@ export function Header() {
                 {!isAdmin && !isSeller && (
                   <>
                     <Link
+                      to="/wishlist"
+                      className="p-2 rounded-[var(--radius)] hover:bg-[var(--accent)] transition-colors relative text-[var(--fg-secondary)] hover:text-[var(--fg)]"
+                      title="Wishlist"
+                    >
+                      <Heart size={19} strokeWidth={1.75} />
+                      {wishlistData && wishlistData.items && wishlistData.items.length > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[16px] bg-[var(--primary)] text-white text-[10px] font-semibold rounded-[var(--radius-sm)] flex items-center justify-center px-1">
+                          {wishlistData.items.length}
+                        </span>
+                      )}
+                    </Link>
+                    <Link
                       to="/cart"
                       className="p-2 rounded-[var(--radius)] hover:bg-[var(--accent)] transition-colors relative text-[var(--fg-secondary)] hover:text-[var(--fg)]"
                       title="Cart"
@@ -164,6 +178,9 @@ export function Header() {
                           <>
                             <Link to="/account" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)] hover:bg-[var(--accent)] transition-colors">
                               <User size={15} strokeWidth={1.75} /> My Account
+                            </Link>
+                            <Link to="/wishlist" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)] hover:bg-[var(--accent)] transition-colors">
+                              <Heart size={15} strokeWidth={1.75} /> My Wishlist
                             </Link>
                             <Link to="/orders" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)] hover:bg-[var(--accent)] transition-colors">
                               <Package size={15} strokeWidth={1.75} /> My Orders
@@ -264,7 +281,10 @@ export function Header() {
                       <span>Cart</span>
                       {cart?.items?.length ? <span className="bg-[var(--primary)] text-white text-xs px-2 py-0.5 rounded-[var(--radius-sm)] font-medium">{cart.items.length}</span> : null}
                     </Link>
-                    <Link to="/wishlist" className="block py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>Wishlist</Link>
+                    <Link to="/wishlist" className="flex items-center justify-between py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>
+                      <span>Wishlist</span>
+                      {wishlistData?.items?.length ? <span className="bg-[var(--primary)] text-white text-xs px-2 py-0.5 rounded-[var(--radius-sm)] font-medium">{wishlistData.items.length}</span> : null}
+                    </Link>
                     <Link to="/account" className="block py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>My Account</Link>
                     <Link to="/orders" className="block py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>My Orders</Link>
                     <Link to="/returns" className="block py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>My Returns</Link>

@@ -100,7 +100,9 @@ export function MainLayout() {
     )
   }
 
-  const isSellerPanel = location.pathname.startsWith('/seller')
+  const isSellerPanel =
+    location.pathname.startsWith('/seller') &&
+    !['/seller/register', '/seller/pending'].includes(location.pathname)
 
   return (
     <div className={cn("min-h-screen flex flex-col", isSellerPanel && "h-screen overflow-hidden")}>

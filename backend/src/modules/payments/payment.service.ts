@@ -24,6 +24,7 @@ import {
   notifyPaymentReceived,
   notifyPaymentRefunded,
 } from "../notifications/notification.service.js";
+import { finalizeCouponUsageOnPaymentSuccess } from "../coupons/coupon.service.js";
 import {
   createGatewayOrder,
   createGatewayRefund,
@@ -269,6 +270,8 @@ export const verifyOrderPayment = async (
     await notifyPaymentReceived(updatedOrder);
   }
 
+  await finalizeCouponUsageOnPaymentSuccess(orderId);
+
   await logAudit({
     actorId: user.id,
     actorRole: user.role,
@@ -400,6 +403,10 @@ export const processPaymentWebhook = async (
       entityId: payment.orderId.toString(),
       metadata: { eventId },
     });
+
+    await finalizeCouponUsageOnPaymentSuccess(
+      payment.orderId.toString(),
+    );
 
     return { processed: true };
   }

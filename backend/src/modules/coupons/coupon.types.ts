@@ -13,6 +13,9 @@ export interface CouponResponse {
   maxDiscount: number | null;
   productIds: string[];
   categoryIds: string[];
+  products?: Array<{ id: string; name: string }>;
+  categories?: Array<{ id: string; name: string }>;
+  scope?: "ALL_PRODUCTS" | "SPECIFIC_PRODUCTS" | "CATEGORIES";
   startAt: Date;
   endAt: Date;
   usageLimit: number | null;

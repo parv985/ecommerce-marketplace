@@ -53,9 +53,18 @@ const EMPTY_VALUES: SellerFormValues = {
  */
 function profileToFormValues(profile: SellerProfile): SellerFormValues {
   const addr = profile.address
+  const rawPhone =
+    profile.phone ||
+    (profile as any).phoneNumber ||
+    (profile as any).mobile ||
+    (profile as any).contactNumber ||
+    (addr as any)?.phone ||
+    (profile.user as any)?.phone ||
+    ''
+  const phone = rawPhone === '-' ? '' : rawPhone
   return {
     businessName: profile.businessName ?? '',
-    phone: profile.phone ?? '',
+    phone,
     bankAccountHolderName: profile.bankAccountHolderName ?? '',
     bankAccountNumber: profile.bankAccountNumber ?? '',
     ifscCode: profile.ifscCode ?? '',
@@ -78,6 +87,7 @@ export function SellerProfilePage() {
 
   const { register, handleSubmit, reset } = useForm<SellerFormValues>({
     defaultValues: EMPTY_VALUES,
+    values: originalValues,
   })
 
   // Pre-fill the form once the profile loads (and re-sync after updates).
@@ -202,7 +212,18 @@ export function SellerProfilePage() {
             <div><span className="text-[var(--muted)]">Business Name:</span> <p className="font-medium">{profile.businessName}</p></div>
             <div><span className="text-[var(--muted)]">GSTIN:</span> <p className="font-medium font-mono">{profile.gstin}</p></div>
             <div><span className="text-[var(--muted)]">PAN:</span> <p className="font-medium font-mono">{profile.pan}</p></div>
-            <div><span className="text-[var(--muted)]">Phone:</span> <p className="font-medium">{profile.phone || '-'}</p></div>
+            <div>
+              <span className="text-[var(--muted)]">Phone:</span>
+              <p className="font-medium">
+                {profile.phone && profile.phone !== '-'
+                  ? profile.phone
+                  : (profile as any).phoneNumber ||
+                    (profile as any).mobile ||
+                    (profile as any).contactNumber ||
+                    (profile.address as any)?.phone ||
+                    '-'}
+              </p>
+            </div>
           </div>
           <p className="text-xs text-[var(--muted)] mt-3">GSTIN and PAN cannot be changed after registration.</p>
         </CardContent>

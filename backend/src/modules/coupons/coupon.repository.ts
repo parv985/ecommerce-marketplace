@@ -21,7 +21,10 @@ export const findCouponByIdAndSeller = async (
   return Coupon.findOne({
     _id: id,
     sellerId,
-  }).exec();
+  })
+    .populate("productIds", "name")
+    .populate("categoryIds", "name")
+    .exec();
 };
 
 /*
@@ -33,6 +36,12 @@ export const findCouponByCode = async (
   return Coupon.findOne({
     code: code.toUpperCase(),
   }).exec();
+};
+
+export const findCouponById = async (
+  id: string,
+): Promise<ICoupon | null> => {
+  return Coupon.findById(id).exec();
 };
 
 /*
@@ -88,6 +97,8 @@ export const listCouponsBySeller = async (
 }> => {
   const [items, total] = await Promise.all([
     Coupon.find({ sellerId, ...filter })
+      .populate("productIds", "name")
+      .populate("categoryIds", "name")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)

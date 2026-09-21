@@ -145,7 +145,7 @@ export interface Product {
   compareAtPrice?: number
   sku: string | null
   stock: number
-  status: 'DRAFT' | 'ACTIVE' | 'INACTIVE'
+  status: 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'PENDING'
   category: {
     id: string
     name: string | null
@@ -383,10 +383,14 @@ export interface Payment {
 export interface Discount {
   id: string
   sellerId: string
+  name?: string
   discountType: 'PERCENTAGE' | 'FIXED'
   discountValue: number
   productId?: string | null
+  productName?: string | null
   categoryId?: string | null
+  categoryName?: string | null
+  scope?: 'PRODUCT' | 'CATEGORY'
   startAt: string
   endAt: string
   status: 'ACTIVE' | 'INACTIVE'
@@ -404,6 +408,9 @@ export interface Coupon {
   maxDiscount?: number | null
   productIds: string[]
   categoryIds: string[]
+  products?: Array<{ id: string; name: string }>
+  categories?: Array<{ id: string; name: string }>
+  scope?: 'ALL_PRODUCTS' | 'SPECIFIC_PRODUCTS' | 'CATEGORIES'
   startAt: string
   endAt: string
   usageLimit?: number | null

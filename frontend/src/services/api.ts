@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { toast } from 'react-hot-toast'
+import { useLoadingStore } from '../stores/loadingStore'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api/v1',
@@ -79,16 +80,27 @@ function isAuthEndpoint(url?: string): boolean {
   )
 }
 
-api.interceptors.request.use((config) => {
-  if (accessToken) {
-    config.headers.Authorization = `Bearer ${accessToken}`
+api.interceptors.request.use(
+  (config) => {
+    useLoadingStore.getState().startRequest()
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`
+    }
+    return config
+  },
+  (error) => {
+    useLoadingStore.getState().endRequest()
+    return Promise.reject(error)
   }
-  return config
-})
+)
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    useLoadingStore.getState().endRequest()
+    return response
+  },
   async (error) => {
+    useLoadingStore.getState().endRequest()
     const originalRequest = error.config
 
     // ── Deactivated account: enforce immediately, no refresh attempt ──

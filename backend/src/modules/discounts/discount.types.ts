@@ -7,7 +7,10 @@ export interface DiscountResponse {
   id: string;
   sellerId: string;
   productId: string | null;
+  productName?: string | null;
   categoryId: string | null;
+  categoryName?: string | null;
+  scope?: "PRODUCT" | "CATEGORY";
   discountType: DiscountType;
   discountValue: number;
   startAt: Date;
