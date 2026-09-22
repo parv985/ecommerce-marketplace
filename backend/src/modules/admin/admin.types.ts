@@ -32,6 +32,7 @@ export interface AdminSellerResponse {
 export interface AdminProductResponse {
   id: string;
   sellerId: string;
+  sellerName?: string;
   name: string;
   price: number;
   stock: number;

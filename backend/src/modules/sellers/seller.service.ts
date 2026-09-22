@@ -125,7 +125,7 @@ export const registerSeller = async (
                 name: data.name,
                 email: data.email,
                 passwordHash,
-                phone: data.phone,
+                ...(data.phone ? { phone: data.phone } : {}),
             });
 
 
@@ -142,8 +142,7 @@ export const registerSeller = async (
                 businessName:
                     data.businessName,
 
-                phone:
-                    data.phone,
+                ...(data.phone ? { phone: data.phone } : {}),
 
                 gstin:
                     data.gstin,

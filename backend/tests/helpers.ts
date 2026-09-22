@@ -234,11 +234,11 @@ export const createApprovedSeller = async (): Promise<{
   return { email, token, profileId };
 };
 
-export const createProduct = (
+export const createProduct = async (
   token: string,
   overrides: Record<string, unknown> = {},
 ) => {
-  return api
+  const res = await api
     .post("/api/v1/products")
     .set("Authorization", `Bearer ${token}`)
     .send({
@@ -247,6 +247,13 @@ export const createProduct = (
       stock: 10,
       ...overrides,
     });
+
+  if (res.body?.data?.id && overrides.status === "ACTIVE") {
+    const { Product } = await import("../src/models/Product.js");
+    await Product.findByIdAndUpdate(res.body.data.id, { status: "ACTIVE" });
+  }
+
+  return res;
 };
 
 /**

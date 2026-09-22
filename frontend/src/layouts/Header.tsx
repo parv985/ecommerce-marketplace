@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { ShoppingCart, User, Menu, X, Bell, LogOut, Package, LayoutDashboard, Shield, RotateCcw, Heart } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/authStore'
 import { cn } from '@/lib/utils'
 import { authApi } from '@/services/auth.service'
+import { notificationService } from '@/services/notification.service'
 import { toast } from 'react-hot-toast'
 import { useCart } from '@/hooks/useCart'
 import { useWishlist } from '@/hooks/useWishlist'
@@ -20,6 +22,18 @@ export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
+  const isAdmin = user?.role === 'SUPER_ADMIN'
+  const isSeller = user?.role === 'SELLER'
+  const isBuyer = isAuthenticated && !isAdmin && !isSeller
+
+  const { data: unreadNotificationData } = useQuery({
+    queryKey: ['notifications', 'unread-count'],
+    queryFn: () => notificationService.getUnreadCount(),
+    enabled: isBuyer,
+    refetchInterval: 30000,
+  })
+  const unreadCount = unreadNotificationData?.unread ?? 0
+
   const handleLogout = async () => {
     try {
       await authApi.logout()
@@ -31,8 +45,6 @@ export function Header() {
   }
 
   const isActive = (path: string) => location.pathname === path
-  const isAdmin = user?.role === 'SUPER_ADMIN'
-  const isSeller = user?.role === 'SELLER'
 
   /*
    * Inside the Seller Panel the generic marketplace search is not shown:
@@ -123,6 +135,11 @@ export function Header() {
                       title="Notifications"
                     >
                       <Bell size={19} strokeWidth={1.75} />
+                      {unreadCount > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[16px] bg-[var(--primary)] text-white text-[10px] font-semibold rounded-[var(--radius-sm)] flex items-center justify-center px-1">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      )}
                     </Link>
                   </>
                 )}
@@ -288,7 +305,14 @@ export function Header() {
                     <Link to="/account" className="block py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>My Account</Link>
                     <Link to="/orders" className="block py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>My Orders</Link>
                     <Link to="/returns" className="block py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>My Returns</Link>
-                    <Link to="/notifications" className="block py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>Notifications</Link>
+                    <Link to="/notifications" className="flex items-center justify-between py-2 text-sm text-[var(--fg-secondary)] hover:text-[var(--fg)]" onClick={() => setMobileOpen(false)}>
+                      <span>Notifications</span>
+                      {unreadCount > 0 ? (
+                        <span className="bg-[var(--primary)] text-white text-xs px-2 py-0.5 rounded-[var(--radius-sm)] font-medium">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      ) : null}
+                    </Link>
                   </>
                 )}
                 {isSeller && (

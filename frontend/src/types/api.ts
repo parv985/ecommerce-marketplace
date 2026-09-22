@@ -151,6 +151,7 @@ export interface Product {
     name: string | null
   } | null
   sellerId: string
+  sellerName?: string
   images: ProductImage[]
   specifications: ProductSpecification[]
   averageRating?: number
@@ -370,12 +371,13 @@ export interface Invoice {
 export interface Payment {
   id: string
   orderId: string
+  gateway?: 'RAZORPAY' | 'MOCK'
   gatewayOrderId: string
   gatewayPaymentId?: string
   amount: number
   currency: string
   status: 'PENDING' | 'CAPTURED' | 'FAILED' | 'REFUNDED'
-  paymentMethod: PaymentMethod
+  paymentMethod?: PaymentMethod
   keyId: string | null
 }
 

@@ -71,7 +71,7 @@ export const createSellerUser = async (
     name: data.name,
     email: data.email.toLowerCase(),
     passwordHash: data.passwordHash,
-    phone: data.phone,
+    ...(data.phone ? { phone: data.phone } : {}),
     role: UserRole.SELLER,
     isEmailVerified: false,
     isActive: true,

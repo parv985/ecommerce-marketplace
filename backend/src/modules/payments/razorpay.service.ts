@@ -57,6 +57,8 @@ const razorpayFetch = async (
   );
 
   if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    console.error(`[RAZORPAY ERROR] ${res.status}: ${errBody}`);
     /*
      * Never forward the provider's response body (it may contain
      * internal details); only the status class is surfaced.

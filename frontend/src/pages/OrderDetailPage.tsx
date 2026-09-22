@@ -314,10 +314,6 @@ export function OrderDetailPage({ variant = 'buyer' }: OrderDetailPageProps) {
                     <span>-{formatPrice(invoice.couponDiscount)}</span>
                   </div>
                 )}
-                <div className="flex justify-between">
-                  <span>Tax (GST {invoice.taxRate}%)</span>
-                  <span>{formatPrice(invoice.taxAmount)}</span>
-                </div>
                 <div className="flex justify-between font-bold border-t pt-1">
                   <span>Total</span>
                   <span>{formatPrice(invoice.total)}</span>

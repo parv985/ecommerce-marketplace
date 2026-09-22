@@ -110,9 +110,16 @@ export function AdminProductsPage() {
           {data?.items?.map(p => (
             <div key={p.id} className="border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
               <div className="min-w-0">
-                <span className="font-medium text-sm">{p.name}</span>
-                <span className="text-sm text-[var(--muted)] ml-2">{formatPrice(p.price)}</span>
-                <Badge variant={statusColors[p.status]} className="ml-2">{p.status}</Badge>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-medium text-sm">{p.name}</span>
+                  <span className="text-sm text-[var(--muted)]">{formatPrice(p.price)}</span>
+                  <Badge variant={statusColors[p.status]}>{p.status}</Badge>
+                </div>
+                {p.sellerName && (
+                  <p className="text-xs text-[var(--muted)] mt-1">
+                    Seller: <span className="font-medium text-slate-800">{p.sellerName}</span>
+                  </p>
+                )}
               </div>
               <div className="flex gap-1 self-end sm:self-auto shrink-0 flex-wrap">
                 {['ACTIVE', 'DRAFT', 'INACTIVE'].filter(s => s !== p.status).map(s => (

@@ -70,5 +70,5 @@ export function useWishlist() {
     },
   })
 
-  return { wishlistProductIds, isWishlisted, toggle, isToggling: toggle.isPending }
+  return { wishlistData, wishlistProductIds, isWishlisted, toggle, isToggling: toggle.isPending }
 }

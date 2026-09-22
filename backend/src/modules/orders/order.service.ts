@@ -1250,15 +1250,6 @@ export const generateOrderInvoice = async (
     );
   }
 
-  /*
-   * GST calculation: 18% GST is applied to the pre-discount subtotal
-   * for invoice purposes. This is a display-only calculation and does
-   * not affect the order total stored in the database.
-   */
-  const taxRate = 0.18;
-  const preDiscountTotal = order.itemsTotal;
-  const taxAmount = roundMoney(preDiscountTotal * taxRate);
-
   return {
     invoiceNumber: generateInvoiceNumber(),
     orderNumber: order.orderNumber,
@@ -1300,9 +1291,9 @@ export const generateOrderInvoice = async (
     itemsTotal: order.itemsTotal,
     discountTotal: order.discountTotal,
     couponDiscount: order.couponDiscount,
-    taxRate: taxRate * 100,
-    taxAmount,
-    total: roundMoney(order.total + taxAmount),
+    taxRate: 0,
+    taxAmount: 0,
+    total: order.total,
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
     status: order.status,

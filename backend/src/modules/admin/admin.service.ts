@@ -84,10 +84,12 @@ const toAdminSellerResponse = (
 
 const toAdminProductResponse = (
   product: IProduct,
+  sellerName?: string,
 ): AdminProductResponse => {
   return {
     id: product._id.toString(),
     sellerId: product.sellerId.toString(),
+    ...(sellerName ? { sellerName } : {}),
     name: product.name,
     price: product.price,
     stock: product.stock,
@@ -302,8 +304,44 @@ export const getAdminProductsList = async (
     parsed.limit,
   );
 
+  const sellerIds = Array.from(new Set(items.map((p) => p.sellerId.toString())));
+  const sellerMap = new Map<string, string>();
+
+  if (sellerIds.length > 0) {
+    const { Seller } = await import("../../models/Seller.js");
+    const { User } = await import("../../models/User.js");
+
+    const [sellers, users] = await Promise.all([
+      Seller.find({
+        $or: [
+          { userId: { $in: sellerIds } },
+          { _id: { $in: sellerIds } },
+        ],
+      })
+        .select("userId businessName")
+        .exec(),
+      User.find({ _id: { $in: sellerIds } })
+        .select("name")
+        .exec(),
+    ]);
+
+    for (const u of users) {
+      if (u.name) {
+        sellerMap.set(u._id.toString(), u.name);
+      }
+    }
+    for (const s of sellers) {
+      if (s.businessName) {
+        sellerMap.set(s.userId.toString(), s.businessName);
+        sellerMap.set(s._id.toString(), s.businessName);
+      }
+    }
+  }
+
   return {
-    items: items.map(toAdminProductResponse),
+    items: items.map((p) =>
+      toAdminProductResponse(p, sellerMap.get(p.sellerId.toString())),
+    ),
     page: parsed.page,
     limit: parsed.limit,
     total,
