@@ -2,6 +2,9 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -18,9 +21,27 @@ export default defineConfig({
     allowedHosts: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://127.0.0.1:5000',
         changeOrigin: true,
         secure: false,
+        ws: true,
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req, res) => {
+            console.warn('[vite proxy error]', err.message)
+            if (res && 'writeHead' in res && !res.headersSent) {
+              res.writeHead(502, {
+                'Content-Type': 'application/json',
+              })
+              res.end(
+                JSON.stringify({
+                  success: false,
+                  message: 'Backend server is temporarily unavailable or restarting. Please retry.',
+                  code: 'BACKEND_UNAVAILABLE',
+                })
+              )
+            }
+          })
+        },
       },
     },
   },

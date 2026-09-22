@@ -1,16 +1,14 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Loader2, CreditCard, CheckCircle, AlertCircle, ShieldCheck, Smartphone, Landmark } from 'lucide-react'
+import { Loader2, CreditCard, CheckCircle, AlertCircle } from 'lucide-react'
 import { orderService } from '@/services/order.service'
 import { paymentService } from '@/services/payment.service'
-import { formatPrice, cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/authStore'
+import { formatPrice } from '@/lib/utils'
 import { toast } from 'react-hot-toast'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Dialog } from '@/components/ui/Dialog'
-import { Badge } from '@/components/ui/Badge'
-import type { Payment } from '@/types/api'
 
 declare global {
   interface Window {
@@ -18,32 +16,13 @@ declare global {
   }
 }
 
-async function computeMockSignature(gatewayOrderId: string, paymentId: string): Promise<string> {
-  const secret = 'mock-payment-signing-secret'
-  const enc = new TextEncoder()
-  const key = await window.crypto.subtle.importKey(
-    'raw',
-    enc.encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  )
-  const data = enc.encode(`${gatewayOrderId}|${paymentId}`)
-  const signature = await window.crypto.subtle.sign('HMAC', key, data)
-  return Array.from(new Uint8Array(signature))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('')
-}
-
 export function PaymentPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const user = useAuthStore((s) => s.user)
   const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [showMockModal, setShowMockModal] = useState(false)
-  const [mockPaymentRecord, setMockPaymentRecord] = useState<Payment | null>(null)
-  const [selectedSimMethod, setSelectedSimMethod] = useState<'upi' | 'card' | 'netbanking'>('upi')
   const razorpayOptionsRef = useRef<any>(null)
 
   const { data: orderData, isLoading: orderLoading, error: orderError } = useQuery({
@@ -57,7 +36,7 @@ export function PaymentPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['order', id] })
       queryClient.invalidateQueries({ queryKey: ['orders'] })
-      setShowMockModal(false)
+      queryClient.invalidateQueries({ queryKey: ['cart'] })
       setIsProcessing(false)
       toast.success('Payment successful!')
       navigate(`/orders/${id}`)
@@ -109,11 +88,8 @@ export function PaymentPage() {
       const payment = res.data
       setIsLoading(false)
 
-      // When Razorpay keys are not configured or in mock mode, use our interactive mock modal
-      // rather than passing mock credentials to Razorpay CDN (which gets stuck on the loading shield).
-      if (payment.gateway === 'MOCK' || !payment.keyId) {
-        setMockPaymentRecord(payment)
-        setShowMockModal(true)
+      if (!payment.keyId) {
+        toast.error('Razorpay payment gateway is not configured on the server')
         setIsProcessing(false)
         return
       }
@@ -134,7 +110,8 @@ export function PaymentPage() {
           })
         },
         prefill: {
-          name: orderData?.shippingAddress?.recipientName || '',
+          name: orderData?.shippingAddress?.recipientName || user?.name || '',
+          email: user?.email || '',
           contact: orderData?.shippingAddress?.phone || '',
         },
         theme: {
@@ -158,22 +135,6 @@ export function PaymentPage() {
       setIsProcessing(false)
     },
   })
-
-  const handleSimulatePayment = async () => {
-    if (!mockPaymentRecord) return
-    setIsProcessing(true)
-    try {
-      const mockPaymentId = `pay_mock_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`
-      const signature = await computeMockSignature(mockPaymentRecord.gatewayOrderId, mockPaymentId)
-      await verifyPayment.mutateAsync({
-        paymentId: mockPaymentId,
-        signature,
-      })
-    } catch (err: any) {
-      toast.error(err?.message || 'Mock payment simulation failed')
-      setIsProcessing(false)
-    }
-  }
 
   useEffect(() => {
     if (orderData && !initiatePayment.isPending && !initiatePayment.isSuccess) {
@@ -285,111 +246,6 @@ export function PaymentPage() {
           </p>
         </CardContent>
       </Card>
-
-      {/* Mock Razorpay Checkout Dialog */}
-      <Dialog
-        open={showMockModal}
-        onClose={() => {
-          setShowMockModal(false)
-          setIsProcessing(false)
-        }}
-        title="Razorpay Checkout"
-        className="max-w-md"
-      >
-        <div className="space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
-            <div className="flex items-center gap-2.5">
-              <div className="h-9 w-9 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-base shadow-sm">
-                R
-              </div>
-              <div>
-                <p className="font-semibold text-sm text-[var(--fg)]">NexCart Marketplace</p>
-                <p className="text-xs text-[var(--muted)]">Order #{orderData.orderNumber}</p>
-              </div>
-            </div>
-            <Badge variant="warning">Test Mode</Badge>
-          </div>
-
-          <div className="bg-slate-50 p-3.5 rounded-[var(--radius)] border border-slate-200 flex justify-between items-center">
-            <span className="text-sm text-[var(--muted)] font-medium">Amount to Pay</span>
-            <span className="text-xl font-bold text-[var(--fg)]">{formatPrice(orderData.total)}</span>
-          </div>
-
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-[var(--muted)] uppercase tracking-wider">Simulated Payment Method</p>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => setSelectedSimMethod('upi')}
-                className={cn(
-                  'p-2.5 rounded-[var(--radius)] border text-center transition-all flex flex-col items-center gap-1 cursor-pointer',
-                  selectedSimMethod === 'upi' ? 'border-blue-600 bg-blue-50/70 text-blue-700 font-medium shadow-xs' : 'border-[var(--border)] hover:bg-slate-50 text-[var(--fg-secondary)]'
-                )}
-              >
-                <Smartphone size={18} />
-                <span className="text-xs">UPI</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedSimMethod('card')}
-                className={cn(
-                  'p-2.5 rounded-[var(--radius)] border text-center transition-all flex flex-col items-center gap-1 cursor-pointer',
-                  selectedSimMethod === 'card' ? 'border-blue-600 bg-blue-50/70 text-blue-700 font-medium shadow-xs' : 'border-[var(--border)] hover:bg-slate-50 text-[var(--fg-secondary)]'
-                )}
-              >
-                <CreditCard size={18} />
-                <span className="text-xs">Card</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedSimMethod('netbanking')}
-                className={cn(
-                  'p-2.5 rounded-[var(--radius)] border text-center transition-all flex flex-col items-center gap-1 cursor-pointer',
-                  selectedSimMethod === 'netbanking' ? 'border-blue-600 bg-blue-50/70 text-blue-700 font-medium shadow-xs' : 'border-[var(--border)] hover:bg-slate-50 text-[var(--fg-secondary)]'
-                )}
-              >
-                <Landmark size={18} />
-                <span className="text-xs">NetBanking</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="text-xs text-[var(--muted)] bg-blue-50/60 p-2.5 rounded-[var(--radius)] border border-blue-100 flex items-start gap-2">
-            <ShieldCheck size={16} className="text-blue-600 shrink-0 mt-0.5" />
-            <span>
-              This is a sandbox Razorpay simulation. Click below to verify and complete the transaction without real money.
-            </span>
-          </div>
-
-          <div className="flex gap-2 pt-2">
-            <Button
-              variant="outline"
-              className="w-1/3"
-              onClick={() => {
-                setShowMockModal(false)
-                setIsProcessing(false)
-              }}
-              disabled={isProcessing || verifyPayment.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              className="w-2/3 bg-blue-600 hover:bg-blue-700 text-white font-medium"
-              onClick={handleSimulatePayment}
-              disabled={isProcessing || verifyPayment.isPending}
-            >
-              {isProcessing || verifyPayment.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Verifying...
-                </>
-              ) : (
-                `Pay ${formatPrice(orderData.total)}`
-              )}
-            </Button>
-          </div>
-        </div>
-      </Dialog>
     </div>
   )
 }

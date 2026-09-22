@@ -2,7 +2,7 @@ import {
   Cart,
   type ICart,
 } from "../../models/Cart.js";
-import type { Types } from "mongoose";
+import { Types } from "mongoose";
 
 export const findCartByUserId = async (
   userId: string,
@@ -79,6 +79,31 @@ export const clearCartItems = async (
     {
       $set: {
         items: [],
+        checkoutLockedAt: null,
+      },
+    },
+  ).exec();
+};
+
+export const removeProductsFromCart = async (
+  userId: string | Types.ObjectId,
+  productIds: Array<string | Types.ObjectId>,
+): Promise<void> => {
+  if (!productIds || productIds.length === 0) {
+    return;
+  }
+  const objectIds = productIds.map((id) =>
+    typeof id === "string" ? new Types.ObjectId(id) : id,
+  );
+  await Cart.updateOne(
+    { userId },
+    {
+      $pull: {
+        items: {
+          productId: { $in: objectIds },
+        },
+      },
+      $set: {
         checkoutLockedAt: null,
       },
     },

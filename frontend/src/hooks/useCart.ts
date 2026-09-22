@@ -8,6 +8,7 @@ export function useCart() {
     queryKey: ['cart'],
     queryFn: cartService.get,
     enabled: isAuthenticated,
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
 }

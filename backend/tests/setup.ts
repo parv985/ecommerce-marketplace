@@ -37,5 +37,11 @@ process.env.GOOGLE_CLIENT_ID =
   "test-client-id.apps.googleusercontent.com";
 process.env.GOOGLE_CLIENT_SECRET = "test-client-secret";
 process.env.GOOGLE_REDIRECT_URI =
-  "http://localhost:5000/api/v1/auth/google/callback";
 process.env.CLIENT_URL = "http://localhost:3000";
+
+/*
+ * Keep payments deterministic and offline in integration tests (MOCK mode).
+ */
+process.env.RAZORPAY_KEY_ID = "";
+process.env.RAZORPAY_KEY_SECRET = "";
+process.env.RAZORPAY_WEBHOOK_SECRET = "";

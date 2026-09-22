@@ -233,7 +233,7 @@ The failure path is symmetric: any `AppError` thrown in layers 3–6 is caught b
 | **oxlint** | — | Linting (`npm run lint`) |
 
 ### 3.2 Backend (root `package.json`)
-React.lazy()
+
 | Technology | Version (approx.) | Why it is used |
 |------------|-------------------|----------------|
 | **Node.js** | 20+ | Runtime; async I/O for an API server |
@@ -370,7 +370,7 @@ frontend/
 └── src/
     ├── main.tsx                  # React root render (StrictMode) + index.css import
     ├── App.tsx                   # ALL route definitions: providers (QueryClient, Router),
-    │                             #   layouts, ProtectedRoute guards, lazy() page imports, 404
+    │                             #   GlobalApiLoader, layouts, ProtectedRoute guards, lazy() page imports, 404
     ├── index.css                 # Tailwind 4 import + design tokens (@theme + :root CSS variables:
     │                             #   terracotta brand color, warm light surfaces, radii, shadows)
     ├── config/brand.ts           # APP_NAME/APP_TAGLINE/APP_DESCRIPTION/APP_COPYRIGHT — single source
@@ -385,27 +385,34 @@ frontend/
     │   ├── PaymentPage.tsx       # Razorpay checkout.js host: initiate → open modal → verify signature
     │   ├── OrderListPage.tsx     # Buyer order history (status filter, pagination)
     │   ├── OrderDetailPage.tsx   # Items, totals, tracking timeline, invoice, cancel, COD pay, review CTA
+    │   ├── ReturnListPage.tsx    # Buyer return requests list
+    │   ├── ReturnDetailPage.tsx  # Return request details, status tracking, refund breakdown
     │   ├── WishlistPage.tsx      # Saved products grid
     │   ├── AccountPage.tsx       # Profile, avatar upload/delete, address book
     │   ├── NotificationsPage.tsx # Notification list, unread, mark read, preferences (buyer+seller)
     │   ├── auth/
-    │   │   ├── AuthPage.tsx      # Login (with 2FA step when required)
-    │   │   ├── RegisterPage.tsx  # Buyer registration
+    │   │   ├── AuthPage.tsx          # Combined Login & registration page with tab switching & 2FA modal
+    │   │   ├── LoginPage.tsx         # Standalone login view with inline 2FA setup & TOTP verification
+    │   │   ├── RegisterPage.tsx      # Buyer registration
+    │   │   ├── GoogleCallbackPage.tsx# Google OAuth callback handler
     │   │   ├── ForgotPasswordPage.tsx / ResetPasswordPage.tsx
     │   ├── seller/
-    │   │   ├── RegisterSellerPage.tsx  # KYC onboarding form (GSTIN/PAN/IFSC/address/bank)
-    │   │   ├── PendingApprovalPage.tsx # "Awaiting approval" status screen
+    │   │   ├── RegisterSellerPage.tsx       # KYC onboarding form (GSTIN/PAN/IFSC/address/bank)
+    │   │   ├── PendingApprovalPage.tsx      # "Awaiting approval" status screen with auto-redirect on approval
     │   │   ├── SellerTwoFactorSetupPage.tsx # QR + code + recovery codes wizard (mandatory)
-    │   │   ├── SellerDashboardPage.tsx  # KPI cards + sales chart + recent orders
-    │   │   ├── SellerProductsPage.tsx   # Product CRUD + image upload + status
-    │   │   ├── SellerOrdersPage.tsx     # Seller orders: status transitions, mark COD paid
-    │   │   ├── SellerInventoryPage.tsx  # Stock levels, manual adjustments, transaction history
-    │   │   ├── SellerDiscountsPage.tsx  # Date-windowed product/category discounts
-    │   │   ├── SellerCouponsPage.tsx    # Coupon codes with limits
-    │   │   ├── SellerCustomersPage.tsx  # Read-only customer list (aggregated from orders)
-    │   │   ├── SellerAnalyticsPage.tsx  # Recharts: sales, revenue, top products, categories
-    │   │   ├── SellerSettlementPage.tsx # Monthly settlement summary + order breakdown
-    │   │   └── SellerProfilePage.tsx    # Seller profile + KYC document upload/delete
+    │   │   ├── SellerDashboardPage.tsx       # KPI cards + sales chart + recent orders
+    │   │   ├── SellerProductsPage.tsx        # Product CRUD + image upload + status
+    │   │   ├── SellerOrdersPage.tsx          # Seller orders: status transitions, mark COD paid
+    │   │   ├── SellerOrderDetailPage.tsx     # Dedicated seller order detail view
+    │   │   ├── SellerReturnsPage.tsx         # Manage customer return requests (approve/reject/view)
+    │   │   ├── SellerReviewsPage.tsx         # Product reviews dashboard: ratings breakdown & customer feedback
+    │   │   ├── SellerInventoryPage.tsx       # Stock levels, manual adjustments, transaction history
+    │   │   ├── SellerDiscountsPage.tsx       # Date-windowed product/category discounts
+    │   │   ├── SellerCouponsPage.tsx         # Coupon codes with limits
+    │   │   ├── SellerCustomersPage.tsx       # Read-only customer list (aggregated from orders)
+    │   │   ├── SellerAnalyticsPage.tsx       # Recharts: sales, revenue, top products, categories
+    │   │   ├── SellerSettlementPage.tsx      # Monthly settlement summary + order breakdown
+    │   │   └── SellerProfilePage.tsx         # Seller profile + KYC document upload/delete
     │   └── admin/
     │       ├── AdminDashboardPage.tsx   # Platform KPIs (users, sellers, orders, revenue)
     │       ├── AdminUsersPage.tsx       # User list + activate/deactivate
@@ -413,6 +420,7 @@ frontend/
     │       ├── AdminCategoriesPage.tsx  # Category CRUD (CategoryTable + CategoryFormDialog)
     │       ├── AdminProductsPage.tsx    # Product moderation (status changes)
     │       ├── AdminOrdersPage.tsx      # All orders across sellers
+    │       ├── AdminOrderDetailPage.tsx # Dedicated admin order detail view
     │       ├── AdminSettlementsPage.tsx # Generate + lifecycle actions + commission
     │       ├── AdminNotificationsPage.tsx # Broadcast to sellers/users
     │       ├── AdminAuditPage.tsx       # Audit log viewer (MUI: filters, table, copy — see §17)
@@ -433,6 +441,7 @@ frontend/
     │   ├── ProductSearchBar.tsx  # Header search with debounce + product search suggestions
     │   ├── ui/                   # Design-system primitives: Button, Card, Input, TextArea, Select,
     │   │                         #   Badge, Dialog, Pagination, Skeleton, EmptyState, ProfileAvatar,
+    │   │                         #   GlobalApiLoader (top-level animated API loading bar),
     │   │                         #   ImageUpload (multi-image uploader w/ previews), DocumentUpload
     │   │                         #   (KYC document manager)
     │   ├── home/                 # Homepage sections: HeroShowcase, ProductCarousel, SectionHeader,
@@ -441,7 +450,9 @@ frontend/
     │   └── admin/audit/          # Audit page pieces: CopyButton (MUI-styled)
     ├── hooks/                    # see §5.8
     ├── services/                 # API layer — see §5.6
-    ├── stores/authStore.ts       # Zustand session store — see §5.3
+    ├── stores/                   # Zustand stores
+    │   ├── authStore.ts          # Session store — see §5.3
+    │   └── loadingStore.ts       # Global in-flight API request counter for GlobalApiLoader
     ├── types/api.ts              # All shared TS interfaces (ApiResponse, Product, Order, Settlement, …)
     ├── lib/
     │   ├── utils.ts              # cn(), formatPrice (INR), formatDate, toAmount (NaN-safe money)
@@ -488,13 +499,14 @@ tests/
 |------|------|--------|
 | `/` | HomePage | public |
 | `/products`, `/products/:id` | catalog / detail | public |
-| `/login`, `/forgot-password`, `/reset-password` | auth (AuthPage hosts login+register) | public |
-| `/cart`, `/checkout`, `/orders`, `/orders/:id`, `/orders/:id/pay`, `/account`, `/wishlist` | buyer flows | `BUYER` |
+| `/login`, `/forgot-password`, `/reset-password` | auth (`AuthPage` / `LoginPage`) | public |
+| `/auth/google/callback` | GoogleCallbackPage (OAuth session handoff) | public |
+| `/cart`, `/checkout`, `/orders`, `/orders/:id`, `/orders/:id/pay`, `/returns`, `/returns/:id`, `/account`, `/wishlist` | buyer flows | `BUYER` |
 | `/notifications` | notifications | `BUYER` or `SELLER` |
 | `/seller/register` | seller onboarding | public (guards inside) |
 | `/seller/pending`, `/seller/2fa-setup` | seller status screens | `SELLER` |
-| `/seller/{dashboard,products,orders,inventory,discounts,coupons,customers,analytics,profile,settlement,notifications}` | seller panel | `SELLER` (2FA enforced at API level) |
-| `/admin/{dashboard,users,sellers,categories,products,orders,settlements,notifications,audit,profile}` | admin panel | `SUPER_ADMIN` |
+| `/seller/{dashboard,products,orders,orders/:id,returns,reviews,inventory,discounts,coupons,customers,analytics,profile,settlement,notifications}` | seller panel | `SELLER` (2FA enforced at API level) |
+| `/admin/{dashboard,users,sellers,categories,products,orders,orders/:id,settlements,notifications,audit,profile}` | admin panel | `SUPER_ADMIN` |
 
 ### 5.2 App providers & entry
 
@@ -530,6 +542,7 @@ tests/
 | `CheckoutPage` | Address select-or-create (Zod-validated form), COD/ONLINE radio, **coupon apply** with per-coupon server preview, **checkout preview** (`POST /orders/preview` — cached on `[coupon, cart fingerprint]` so totals always match what the backend will charge), place order → COD: done; ONLINE: navigate to `/orders/:id/pay` | `useCart`, `userService` (addresses), `orderService.preview/create` |
 | `PaymentPage` | Loads `checkout.razorpay.com/v1/checkout.js`, opens Razorpay modal (keyId, amount, `order_id` = gatewayOrderId, prefilled name/contact), on `handler` calls `paymentService.verify(paymentId, signature)` → success → order detail. Already-paid and non-ONLINE states render dedicated screens | `orderService.getById`, `paymentService.initiate/verify` |
 | `OrderListPage` / `OrderDetailPage` | History with status filter; detail shows items, price breakdown, **tracking timeline**, **invoice** (once delivered), cancel (PENDING/CONFIRMED), **pay COD** button (DELIVERED + UNPAID), and review entry points per item | `orderService.list/getById/getTracking/getInvoice/cancel/markPaid`, `reviewService` |
+| `ReturnListPage` / `ReturnDetailPage` | Buyer return requests list and detail tracking (status timeline, refund status, cancellation) | `returnService` |
 | `WishlistPage` | Saved products grid, remove, go-to-product | `useWishlist` |
 | `AccountPage` | Profile edit (no-changes guard), avatar upload/delete, address book CRUD | `userService` |
 | `NotificationsPage` | List (unread filter), mark read/all read, **email/in-app preferences** per category | `notificationService` |
@@ -541,12 +554,14 @@ The seller panel sits in `SellerLayout` (sidebar). For **PENDING/REJECTED/SUSPEN
 | Page | Responsibility |
 |------|----------------|
 | `RegisterSellerPage` | KYC onboarding: business name, GSTIN (15-char regex), PAN, IFSC, bank, address, phone — Zod-validated; calls `POST /sellers/register` (public); then routes to `/seller/pending` |
-| `PendingApprovalPage` | Static "awaiting approval" screen (email notification arrives on decision) |
+| `PendingApprovalPage` | "Awaiting approval" screen with real-time status check and automatic redirection to `/seller/dashboard` once approved |
 | `SellerTwoFactorSetupPage` | Mandatory 2FA wizard: `2fa/setup` → show QR + secret + one-time recovery codes → `2fa/enable` with TOTP code |
 | `SellerProfilePage` | View/update profile; **upload/delete KYC documents** (DocumentUpload component → Cloudinary) |
 | `SellerDashboardPage` | KPI cards (orders, revenue, products, customers), sales chart, recent orders |
 | `SellerProductsPage` | Product CRUD; create/edit forms with **ImageUpload** (up to 8, previews, delete by publicId); DRAFT/ACTIVE/INACTIVE status switching; "no changes → no request" guard on edits |
-| `SellerOrdersPage` | Seller's orders; status transitions (confirm/ship/deliver) with confirm dialogs; **mark COD paid**; ownership enforced server-side |
+| `SellerOrdersPage` / `SellerOrderDetailPage` | Seller's orders and order detail; status transitions (confirm/ship/deliver) with confirm dialogs; **mark COD paid**; ownership enforced server-side |
+| `SellerReturnsPage` | Customer return requests for seller's products; approve/reject with status reason, automatic restocking on return completion |
+| `SellerReviewsPage` | Seller reviews dashboard: view all customer feedback, average ratings, and review breakdowns per product |
 | `SellerInventoryPage` | Per-product stock, low-stock thresholds, manual stock **adjustments** (quantity + reason), full transaction history |
 | `SellerDiscountsPage` | Create/manage date-windowed product-or-category percentage discounts |
 | `SellerCouponsPage` | Create/manage coupon codes (percent/fixed, min order, max discount, limits, product/category scope) |
@@ -576,7 +591,7 @@ All **server state** is TanStack Query. Conventions:
 - `staleTime` tuned per domain (cart 30 s, wishlist 5 min, checkout preview 15 s with `keepPreviousData`).
 - Mutations invalidate the related keys on success (e.g. after add-to-cart → `['cart']`; after order status change → `['orders', 'order']`).
 - Local `useState` is reserved for pure UI state (selected image tab, dialog open, form fields).
-- The only non-React global state is the **Zustand auth store** (§5.3) — deliberately small.
+- The only non-React global state is the **Zustand auth store** (§5.3) and **loading store** (`stores/loadingStore.ts`).
 
 ### 5.8 Hooks
 
@@ -592,6 +607,7 @@ All **server state** is TanStack Query. Conventions:
 
 - **React Hook Form + Zod + `zodResolver`** on every form (checkout address, seller KYC, product create/edit, discounts, coupons, categories, audit filters, profile, 2FA code, …).
 - Client schemas **mirror the backend's Zod schemas** (same field constraints: GSTIN/PAN/IFSC regexes, 10-digit phone, 6-digit PIN, price min/max, …) so obviously invalid data never leaves the browser — but the backend re-validates everything regardless.
+- **Strict type checking:** `frontend/tsconfig.app.json` has `"strict": true` (with `strictNullChecks`), ensuring Zod inferred form types (`z.infer<...>`) preserve required non-optional fields.
 - **No-op update guard:** every edit form compares submitted values against the pre-filled baseline using `lib/formChanges.ts` (`getChangedFields` / `hasChanges`). A pristine form shows *"No changes to update."* and **does not call the API** (no request, no success toast). `scripts/verify-no-changes-guard.mjs` audits all update-capable screens so a new edit form can't skip the rule.
 
 ### 5.10 Role-based UI
@@ -600,7 +616,7 @@ Defense in depth, outermost first: (1) `ProtectedRoute` role lists on routes; (2
 
 ### 5.11 Error & loading handling
 
-- **Loading:** full-page skeletons (`Skeleton` primitive) in layouts while auth resolves; per-page skeletons (product grid, tables); spinner fallback for lazy routes; `keepPreviousData` on the checkout preview so totals don't flicker while a coupon is re-validated.
+- **Loading:** top-of-page animated progress bar (`GlobalApiLoader` component driven by `loadingStore` and Axios request interceptors); full-page skeletons (`Skeleton` primitive) in layouts while auth resolves; per-page skeletons (product grid, tables); spinner fallback for lazy routes; `keepPreviousData` on the checkout preview so totals don't flicker while a coupon is re-validated.
 - **Errors:** every mutation toasts via `toast.error(extractErrorMessage(err))` or a domain fallback; axios-level errors (401 refresh failure, 403 inactive) are handled globally in the interceptor so pages don't double-toast; specific codes get specific UX (409 wishlist → refetch; `TWO_FACTOR_REQUIRED` → redirect; `ACCOUNT_INACTIVE` → session teardown).
 - **Empty states:** `EmptyState` primitive for empty carts/orders/audit results etc.
 
@@ -631,7 +647,7 @@ Defense in depth, outermost first: (1) `ProtectedRoute` role lists on routes; (2
 | `payments` | `/payments` | Gateway order initiate (idempotent), signature verify, **Razorpay webhook** (raw-body HMAC + idempotent event claim), refund (full, idempotent); `razorpay.service.ts` = RAZORPAY/MOCK gateway abstraction |
 | `discounts` | `/discounts` | Seller date-windowed product-XOR-category percentage discounts; `discount.pricing.ts` = the shared checkout pricing engine |
 | `coupons` | `/coupons` | Seller coupon codes (percent/fixed, min order, max discount, scope, total + per-user limits); atomic usage reservation/release |
-| `reviews` | `/reviews` | Create (only after a delivered order, one per user per product), public list per product, update/delete own |
+| `reviews` | `/reviews` | Create (only after a delivered order, one per user per product), public list per product, update/delete own, seller review list across products with aggregate ratings (`GET /reviews/seller`) |
 | `returns` | `/returns` | Request within 7 days of delivery; seller/admin status transitions; buyer cancel; stock restore on completion; duplicate block via partial unique index |
 | `notifications` | `/notifications` | In-app notification list/unread/read; preferences read/update; the `notifyUser()`/`broadcastTo…` services that every other module calls |
 | `wishlist` | `/wishlist` | Buyer wishlist: get, add, check, remove, clear |
@@ -718,7 +734,7 @@ See dedicated sections: [§17 Audit Logging](#17-audit-logging) and [§16 Notifi
 | Request returns, write reviews | — | ✅ | — | — |
 | Manage own products / stock / discounts / coupons / orders | — | — | ✅ (APPROVED only) | — |
 | Mark COD orders paid, deliver orders | — | — | ✅ (own orders) | ✅ (any) |
-| View own analytics / customers / settlement | — | — | ✅ | — |
+| View own analytics / customers / settlement / reviews | — | — | ✅ | — |
 | Approve/reject/pause/suspend sellers | — | — | — | ✅ |
 | Activate/deactivate users | — | — | — | ✅ |
 | Manage categories, moderate products | — | — | — | ✅ |
@@ -755,7 +771,11 @@ See dedicated sections: [§17 Audit Logging](#17-audit-logging) and [§16 Notifi
 ### 8.2 Login flows
 
 - **Password (buyer):** `POST /auth/login` → `{ accessToken, user }` + refresh cookie.
-- **Password (2FA-enabled seller/admin):** `POST /auth/login` → `{ twoFactorRequired: true, loginToken }` → `POST /auth/2fa/verify` with TOTP code **or** a recovery code → `{ accessToken, user }`.
+- **Password (seller & admin):**
+  - If a seller account is in `PENDING` status, login rejects with `403 SELLER_PENDING_APPROVAL` (*"Waiting for admin approval."*). If `REJECTED` or `SUSPENDED`, login rejects with `403 SELLER_REJECTED` (with reason) or `403 SELLER_SUSPENDED`.
+  - Once approved, if 2FA has not yet been configured (`!twoFactorEnabled`), login initiates setup directly: returns `{ twoFactorRequired: true, twoFactorSetupRequired: true, loginToken, twoFactorSetup: { secret, otpauthUrl, recoveryCodes } }` so the user can scan the QR code and enter a code immediately.
+  - When 2FA is already enabled: returns `{ twoFactorRequired: true, twoFactorSetupRequired: false, loginToken }`.
+  - `POST /auth/2fa/verify` accepts `{ loginToken, code }` (TOTP or recovery code) → validates seller status and issues `{ accessToken, user: { ...user, sellerStatus } }` + refresh cookie.
 - **Google:** two entry points — (a) redirect flow (used by the UI): `GET /auth/google?to=/path` sets a signed `state` in an httpOnly `oauth_state` cookie and 302s to Google → Google returns to `GET /auth/google/callback?code&state` → code exchange via `googleapis` (the same `redirect_uri` is replayed) → 302 to `CLIENT_URL/auth/google/callback?access_token=…`, the SPA route that stores the session and routes by role; (b) ID-token flow: `POST /auth/google` with `{ idToken }`. Both verify the token/audience server-side, **upsert the user by `googleId` or email**, mark email verified, set the avatar if new, then issue a normal session. Deactivated accounts are rejected here too. A missing/mismatched/forged `state`, a Google `error` response or a failed code exchange redirects to `/login?error=…` instead of issuing tokens.
 - **2FA setup:** `POST /auth/2fa/setup` (secret + `otpauthUrl` QR + one-time recovery codes) → `POST /auth/2fa/enable` (verify a live TOTP code). `POST /auth/2fa/disable` and `POST /auth/2fa/recovery-codes` (regenerate) also require a valid TOTP code.
 - **Deactivated accounts:** login, 2FA-verify, and refresh all reject with `403 ACCOUNT_INACTIVE`; deactivation also **revokes all live refresh tokens**, and `authenticate` re-checks `isActive` on every request.
@@ -900,10 +920,11 @@ AuditLog references any actor + entity (loose coupling by id)
 ### 11.2 Seller registration → documents → admin approval
 
 1. `POST /sellers/register` (public, Zod-validated KYC: GSTIN/PAN/IFSC regexes) → creates `User` (SELLER) + `Seller` (**status PENDING**). Frontend lands on `/seller/pending`.
-2. Seller logs in (2FA is already enforced for sellers on API calls → they must run the 2FA wizard first — the API surfaces `TWO_FACTOR_REQUIRED` and the frontend redirects to `/seller/2fa-setup`).
+2. While status is `PENDING`, attempting to log in rejects with `403 SELLER_PENDING_APPROVAL` (*"Waiting for admin approval."*). The seller stays on `/seller/pending` until approved (which auto-detects approval status).
 3. Seller uploads KYC documents (GST/PAN/bank statement) via `POST /sellers/me/documents` (Cloudinary).
 4. Super Admin (`/admin/sellers`) reviews and sets status via `PATCH /admin/sellers/:id/status` — `APPROVED` (or `REJECTED`/`SUSPENDED` with a **reason** shown to the seller). A notification (+ email per preferences) is sent on the decision; audit-logged.
-5. Only from `APPROVED` can the seller create products; GSTIN/PAN become **immutable** after creation.
+5. On the first login following approval, the backend initiates mandatory 2FA enrollment: `POST /auth/login` returns `twoFactorSetupRequired: true` with QR code details and recovery codes, and the seller verifies their TOTP code via `POST /auth/2fa/verify` to complete login.
+6. Only from `APPROVED` (and 2FA-verified) can the seller create products and access the full seller panel; GSTIN/PAN become **immutable** after creation.
 
 ### 11.3 Seller product creation & management
 
@@ -954,11 +975,12 @@ PENDING ──▶ CONFIRMED ──▶ SHIPPED ──▶ DELIVERED
 - Eligibility: the product must have been **delivered** in one of the buyer's orders; **one review per user per product** (unique index); rating 1–5 + optional comment.
 - Creating/updating/deleting a review maintains the product's **server-side aggregate** (`rating`, `numReviews`).
 - Public: `GET /reviews/product/:productId`.
+- **Seller review dashboard:** sellers can view customer reviews for all their catalog products with average ratings and counts via `GET /reviews/seller`, rendered in the dedicated Seller Reviews panel (`/seller/reviews`).
 
 ### 11.9 Returns & refunds
 
 1. Buyer `POST /returns` {orderId, reason} — allowed only **within 7 days of `deliveredAt`**, and only for delivered orders (partial unique index blocks a second active request for the same order).
-2. Seller/admin `PATCH /returns/:id/status`: PENDING → APPROVED or REJECTED (buyer can `POST /returns/:id/cancel` while PENDING).
+2. Seller/admin `PATCH /returns/:id/status`: PENDING → APPROVED or REJECTED (buyer can `POST /returns/:id/cancel` while PENDING). In `return.service.ts`, seller permissions and list queries resolve both `Seller._id` and `Seller.userId` (with fallback order lookup) to guarantee reliable seller access on `/seller/returns`.
 3. On **APPROVED** the refund and every rollback happen together:
    - the **eligible amount** (`order.total` = paid amount, net of sales + coupon discounts) is refunded — through the **gateway** for online orders (idempotent; real-mode refunds complete asynchronously via the `refund.processed` webhook) or recorded as an **offline** refund on the return for COD;
    - the **order** becomes `RETURNED` with `paymentStatus = REFUNDED` (so it leaves revenue analytics and settlement eligibility);
@@ -1036,13 +1058,13 @@ Every significant action (login, register, order create/cancel/status, payment i
 | Checkout with server preview | `CheckoutPage` | `POST /orders` + `POST /orders/preview` | ✅ Complete (multi-seller split) |
 | Coupons at checkout | coupon apply + preview | `coupons` module (atomic limits) | ✅ Complete |
 | Discounts (auto-applied) | price display in catalog/detail/cart | `discounts` pricing engine | ✅ Complete |
-| COD payment | `OrderDetailPage` "pay" flow | `POST /orders/:id/pay` | ⚠️ Works via API; see COD enum mismatch §23.2 |
+| COD payment | `OrderDetailPage` "pay" flow | `POST /orders/:id/pay` | ✅ Complete (aligned to `CASH_ON_DELIVERY`) |
 | Online payment (Razorpay) | `PaymentPage` (checkout.js) | `payments` module (RAZORPAY/MOCK) | ✅ Implemented; browser flow needs real (test) keys, §23.2 |
 | Refunds (full, auto on cancel) | — (admin/seller endpoints) | `payments` + webhook | ✅ Full only; no partial refunds |
 | Order tracking timeline | `OrderDetailPage` | `OrderTimeline` + `GET /orders/:id/tracking` | ✅ Complete |
 | Order invoice | `OrderDetailPage` | `GET /orders/:id/invoice` | ✅ Complete |
-| Returns (7-day window) | return request UI (order detail) | `returns` module | ✅ Complete (stock restore + refund) |
-| Reviews | `ReviewDialog`, detail page | `reviews` module | ✅ Complete (post-delivery, one per product) |
+| Returns (7-day window) | `ReturnListPage`, `ReturnDetailPage`, `SellerReturnsPage`, order detail | `returns` module | ✅ Complete (buyer request/cancel, seller approve/reject/restock) |
+| Reviews | `ReviewDialog`, product detail, `SellerReviewsPage` | `reviews` module (`GET /reviews/seller`) | ✅ Complete (buyer product reviews + seller reviews dashboard) |
 | Wishlist | `WishlistPage`, hearts on cards, `useWishlist` | `wishlist` module | ✅ Complete |
 | Addresses | `AccountPage`, `CheckoutPage` | `users` addresses | ✅ Complete |
 | Avatar upload/delete | `ProfileAvatar`, `AccountPage`, `AdminProfilePage` | `users` avatar + Cloudinary | ✅ Complete |
@@ -1312,12 +1334,12 @@ The route files currently define **~120 endpoints** across the module routers li
 | POST | `/` | buyer | Checkout from cart (multi-seller split) |
 | POST | `/preview` | buyer | Checkout totals preview (no side effects) |
 | GET | `/` | buyer/seller | Own orders (status filter, pagination) |
-| GET | `/:id` | buyer/seller (owner) | Order detail |
+| GET | `/:id` | buyer/seller/admin | Order detail |
 | PATCH | `/:id/status` | seller/admin | Transition status |
 | POST | `/:id/cancel` | buyer (owner) | Cancel (PENDING/CONFIRMED) |
 | POST | `/:id/pay` | seller/admin | Mark COD paid |
-| GET | `/:id/invoice` | buyer/seller (owner) | Invoice data |
-| GET | `/:id/tracking` | buyer/seller (owner) | Tracking timeline |
+| GET | `/:id/invoice` | buyer/seller/admin | Invoice data |
+| GET | `/:id/tracking` | buyer/seller/admin | Tracking timeline |
 
 ### 18.8 Payments — `/payments` (4)
 
@@ -1332,11 +1354,12 @@ The route files currently define **~120 endpoints** across the module routers li
 
 Both follow the same pattern (seller-scoped CRUD): `POST /` create · `GET /` list own · `GET /:id` · `PATCH /:id` · `DELETE /:id` (owner only).
 
-### 18.10 Reviews — `/reviews` (4)
+### 18.10 Reviews — `/reviews` (5)
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | POST | `/` | buyer | Create (delivered order required) |
+| GET | `/seller` | seller | List all reviews across seller's products with average rating and totals |
 | GET | `/product/:productId` | public | List product reviews |
 | PATCH | `/:id` | buyer (owner) | Update own |
 | DELETE | `/:id` | buyer (owner) | Delete own |
@@ -1346,9 +1369,9 @@ Both follow the same pattern (seller-scoped CRUD): `POST /` create · `GET /` li
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | POST | `/` | buyer | Request return (7-day window) |
-| GET | `/` | buyer/seller | List own |
-| GET | `/:id` | buyer/seller (owner) | Detail |
-| PATCH | `/:id/status` | seller/admin | Approve/reject/complete |
+| GET | `/` | buyer/seller | List own (seller resolved by sellerId or userId) |
+| GET | `/:id` | buyer/seller/admin | Detail |
+| PATCH | `/:id/status` | seller/admin | Approve/reject/complete (seller ownership verified) |
 | POST | `/:id/cancel` | buyer | Cancel while PENDING |
 
 ### 18.12 Notifications — `/notifications` (6)
@@ -1692,4 +1715,3 @@ Documented here so nobody is surprised — the **code is the source of truth**:
 ---
 
 *End of guide. If you change the codebase, update this document — and keep the "Discrepancies" section (§23.2) current: it exists to keep honest what is implemented versus what is planned.*
- it exists to keep honest what is implemented versus what is planned.*

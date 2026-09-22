@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { useQuery, useMutation, keepPreviousData } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -39,6 +39,7 @@ type AddressForm = z.infer<typeof addressSchema>
 
 export function CheckoutPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { data: cart } = useCart()
   const guardRestrictedAction = useRestrictedAction()
   const [selectedAddress, setSelectedAddress] = useState<string>('')
@@ -151,6 +152,7 @@ export function CheckoutPage() {
     }),
     onSuccess: (res) => {
       const orders = res.data
+      queryClient.invalidateQueries({ queryKey: ['cart'] })
       if (paymentMethod === 'ONLINE' && orders.length > 0) {
         navigate(`/orders/${orders[0].id}/pay`)
       } else {

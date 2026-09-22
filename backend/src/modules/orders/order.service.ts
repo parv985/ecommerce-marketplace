@@ -16,6 +16,7 @@ import {
   clearCartItems,
   findCartByUserId,
   releaseCartCheckoutLock,
+  removeProductsFromCart,
 } from "../cart/cart.repository.js";
 import {
   decrementProductStock,
@@ -736,7 +737,23 @@ export const createOrderFromCart = async (
     }
   }
 
-  await clearCartItems(cart._id);
+    /*
+     * For Cash on Delivery, order placement completes the purchase, so
+     * remove the purchased products from the buyer's cart immediately.
+     * For online payment, products remain in the active cart until payment
+     * is successfully verified (or preserved if payment is unsuccessful).
+     */
+    if (isCashOnDelivery) {
+      const purchasedProductIds = cart.items.map(
+        (item) => item.productId,
+      );
+      await removeProductsFromCart(
+        userId,
+        purchasedProductIds,
+      );
+    } else {
+      await releaseCartCheckoutLock(cart._id);
+    }
   } catch (error) {
     /*
      * Release the checkout claim so the buyer can fix whatever went

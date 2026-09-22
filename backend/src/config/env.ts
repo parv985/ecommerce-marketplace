@@ -36,7 +36,7 @@ const envSchema = z.object({
   MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
 
   // Comma-separated list is allowed (production + preview origins).
-  CORS_ORIGIN: z.string().min(1).default("https://ecommerce-marketplace-coqps6dxb-parvkaneriya47-9168s-projects.vercel.app, http://localhost:5173"),
+  CORS_ORIGIN: z.string().min(1).default("https://ecommerce-marketplace-coqps6dxb-parvkaneriya47-9168s-projects.vercel.app, http://localhost:5173, http://localhost:3000, http://127.0.0.1:3000"),
 
   CLIENT_URL: z.string().min(1).default("http://localhost:3000"),
 
@@ -142,6 +142,15 @@ export const env = envSchema.parse(process.env);
  * both its production frontend and a preview/staging origin without
  * code changes (Render preview URLs, a Netlify preview, etc.).
  */
-export const corsOrigins: string[] = env.CORS_ORIGIN.split(",")
-  .map((origin) => origin.trim())
-  .filter((origin) => origin.length > 0);
+export const corsOrigins: string[] = Array.from(
+  new Set([
+    ...env.CORS_ORIGIN.split(",")
+      .map((origin) => origin.trim())
+      .filter((origin) => origin.length > 0),
+    env.CLIENT_URL.trim(),
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+  ]),
+);

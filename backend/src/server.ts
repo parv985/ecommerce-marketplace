@@ -40,7 +40,7 @@ const startServer = async (): Promise<void> => {
     logger.info(line);
   }
 
-  app.listen(env.PORT, () => {
+  app.listen(env.PORT, "0.0.0.0", () => {
     logger.info(`Server running on http://localhost:${env.PORT}`);
   });
 };

@@ -20,6 +20,7 @@ import {
   updateOrderPaymentIdById,
   updateOrderPaymentStatusById,
 } from "../orders/order.repository.js";
+import { removeProductsFromCart } from "../cart/cart.repository.js";
 import {
   notifyPaymentReceived,
   notifyPaymentRefunded,
@@ -268,6 +269,13 @@ export const verifyOrderPayment = async (
 
   if (updatedOrder) {
     await notifyPaymentReceived(updatedOrder);
+    const purchasedProductIds = updatedOrder.items.map(
+      (item) => item.productId,
+    );
+    await removeProductsFromCart(
+      updatedOrder.userId.toString(),
+      purchasedProductIds,
+    );
   }
 
   await finalizeCouponUsageOnPaymentSuccess(orderId);
@@ -391,6 +399,13 @@ export const processPaymentWebhook = async (
       if (updatedOrder) {
         await notifyPaymentReceived(
           updatedOrder,
+        );
+        const purchasedProductIds = updatedOrder.items.map(
+          (item) => item.productId,
+        );
+        await removeProductsFromCart(
+          updatedOrder.userId.toString(),
+          purchasedProductIds,
         );
       }
     }
