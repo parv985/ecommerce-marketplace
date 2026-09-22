@@ -1,11 +1,14 @@
 import { Router } from "express";
 
+import { authorize } from "../../middlewares/role.middleware.js";
+import { UserRole } from "../../constants/roles.js";
 import { validate } from "../../middlewares/validation.middleware.js";
 import { authenticate } from "../auth/auth.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import {
   createReviewController,
   deleteReviewController,
+  getSellerReviewsController,
   listReviewsController,
   updateReviewController,
 } from "./review.controller.js";
@@ -108,6 +111,13 @@ router.post(
   authenticate,
   validate(createReviewSchema),
   asyncHandler(createReviewController),
+);
+
+router.get(
+  "/seller",
+  authenticate,
+  authorize(UserRole.SELLER),
+  asyncHandler(getSellerReviewsController),
 );
 
 router.get(

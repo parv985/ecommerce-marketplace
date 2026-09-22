@@ -37,6 +37,23 @@ export function LoginPage() {
     resolver: zodResolver(loginSchema),
   })
 
+  const getPostLoginRedirect = (role: string, returnPath?: string) => {
+    if (role === 'SUPER_ADMIN') return '/admin/dashboard'
+    if (role === 'SELLER') {
+      if (
+        !returnPath ||
+        returnPath === '/seller/pending' ||
+        returnPath === '/seller/register' ||
+        returnPath === '/login' ||
+        returnPath === '/'
+      ) {
+        return '/seller/dashboard'
+      }
+      return returnPath
+    }
+    return returnPath || '/'
+  }
+
   const onSubmit = async (data: LoginForm) => {
     try {
       setLoading(true)
@@ -54,7 +71,7 @@ export function LoginPage() {
       if (res.data.accessToken) {
         setAuth(res.data.user, res.data.accessToken)
         toast.success('Welcome back!')
-        navigate(from, { replace: true })
+        navigate(getPostLoginRedirect(res.data.user.role, from), { replace: true })
       }
     } catch (err: any) {
       const status = err?.response?.status
@@ -85,7 +102,7 @@ export function LoginPage() {
       const res = await authApi.verify2FA(loginToken, twoFactorCode.trim())
       setAuth(res.data.user, res.data.accessToken)
       toast.success('Two-factor authentication successful!')
-      navigate(from, { replace: true })
+      navigate(getPostLoginRedirect(res.data.user.role, from), { replace: true })
     } catch (err) {
       toast.error(extractErrorMessage(err))
     } finally {

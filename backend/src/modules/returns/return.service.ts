@@ -16,6 +16,7 @@ import type {
   IReturnRequest,
 } from "../../models/ReturnRequest.js";
 import type { IOrder } from "../../models/Order.js";
+import { Seller } from "../../models/Seller.js";
 import { InventoryTransactionType } from "../../models/InventoryTransaction.js";
 import { runInTransaction } from "../../config/transaction.js";
 import {
@@ -251,10 +252,21 @@ export const listMyReturns = async (
     filter.status = parsed.status;
   }
 
+  let sellerIds = [user.id];
+  if (user.role === UserRole.SELLER) {
+    const seller = await Seller.findOne({
+      $or: [{ userId: user.id }, { _id: user.id }],
+    }).exec();
+    if (seller) {
+      sellerIds.push(seller._id.toString());
+      sellerIds.push(seller.userId.toString());
+    }
+  }
+
   const { items, total } =
     user.role === UserRole.SELLER
       ? await listReturnsBySeller(
-          user.id,
+          sellerIds,
           filter,
           parsed.page,
           parsed.limit,
@@ -294,10 +306,31 @@ export const getReturn = async (
 
   const isOwner =
     returnRequest.userId.toString() === user.id;
-  const isSeller =
+  let isSeller =
     returnRequest.sellerId.toString() === user.id;
   const isAdmin =
     user.role === UserRole.SUPER_ADMIN;
+
+  if (!isSeller && user.role === UserRole.SELLER) {
+    const seller = await Seller.findOne({
+      $or: [{ userId: user.id }, { _id: user.id }],
+    }).exec();
+    if (seller) {
+      isSeller =
+        returnRequest.sellerId.toString() === seller._id.toString() ||
+        returnRequest.sellerId.toString() === seller.userId.toString();
+    }
+    if (!isSeller) {
+      const order = await findOrderById(returnRequest.orderId.toString());
+      if (order) {
+        isSeller =
+          order.sellerId.toString() === user.id ||
+          (seller !== null &&
+            (order.sellerId.toString() === seller._id.toString() ||
+              order.sellerId.toString() === seller.userId.toString()));
+      }
+    }
+  }
 
   if (!isOwner && !isSeller && !isAdmin) {
     throw new AppError(
@@ -757,10 +790,31 @@ export const updateReturnStatus = async (
     );
   }
 
-  const isSeller =
+  let isSeller =
     returnRequest.sellerId.toString() === user.id;
   const isAdmin =
     user.role === UserRole.SUPER_ADMIN;
+
+  if (!isSeller && user.role === UserRole.SELLER) {
+    const seller = await Seller.findOne({
+      $or: [{ userId: user.id }, { _id: user.id }],
+    }).exec();
+    if (seller) {
+      isSeller =
+        returnRequest.sellerId.toString() === seller._id.toString() ||
+        returnRequest.sellerId.toString() === seller.userId.toString();
+    }
+    if (!isSeller) {
+      const order = await findOrderById(returnRequest.orderId.toString());
+      if (order) {
+        isSeller =
+          order.sellerId.toString() === user.id ||
+          (seller !== null &&
+            (order.sellerId.toString() === seller._id.toString() ||
+              order.sellerId.toString() === seller.userId.toString()));
+      }
+    }
+  }
 
   if (!isSeller && !isAdmin) {
     throw new AppError(

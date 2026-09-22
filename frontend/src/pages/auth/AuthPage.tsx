@@ -100,7 +100,18 @@ export default function AuthPage() {
   /** Determine redirect path based on user role */
   const getPostLoginRedirect = (role: string, returnPath?: string) => {
     if (role === 'SUPER_ADMIN') return '/admin/dashboard'
-    if (role === 'SELLER') return returnPath || '/seller/dashboard'
+    if (role === 'SELLER') {
+      if (
+        !returnPath ||
+        returnPath === '/seller/pending' ||
+        returnPath === '/seller/register' ||
+        returnPath === '/login' ||
+        returnPath === '/'
+      ) {
+        return '/seller/dashboard'
+      }
+      return returnPath
+    }
     return returnPath || '/'
   }
 

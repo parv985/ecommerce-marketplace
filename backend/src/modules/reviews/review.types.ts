@@ -20,3 +20,22 @@ export interface ProductReviewsResponse {
   total: number;
   totalPages: number;
 }
+
+export interface SellerProductReviewsResponse {
+  products: SellerReviewProductItem[];
+  totalReviews: number;
+  averageRating: number;
+}
+
+export interface SellerReviewProductItem {
+  product: {
+    id: string;
+    name: string;
+    image: string | null;
+    price: number;
+    stock: number;
+  };
+  reviews: ReviewResponse[];
+  reviewCount: number;
+  averageRating: number;
+}

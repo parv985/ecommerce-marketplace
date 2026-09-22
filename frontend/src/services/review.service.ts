@@ -1,5 +1,5 @@
 import api from './api'
-import type { ApiResponse, ProductReviews, Review } from '@/types/api'
+import type { ApiResponse, ProductReviews, Review, SellerProductReviews } from '@/types/api'
 
 export const reviewService = {
   getProductReviews: (productId: string, page?: number, limit?: number) =>
@@ -7,6 +7,11 @@ export const reviewService = {
       .get<ApiResponse<ProductReviews>>(`/reviews/product/${productId}`, {
         params: { page, limit },
       })
+      .then((r) => r.data.data),
+
+  getSellerReviews: () =>
+    api
+      .get<ApiResponse<SellerProductReviews>>('/reviews/seller')
       .then((r) => r.data.data),
 
   create: (data: { productId: string; rating: number; comment?: string }) =>

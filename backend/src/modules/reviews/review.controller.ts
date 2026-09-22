@@ -9,6 +9,7 @@ import {
   createProductReview,
   deleteProductReview,
   getProductReviews,
+  getSellerReviews,
   updateProductReview,
 } from "./review.service.js";
 
@@ -75,5 +76,18 @@ export const deleteReviewController = async (
     res,
     "Review deleted successfully",
     null,
+  );
+};
+
+export const getSellerReviewsController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const result = await getSellerReviews(req.user!.id);
+
+  sendSuccess(
+    res,
+    "Seller reviews fetched successfully",
+    result,
   );
 };

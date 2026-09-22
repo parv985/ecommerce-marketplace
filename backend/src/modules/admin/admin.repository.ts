@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { User, type UserDocument } from "../../models/User.js";
 import {
   Seller,
@@ -95,15 +96,21 @@ export const listSellers = async (
 export const findSellerById = async (
   id: string,
 ): Promise<ISeller | null> => {
-  return Seller.findById(id).exec();
+  if (!mongoose.Types.ObjectId.isValid(id)) return null;
+  return Seller.findOne({
+    $or: [{ _id: id }, { userId: id }],
+  }).exec();
 };
 
 export const updateSellerById = async (
   id: string,
   data: Record<string, unknown>,
 ): Promise<ISeller | null> => {
-  return Seller.findByIdAndUpdate(
-    id,
+  if (!mongoose.Types.ObjectId.isValid(id)) return null;
+  return Seller.findOneAndUpdate(
+    {
+      $or: [{ _id: id }, { userId: id }],
+    },
     {
       $set: data,
     },

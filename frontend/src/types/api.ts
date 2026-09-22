@@ -27,6 +27,7 @@ export interface UserSummary {
    * Undefined only for sessions stored before this field existed.
    */
   isActive?: boolean
+  sellerStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'PAUSED' | 'SUSPENDED'
 }
 
 export interface LoginResponse {
@@ -452,6 +453,25 @@ export interface ProductReviews {
   /** Legacy aliases for backwards compatibility */
   reviews?: Review[]
   totalReviews?: number
+}
+
+export interface SellerReviewProductItem {
+  product: {
+    id: string
+    name: string
+    image: string | null
+    price: number
+    stock: number
+  }
+  reviews: Review[]
+  reviewCount: number
+  averageRating: number
+}
+
+export interface SellerProductReviews {
+  products: SellerReviewProductItem[]
+  totalReviews: number
+  averageRating: number
 }
 
 // Returns

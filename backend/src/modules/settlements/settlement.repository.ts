@@ -27,13 +27,43 @@ export const findEligibleOrdersForPeriod = async (
 ): Promise<IOrder[]> => {
   return Order.find({
     status: OrderStatus.DELIVERED,
-    paymentStatus: PaymentStatus.PAID,
-    deliveredAt: {
-      $gte: periodStart,
-      $lte: periodEnd,
-    },
+    paymentStatus: { $ne: PaymentStatus.REFUNDED },
+    $or: [
+      {
+        deliveredAt: {
+          $gte: periodStart,
+          $lte: periodEnd,
+        },
+      },
+      {
+        $and: [
+          {
+            $or: [
+              { deliveredAt: null },
+              { deliveredAt: { $exists: false } },
+            ],
+          },
+          {
+            $or: [
+              {
+                updatedAt: {
+                  $gte: periodStart,
+                  $lte: periodEnd,
+                },
+              },
+              {
+                createdAt: {
+                  $gte: periodStart,
+                  $lte: periodEnd,
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
   })
-    .sort({ deliveredAt: 1 })
+    .sort({ deliveredAt: 1, createdAt: 1 })
     .exec();
 };
 

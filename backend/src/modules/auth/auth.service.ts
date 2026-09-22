@@ -180,6 +180,14 @@ const issueSession = async (
     // Audit logging failure should not block authentication.
   }
 
+  let sellerStatus: string | undefined;
+  if (user.role === UserRole.SELLER) {
+    const seller = await Seller.findOne({ userId: user._id });
+    if (seller) {
+      sellerStatus = seller.status;
+    }
+  }
+
   return {
     accessToken,
     refreshToken,
@@ -196,6 +204,7 @@ const issueSession = async (
        */
       avatarUrl: user.avatarUrl ?? null,
       isActive: user.isActive,
+      ...(sellerStatus ? { sellerStatus } : {}),
     },
   };
 };
@@ -544,6 +553,35 @@ export const verifyTwoFactorLogin = async (
       401,
       "INVALID_LOGIN_TOKEN",
     );
+  }
+
+  if (user.role === UserRole.SELLER) {
+    const seller = await Seller.findOne({ userId: user._id });
+    if (seller) {
+      if (seller.status === SellerStatus.PENDING) {
+        throw new AppError(
+          "Waiting for admin approval.",
+          403,
+          "SELLER_PENDING_APPROVAL",
+        );
+      }
+      if (seller.status === SellerStatus.REJECTED) {
+        throw new AppError(
+          seller.statusReason
+            ? `Your seller application was rejected: ${seller.statusReason}`
+            : "Your seller application was rejected.",
+          403,
+          "SELLER_REJECTED",
+        );
+      }
+      if (seller.status === SellerStatus.SUSPENDED) {
+        throw new AppError(
+          "Your seller account is suspended.",
+          403,
+          "SELLER_SUSPENDED",
+        );
+      }
+    }
   }
 
   if (

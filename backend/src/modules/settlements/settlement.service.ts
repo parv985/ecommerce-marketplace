@@ -1,6 +1,8 @@
 import { UserRole } from "../../constants/roles.js";
 import { SettlementStatus } from "../../constants/settlementStatus.js";
+import { PaymentStatus } from "../../constants/orderStatus.js";
 import { AppError } from "../../errors/AppError.js";
+import { Order } from "../../models/Order.js";
 import type { ISettlement } from "../../models/Settlement.js";
 import { logAudit } from "../../services/audit.service.js";
 import { notifyUser } from "../notifications/notification.service.js";
@@ -197,24 +199,40 @@ export const generateSettlements = async (
       continue;
     }
 
-    const orderSnapshots = sellerOrders.map(
-      (order) => {
-        const calc = calculateCommission(
-          order.total,
-          rate,
-        );
+    for (const order of sellerOrders) {
+      if (order.paymentStatus !== PaymentStatus.PAID || !order.deliveredAt) {
+        await Order.findByIdAndUpdate(order._id, {
+          $set: {
+            paymentStatus: PaymentStatus.PAID,
+            ...(!order.deliveredAt && {
+              deliveredAt:
+                (order as any).updatedAt ??
+                (order as any).createdAt ??
+                new Date(),
+            }),
+          },
+        }).exec();
+      }
+    }
 
-        return {
-          orderId: order._id,
-          orderNumber: order.orderNumber,
-          total: order.total,
-          commissionRate: rate,
-          commissionAmount: calc.commissionAmount,
-          sellerPayable: calc.sellerPayable,
-          deliveredAt: order.deliveredAt!,
-        };
-      },
-    );
+    const orderSnapshots = sellerOrders.map((order) => {
+      const calc = calculateCommission(order.total, rate);
+      const deliveryDate =
+        order.deliveredAt ??
+        (order as any).updatedAt ??
+        (order as any).createdAt ??
+        new Date();
+
+      return {
+        orderId: order._id,
+        orderNumber: order.orderNumber,
+        total: order.total,
+        commissionRate: rate,
+        commissionAmount: calc.commissionAmount,
+        sellerPayable: calc.sellerPayable,
+        deliveredAt: deliveryDate,
+      };
+    });
 
     const totalSales = orderSnapshots.reduce(
       (sum, order) => sum + order.total,

@@ -1,5 +1,5 @@
 import { NavLink, Outlet, Navigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Package, ShoppingCart, Truck, Percent, Ticket, Users, BarChart3, Bell, User, DollarSign, RotateCcw } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingCart, Truck, Percent, Ticket, Users, BarChart3, Bell, User, DollarSign, RotateCcw, Star } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/authStore'
 import { cn } from '@/lib/utils'
@@ -14,6 +14,7 @@ const navItems = [
   { to: '/seller/orders', label: 'Orders', icon: ShoppingCart },
   { to: '/seller/returns', label: 'Returns', icon: RotateCcw },
   { to: '/seller/inventory', label: 'Inventory', icon: Truck },
+  { to: '/seller/reviews', label: 'Reviews', icon: Star },
   { to: '/seller/discounts', label: 'Discounts', icon: Percent },
   { to: '/seller/coupons', label: 'Coupons', icon: Ticket },
   { to: '/seller/customers', label: 'Customers', icon: Users },

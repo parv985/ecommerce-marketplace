@@ -78,11 +78,15 @@ export const updateReturnStatusController = async (
     data.status === ReturnStatus.APPROVED &&
     data.refund?.status === RefundStatus.PROCESSED;
 
+  const message = refunded
+    ? "Return approved and refund processed successfully"
+    : data.status === ReturnStatus.COMPLETED
+      ? "Return marked as completed successfully"
+      : "Return request updated successfully";
+
   sendSuccess(
     res,
-    refunded
-      ? "Return approved and refund processed successfully"
-      : "Return request updated successfully",
+    message,
     data,
   );
 };

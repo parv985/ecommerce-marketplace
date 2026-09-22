@@ -194,7 +194,7 @@ export function AdminSettlementsPage() {
           <Button variant="outline" onClick={() => { setCommissionRate(commission?.rate ?? 0); setShowCommission(true); }}>
             Commission: {commission?.rate ?? 0}%
           </Button>
-          <Button onClick={() => setShowGenerate(true)}>Generate Settlements</Button>
+          <Button onClick={() => { setGenerateMonth(monthFilter || currentMonthKey()); setShowGenerate(true); }}>Generate Settlements</Button>
         </div>
       </div>
 

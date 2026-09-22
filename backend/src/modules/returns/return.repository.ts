@@ -82,7 +82,7 @@ export const listReturnsByUser = async (
 };
 
 export const listReturnsBySeller = async (
-  sellerId: string,
+  sellerId: string | string[],
   filter: Record<string, unknown>,
   page: number,
   limit: number,
@@ -90,14 +90,18 @@ export const listReturnsBySeller = async (
   items: IReturnRequest[];
   total: number;
 }> => {
+  const sellerFilter = Array.isArray(sellerId)
+    ? { sellerId: { $in: sellerId } }
+    : { sellerId };
+
   const [items, total] = await Promise.all([
-    ReturnRequest.find({ sellerId, ...filter })
+    ReturnRequest.find({ ...sellerFilter, ...filter })
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
       .exec(),
     ReturnRequest.countDocuments({
-      sellerId,
+      ...sellerFilter,
       ...filter,
     }).exec(),
   ]);

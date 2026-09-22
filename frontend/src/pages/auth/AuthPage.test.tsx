@@ -25,6 +25,16 @@ import { MemoryRouter } from 'react-router-dom'
  *     completes the session on success.
  */
 
+const mockNavigate = vi.fn()
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  }
+})
+
 vi.mock('@/services/auth.service', () => ({
   authApi: {
     login: vi.fn(),
@@ -55,9 +65,9 @@ const seller = {
   role: 'SELLER' as const,
 }
 
-const renderPage = () =>
+const renderPage = (initialEntries?: any) =>
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={initialEntries}>
       <AuthPage />
     </MemoryRouter>
   )
@@ -88,6 +98,7 @@ describe('AuthPage two-factor step', () => {
 
   beforeEach(() => {
     sessionStorage.clear()
+    mockNavigate.mockReset()
     mockLogin.mockReset()
     mockVerify.mockReset()
     mockGetMe.mockReset()
@@ -130,7 +141,7 @@ describe('AuthPage two-factor step', () => {
     )
   })
 
-  it('completes the two-step login with a valid code', async () => {
+  it('completes the two-step login with a valid code and redirects seller to dashboard', async () => {
     mockLogin.mockResolvedValue({
       data: {
         twoFactorRequired: true,
@@ -166,5 +177,41 @@ describe('AuthPage two-factor step', () => {
         sessionStorage.getItem('user')
       ).toContain('seller@test.com')
     )
+
+    expect(mockNavigate).toHaveBeenCalledWith('/seller/dashboard', { replace: true })
+  })
+
+  it('redirects approved seller to /seller/dashboard even when previous location was /seller/pending', async () => {
+    mockLogin.mockResolvedValue({
+      data: {
+        twoFactorRequired: true,
+        loginToken: 'login-token',
+      },
+    })
+    mockVerify.mockResolvedValue({
+      data: {
+        accessToken: 'access-token',
+        user: seller,
+      },
+    })
+
+    renderPage([{ pathname: '/login', state: { from: { pathname: '/seller/pending' } } }])
+    await submitCredentials()
+
+    fireEvent.change(codeInput(), {
+      target: { value: '123456' },
+    })
+    fireEvent.click(
+      screen.getByRole('button', { name: /verify/i })
+    )
+
+    await waitFor(() =>
+      expect(mockVerify).toHaveBeenCalledWith(
+        'login-token',
+        '123456'
+      )
+    )
+
+    expect(mockNavigate).toHaveBeenCalledWith('/seller/dashboard', { replace: true })
   })
 })

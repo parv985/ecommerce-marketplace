@@ -39,6 +39,7 @@ const SellerProductsPage = lazy(() => import('@/pages/seller/SellerProductsPage'
 const SellerOrdersPage = lazy(() => import('@/pages/seller/SellerOrdersPage').then(m => ({ default: m.SellerOrdersPage })))
 const SellerOrderDetailPage = lazy(() => import('@/pages/seller/SellerOrderDetailPage').then(m => ({ default: m.SellerOrderDetailPage })))
 const SellerReturnsPage = lazy(() => import('@/pages/seller/SellerReturnsPage').then(m => ({ default: m.SellerReturnsPage })))
+const SellerReviewsPage = lazy(() => import('@/pages/seller/SellerReviewsPage').then(m => ({ default: m.SellerReviewsPage })))
 const SellerInventoryPage = lazy(() => import('@/pages/seller/SellerInventoryPage').then(m => ({ default: m.SellerInventoryPage })))
 const SellerDiscountsPage = lazy(() => import('@/pages/seller/SellerDiscountsPage').then(m => ({ default: m.SellerDiscountsPage })))
 const SellerCouponsPage = lazy(() => import('@/pages/seller/SellerCouponsPage').then(m => ({ default: m.SellerCouponsPage })))
@@ -178,11 +179,7 @@ export default function App() {
 
               {/* Seller registration (public, guarded inside RegisterSellerPage) */}
               <Route path="/seller/register" element={<RegisterSellerPage />} />
-              <Route path="/seller/pending" element={
-                <ProtectedRoute roles={['SELLER']}>
-                  <PendingApprovalPage />
-                </ProtectedRoute>
-              } />
+              <Route path="/seller/pending" element={<PendingApprovalPage />} />
               <Route path="/seller/2fa-setup" element={
                 <ProtectedRoute roles={['SELLER']}>
                   <SellerTwoFactorSetupPage />
@@ -200,6 +197,7 @@ export default function App() {
                 <Route path="orders" element={<SellerOrdersPage />} />
                 <Route path="orders/:id" element={<SellerOrderDetailPage />} />
                 <Route path="returns" element={<SellerReturnsPage />} />
+                <Route path="reviews" element={<SellerReviewsPage />} />
                 <Route path="inventory" element={<SellerInventoryPage />} />
                 <Route path="discounts" element={<SellerDiscountsPage />} />
                 <Route path="coupons" element={<SellerCouponsPage />} />
