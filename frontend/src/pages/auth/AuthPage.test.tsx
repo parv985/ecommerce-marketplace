@@ -214,4 +214,107 @@ describe('AuthPage two-factor step', () => {
 
     expect(mockNavigate).toHaveBeenCalledWith('/seller/dashboard', { replace: true })
   })
+
+  it('renders QR code setup for Super Admin on first login and redirects to /admin/dashboard after verification', async () => {
+    const superAdmin = {
+      id: 'admin1',
+      name: 'Super Admin',
+      email: 'admin@test.com',
+      role: 'SUPER_ADMIN' as const,
+    }
+
+    mockLogin.mockResolvedValue({
+      data: {
+        twoFactorRequired: true,
+        twoFactorSetupRequired: true,
+        loginToken: 'admin-login-token',
+        twoFactorSetup: {
+          secret: 'JBSWY3DPEHPK3PXP',
+          otpauthUrl: 'otpauth://totp/Marketplace:admin@test.com?secret=JBSWY3DPEHPK3PXP',
+          recoveryCodes: ['CODE-1111', 'CODE-2222'],
+        },
+      },
+    })
+    mockVerify.mockResolvedValue({
+      data: {
+        accessToken: 'admin-access-token',
+        user: superAdmin,
+      },
+    })
+
+    renderPage()
+    fireEvent.change(screen.getByPlaceholderText('you@example.com'), {
+      target: { value: 'admin@test.com' },
+    })
+    fireEvent.change(screen.getByPlaceholderText('••••••••'), {
+      target: { value: 'AdminPassword123!' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
+
+    // First login must render QR setup view
+    expect(await screen.findByText('Set Up Two-Factor Authentication')).toBeInTheDocument()
+    expect(screen.getByAltText('2FA QR Code')).toBeInTheDocument()
+    expect(screen.getByText('JBSWY3DPEHPK3PXP')).toBeInTheDocument()
+    expect(screen.getByText('CODE-1111')).toBeInTheDocument()
+
+    // Enter code and submit
+    fireEvent.change(screen.getByPlaceholderText('123456'), {
+      target: { value: '654321' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /verify & complete login/i }))
+
+    await waitFor(() =>
+      expect(mockVerify).toHaveBeenCalledWith('admin-login-token', '654321')
+    )
+
+    expect(mockNavigate).toHaveBeenCalledWith('/admin/dashboard', { replace: true })
+  })
+
+  it('renders code-only prompt on subsequent Super Admin login and redirects to /admin/dashboard', async () => {
+    const superAdmin = {
+      id: 'admin1',
+      name: 'Super Admin',
+      email: 'admin@test.com',
+      role: 'SUPER_ADMIN' as const,
+    }
+
+    mockLogin.mockResolvedValue({
+      data: {
+        twoFactorRequired: true,
+        twoFactorSetupRequired: false,
+        loginToken: 'admin-login-token',
+      },
+    })
+    mockVerify.mockResolvedValue({
+      data: {
+        accessToken: 'admin-access-token',
+        user: superAdmin,
+      },
+    })
+
+    renderPage()
+    fireEvent.change(screen.getByPlaceholderText('you@example.com'), {
+      target: { value: 'admin@test.com' },
+    })
+    fireEvent.change(screen.getByPlaceholderText('••••••••'), {
+      target: { value: 'AdminPassword123!' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
+
+    // Subsequent login must show Two-Factor Verification without QR code
+    expect(await screen.findByText('Two-Factor Verification')).toBeInTheDocument()
+    expect(screen.queryByText('Set Up Two-Factor Authentication')).not.toBeInTheDocument()
+    expect(screen.queryByAltText('2FA QR Code')).not.toBeInTheDocument()
+
+    fireEvent.change(codeInput(), {
+      target: { value: '654321' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /verify/i }))
+
+    await waitFor(() =>
+      expect(mockVerify).toHaveBeenCalledWith('admin-login-token', '654321')
+    )
+
+    expect(mockNavigate).toHaveBeenCalledWith('/admin/dashboard', { replace: true })
+  })
 })

@@ -207,7 +207,7 @@ export function LoginPage() {
                 </div>
 
                 <Button type="submit" className="w-full" disabled={loading || twoFactorCode.trim().length < 6}>
-                  {loading ? 'Verifying...' : 'Verify & Enter Seller Panel'}
+                  {loading ? 'Verifying...' : 'Verify & Complete Login'}
                 </Button>
                 <button
                   type="button"

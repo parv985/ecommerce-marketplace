@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import { validate } from "../../middlewares/validation.middleware.js";
 import { authorize } from "../../middlewares/role.middleware.js";
+import { requireTwoFactorSetup } from "../../middlewares/twoFactor.middleware.js";
 import { authenticate } from "../auth/auth.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { UserRole } from "../../constants/roles.js";
@@ -50,6 +51,7 @@ const router = Router();
 router.use(
   authenticate,
   authorize(UserRole.SUPER_ADMIN),
+  requireTwoFactorSetup,
 );
 
 /**

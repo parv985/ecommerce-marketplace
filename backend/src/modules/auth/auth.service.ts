@@ -279,7 +279,6 @@ export const loginUser = async (
    * Seller account validation & onboarding:
    * - A pending seller must NOT be able to log in ("Waiting for admin approval.")
    * - A rejected or suspended seller cannot log in.
-   * - An approved seller who has not yet enabled 2FA immediately starts 2FA setup.
    */
   if (user.role === UserRole.SELLER) {
     const seller = await Seller.findOne({ userId: user._id });
@@ -308,7 +307,19 @@ export const loginUser = async (
         );
       }
     }
+  }
 
+  /*
+   * Two-step login for sellers and super admins:
+   * - On first successful email/password login, if 2FA is not yet configured,
+   *   initiates setup (returns TOTP secret, QR code otpauthUrl, and recovery codes).
+   * - On every subsequent login, requires TOTP / recovery code to complete login.
+   * Buyer accounts keep the single-step flow.
+   */
+  if (
+    user.role === UserRole.SELLER ||
+    user.role === UserRole.SUPER_ADMIN
+  ) {
     if (!user.twoFactorEnabled) {
       const setup = await setupTwoFactor(user._id.toString());
       const loginToken = generateTwoFactorToken({
@@ -328,20 +339,7 @@ export const loginUser = async (
         },
       };
     }
-  }
 
-  /*
-   * Two-step login for sellers and admins with 2FA enabled: the
-   * password step returns a short-lived login token instead of real
-   * tokens. Only POST /auth/2fa/verify (TOTP or recovery code)
-   * converts it into access/refresh tokens. Buyer accounts keep the
-   * single-step flow.
-   */
-  if (
-    user.twoFactorEnabled &&
-    (user.role === UserRole.SELLER ||
-      user.role === UserRole.SUPER_ADMIN)
-  ) {
     const loginToken = generateTwoFactorToken({
       userId: user._id.toString(),
       role: user.role,

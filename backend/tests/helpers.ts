@@ -189,6 +189,32 @@ export const adminLogin = async (): Promise<string> => {
     .post("/api/v1/auth/login")
     .send({ email, password: "Admin@1234" });
 
+  if (res.body?.data?.accessToken) {
+    return res.body.data.accessToken as string;
+  }
+
+  if (res.body?.data?.twoFactorRequired) {
+    const { generateTotpCode } = await import("../src/utils/totp.js");
+    let code: string;
+    if (res.body.data.twoFactorSetup?.secret) {
+      code = generateTotpCode(res.body.data.twoFactorSetup.secret);
+    } else {
+      const user = await User.findOne({ email }).select("+twoFactorSecretEncrypted");
+      const { decryptSecret } = await import("../src/utils/secretCipher.js");
+      const secret = decryptSecret(user!.twoFactorSecretEncrypted!);
+      code = generateTotpCode(secret);
+    }
+
+    const verifyRes = await api
+      .post("/api/v1/auth/2fa/verify")
+      .send({
+        loginToken: res.body.data.loginToken,
+        code,
+      });
+
+    return verifyRes.body?.data?.accessToken as string;
+  }
+
   return res.body?.data?.accessToken as string;
 };
 

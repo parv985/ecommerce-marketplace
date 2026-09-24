@@ -19,6 +19,9 @@ import {
   registerSeller,
   registerUser,
 } from "./helpers.js";
+import { User } from "../src/models/User.js";
+import { UserRole } from "../src/constants/roles.js";
+import { generateAccessToken } from "../src/utils/jwt.js";
 
 describe("Admin", () => {
   beforeAll(connect);
@@ -72,10 +75,12 @@ describe("Admin", () => {
     const email = `ad${Date.now()}@test.com`;
     await registerSeller(email);
 
-    const loginRes = await api
-      .post("/api/v1/auth/login")
-      .send({ email, password: "Password123!" });
-    const sellerToken = loginRes.body.data.accessToken;
+    const sellerUser = await User.findOne({ email });
+    const sellerToken = generateAccessToken({
+      userId: sellerUser!._id.toString(),
+      role: UserRole.SELLER,
+      type: "access",
+    });
 
     const pending = await api
       .get("/api/v1/admin/sellers?status=PENDING")

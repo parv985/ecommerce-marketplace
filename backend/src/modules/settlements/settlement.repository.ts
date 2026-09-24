@@ -2,6 +2,7 @@ import {
   Settlement,
   type ISettlement,
   type ISettlementOrder,
+  type SettlementPaymentStatus,
 } from "../../models/Settlement.js";
 import {
   Order,
