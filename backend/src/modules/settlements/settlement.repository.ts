@@ -87,6 +87,8 @@ export const createSettlement = async (
     totalCommission: number;
     totalPayable: number;
     commissionRate: number;
+    paymentDeadline?: Date | null;
+    paymentStatus?: SettlementPaymentStatus;
   },
 ): Promise<ISettlement | null> => {
   /*
@@ -304,6 +306,85 @@ export const cancelEmptySettlement = async (
       status: SettlementStatus.PENDING,
     },
     { $set: { status: SettlementStatus.CANCELLED } },
+    { new: true },
+  ).exec();
+};
+
+/*
+ * -------------------------------------------------------------------
+ * Seller payment methods
+ * -------------------------------------------------------------------
+ */
+
+export const listSellerSettlements = async (
+  sellerId: string,
+  filter: Record<string, unknown>,
+  page: number,
+  limit: number,
+): Promise<{
+  items: ISettlement[];
+  total: number;
+}> => {
+  const query = { sellerId, ...filter };
+  const [items, total] = await Promise.all([
+    Settlement.find(query)
+      .sort({ periodKey: -1, createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .exec(),
+    Settlement.countDocuments(query).exec(),
+  ]);
+
+  return { items, total };
+};
+
+export const updateSettlementPaymentOrderId = async (
+  settlementId: string,
+  razorpayOrderId: string,
+): Promise<ISettlement | null> => {
+  return Settlement.findByIdAndUpdate(
+    settlementId,
+    {
+      $set: {
+        razorpayOrderId,
+        paymentStatus: "PENDING",
+        paymentMethod: "RAZORPAY",
+      },
+    },
+    { new: true },
+  ).exec();
+};
+
+export const verifyAndUpdateSettlementPayment = async (
+  settlementId: string,
+  paymentId: string,
+  signature: string,
+): Promise<ISettlement | null> => {
+  return Settlement.findByIdAndUpdate(
+    settlementId,
+    {
+      $set: {
+        razorpayPaymentId: paymentId,
+        razorpaySignature: signature,
+        paymentStatus: "PAID",
+        status: SettlementStatus.PAID,
+        paidAt: new Date(),
+      },
+    },
+    { new: true },
+  ).exec();
+};
+
+export const markSettlementPaymentFailed = async (
+  settlementId: string,
+): Promise<ISettlement | null> => {
+  return Settlement.findByIdAndUpdate(
+    settlementId,
+    {
+      $set: {
+        paymentStatus: "FAILED",
+      },
+    },
     { new: true },
   ).exec();
 };

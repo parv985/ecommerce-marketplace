@@ -1,5 +1,7 @@
 import type { SettlementStatus } from "../../constants/settlementStatus.js";
 
+export type SettlementPaymentStatus = "PENDING" | "PAID" | "FAILED" | "CANCELLED";
+
 export interface SettlementOrderResponse {
   orderId: string;
   orderNumber: string;
@@ -24,6 +26,11 @@ export interface SettlementResponse {
   commissionRate: number;
   paidAt: Date | null;
   reminderSentAt: Date | null;
+  razorpayOrderId: string | null;
+  razorpayPaymentId: string | null;
+  paymentStatus: SettlementPaymentStatus;
+  paymentMethod: string | null;
+  paymentDeadline: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

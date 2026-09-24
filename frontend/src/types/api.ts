@@ -684,6 +684,7 @@ export interface AuditLogQuery {
 // (src/modules/settlements/settlement.types.ts) returned by
 // GET /sellers/settlement, GET /admin/settlements and GET /admin/settlements/:id.
 export type SettlementStatus = 'PENDING' | 'PROCESSING' | 'PAID' | 'FAILED' | 'CANCELLED'
+export type SettlementPaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'CANCELLED'
 
 export interface SettlementOrder {
   orderId: string
@@ -709,6 +710,13 @@ export interface Settlement {
   commissionRate: number
   paidAt: string | null
   reminderSentAt: string | null
+  razorpayOrderId: string | null
+  razorpayPaymentId: string | null
+  razorpaySignature?: string | null
+  paymentStatus: SettlementPaymentStatus
+  paymentMethod: string | null
+  settlementAmount?: number
+  paymentDeadline?: string | null
   createdAt: string
   updatedAt: string
 }

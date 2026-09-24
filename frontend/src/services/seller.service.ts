@@ -67,4 +67,17 @@ export const sellerService = {
      settlement exists for the selected period (backend: GET /sellers/settlement). */
   getSettlement: (month?: string) =>
     api.get<ApiResponse<Settlement | null>>('/sellers/settlement', { params: month ? { month } : {} }).then(r => r.data.data),
+
+  /* Returns a paginated list of the authenticated seller's settlements with
+     optional status and month filters (backend: GET /sellers/settlements). */
+  getSettlements: (params?: { status?: string; month?: string; page?: number; limit?: number }) =>
+    api.get<ApiResponse<PaginatedResponse<Settlement>>>('/sellers/settlements', { params }).then(r => r.data.data),
+
+  /* Creates a Razorpay payment order for a settlement (backend: POST /settlements/:id/payment-order). */
+  createSettlementPaymentOrder: (settlementId: string) =>
+    api.post<ApiResponse<{ razorpayOrderId: string; amount: number; currency: string; keyId: string | null }>>(`/settlements/${settlementId}/payment-order`).then(r => r.data),
+
+  /* Verifies a settlement payment with Razorpay signature (backend: POST /settlements/:id/verify-payment). */
+  verifySettlementPayment: (settlementId: string, data: { paymentId: string; signature: string }) =>
+    api.post<ApiResponse<Settlement>>(`/settlements/${settlementId}/verify-payment`, data).then(r => r.data),
 }

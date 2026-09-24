@@ -3,8 +3,18 @@ import { Router } from "express";
 import { validate } from "../../middlewares/validation.middleware.js";
 import { authenticate } from "../auth/auth.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
-import { getMySettlementController } from "./settlement.controller.js";
-import { sellerSettlementQuerySchema } from "./settlement.schema.js";
+import {
+  getMySettlementController,
+  getMySettlementsController,
+  createSettlementPaymentOrderController,
+  verifySettlementPaymentController,
+} from "./settlement.controller.js";
+import {
+  sellerSettlementQuerySchema,
+  listSettlementsQuerySchema,
+  settlementIdParamsSchema,
+  verifySettlementPaymentSchema,
+} from "./settlement.schema.js";
 
 const router = Router();
 
@@ -54,6 +64,178 @@ router.get(
     "query",
   ),
   asyncHandler(getMySettlementController),
+);
+
+/**
+ * @openapi
+ * /api/v1/sellers/settlements:
+ *   get:
+ *     tags:
+ *       - Sellers
+ *     summary: List my settlements
+ *     description: Returns a paginated list of the authenticated seller's settlements with optional status and month filters.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: status
+ *         in: query
+ *         description: Filter by payment status
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, PAID, FAILED, CANCELLED]
+ *       - name: month
+ *         in: query
+ *         description: Filter by month (YYYY-MM)
+ *         schema:
+ *           type: string
+ *       - name: page
+ *         in: query
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *       - name: limit
+ *         in: query
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *     responses:
+ *       200:
+ *         description: Settlements fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: "#/components/schemas/PaginatedSettlements"
+ *       400:
+ *         description: Invalid query parameters
+ *       401:
+ *         description: Not authenticated
+ */
+router.get(
+  "/settlements",
+  validate(
+    listSettlementsQuerySchema,
+    "query",
+  ),
+  asyncHandler(getMySettlementsController),
+);
+
+/**
+ * @openapi
+ * /api/v1/sellers/settlements/{id}/payment-order:
+ *   post:
+ *     tags:
+ *       - Sellers
+ *     summary: Create a Razorpay payment order for a settlement
+ *     description: Creates a Razorpay order for the settlement commission amount. Idempotent - returns existing order if already created. The seller can then use this to open the Razorpay checkout.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Settlement ObjectId
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Payment order created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     razorpayOrderId:
+ *                       type: string
+ *                     amount:
+ *                       type: number
+ *                     currency:
+ *                       type: string
+ *                     keyId:
+ *                       type: string
+ *                       nullable: true
+ *       400:
+ *         description: Settlement already paid or cancelled
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not authorized to pay this settlement
+ *       404:
+ *         description: Settlement not found
+ */
+router.post(
+  ["/settlements/:id/payment-order", "/:id/payment-order"],
+  validate(settlementIdParamsSchema, "params"),
+  asyncHandler(createSettlementPaymentOrderController),
+);
+
+/**
+ * @openapi
+ * /api/v1/sellers/settlements/{id}/verify-payment:
+ *   post:
+ *     tags:
+ *       - Sellers
+ *     summary: Verify a settlement payment
+ *     description: Verifies the Razorpay payment signature and marks the settlement as paid. Idempotent - returns current state if already paid.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Settlement ObjectId
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [paymentId, signature]
+ *             properties:
+ *               paymentId:
+ *                 type: string
+ *               signature:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Settlement payment verified
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: "#/components/schemas/Settlement"
+ *       400:
+ *         description: Invalid signature or settlement state
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Not authorized to verify this settlement
+ *       404:
+ *         description: Settlement not found
+ */
+router.post(
+  ["/settlements/:id/verify-payment", "/:id/verify-payment"],
+  validate(settlementIdParamsSchema, "params"),
+  validate(verifySettlementPaymentSchema),
+  asyncHandler(verifySettlementPaymentController),
 );
 
 export default router;

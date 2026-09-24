@@ -17,6 +17,8 @@ export interface ISettlementOrder {
   deliveredAt: Date;
 }
 
+export type SettlementPaymentStatus = "PENDING" | "PAID" | "FAILED" | "CANCELLED";
+
 export interface ISettlement {
   _id: Types.ObjectId;
   sellerId: Types.ObjectId;
@@ -33,6 +35,13 @@ export interface ISettlement {
   commissionRate: number;
   paidAt?: Date | null;
   reminderSentAt?: Date | null;
+  /* Razorpay payment tracking (seller pays commission) */
+  razorpayOrderId?: string | null;
+  razorpayPaymentId?: string | null;
+  razorpaySignature?: string | null;
+  paymentStatus?: SettlementPaymentStatus;
+  paymentMethod?: string | null;
+  paymentDeadline?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -153,6 +162,39 @@ const settlementSchema = new Schema<ISettlement>(
     },
 
     reminderSentAt: {
+      type: Date,
+      default: null,
+    },
+
+    razorpayOrderId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+
+    razorpayPaymentId: {
+      type: String,
+      default: null,
+    },
+
+    razorpaySignature: {
+      type: String,
+      default: null,
+    },
+
+    paymentStatus: {
+      type: String,
+      enum: Object.values(SettlementStatus),
+      default: "PENDING",
+      index: true,
+    },
+
+    paymentMethod: {
+      type: String,
+      default: null,
+    },
+
+    paymentDeadline: {
       type: Date,
       default: null,
     },

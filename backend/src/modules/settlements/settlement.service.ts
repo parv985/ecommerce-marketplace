@@ -3,7 +3,7 @@ import { SettlementStatus } from "../../constants/settlementStatus.js";
 import { PaymentStatus } from "../../constants/orderStatus.js";
 import { AppError } from "../../errors/AppError.js";
 import { Order } from "../../models/Order.js";
-import type { ISettlement } from "../../models/Settlement.js";
+import { Settlement, type ISettlement } from "../../models/Settlement.js";
 import { logAudit } from "../../services/audit.service.js";
 import { notifyUser } from "../notifications/notification.service.js";
 import {
@@ -12,6 +12,10 @@ import {
 } from "../../constants/notificationTypes.js";
 import { calculateCommission, getCommissionRate } from "./commission.service.js";
 import {
+  createGatewayOrder,
+  verifyClientPaymentSignature,
+} from "../payments/razorpay.service.js";
+import {
   cancelEmptySettlement,
   createSettlement,
   findEligibleOrdersForPeriod,
@@ -19,19 +23,25 @@ import {
   findSettlementBySellerAndPeriod,
   findSettlementForOrder,
   listSettlements,
+  listSellerSettlements,
   markReminderSent,
   normalizeSettlementTotals,
   reverseSettlementOrder,
+  updateSettlementPaymentOrderId,
   updateSettlementStatusById,
+  verifyAndUpdateSettlementPayment,
+  markSettlementPaymentFailed,
 } from "./settlement.repository.js";
 import {
   generateSettlementSchema,
   listSettlementsQuerySchema,
   sellerSettlementQuerySchema,
   settlementIdParamsSchema,
+  verifySettlementPaymentSchema,
   type GenerateSettlementInput,
   type ListSettlementsQuery,
   type SellerSettlementQuery,
+  type VerifySettlementPaymentInput,
 } from "./settlement.schema.js";
 import type {
   PaginatedSettlements,
@@ -88,6 +98,15 @@ const toSettlementResponse = (
     paidAt: settlement.paidAt ?? null,
     reminderSentAt:
       settlement.reminderSentAt ?? null,
+    razorpayOrderId: settlement.razorpayOrderId ?? null,
+    razorpayPaymentId: settlement.razorpayPaymentId ?? null,
+    paymentStatus: settlement.paymentStatus ?? "PENDING",
+    paymentMethod: settlement.paymentMethod ?? null,
+    paymentDeadline:
+      settlement.paymentDeadline ??
+      (settlement.createdAt
+        ? new Date(new Date(settlement.createdAt).getTime() + 7 * 24 * 60 * 60 * 1000)
+        : null),
     createdAt: settlement.createdAt,
     updatedAt: settlement.updatedAt,
   };
@@ -186,6 +205,7 @@ export const generateSettlements = async (
   }
 
   const results: SettlementResponse[] = [];
+  let createdCount = 0;
 
   for (const [sellerId, sellerOrders] of bySeller) {
     const existing =
@@ -195,11 +215,135 @@ export const generateSettlements = async (
       );
 
     if (existing) {
-      results.push(toSettlementResponse(existing));
+      const existingOrderIds = new Set(
+        existing.orders.map((o) => o.orderId.toString()),
+      );
+
+      const newOrders: typeof sellerOrders = [];
+      for (const order of sellerOrders) {
+        if (existingOrderIds.has(order._id.toString())) {
+          continue;
+        }
+        const alreadySettled = await findSettlementForOrder(
+          sellerId,
+          order._id.toString(),
+        );
+        if (alreadySettled) {
+          continue;
+        }
+        newOrders.push(order);
+      }
+
+      if (newOrders.length === 0) {
+        results.push(toSettlementResponse(existing));
+        continue;
+      }
+
+      for (const order of newOrders) {
+        if (order.paymentStatus !== PaymentStatus.PAID || !order.deliveredAt) {
+          await Order.findByIdAndUpdate(order._id, {
+            $set: {
+              paymentStatus: PaymentStatus.PAID,
+              ...(!order.deliveredAt && {
+                deliveredAt:
+                  (order as any).updatedAt ??
+                  (order as any).createdAt ??
+                  new Date(),
+              }),
+            },
+          }).exec();
+        }
+      }
+
+      const orderRate = existing.commissionRate ?? rate;
+      const newSnapshots = newOrders.map((order) => {
+        const calc = calculateCommission(order.total, orderRate);
+        const deliveryDate =
+          order.deliveredAt ??
+          (order as any).updatedAt ??
+          (order as any).createdAt ??
+          new Date();
+
+        return {
+          orderId: order._id,
+          orderNumber: order.orderNumber,
+          total: order.total,
+          commissionRate: orderRate,
+          commissionAmount: calc.commissionAmount,
+          sellerPayable: calc.sellerPayable,
+          deliveredAt: deliveryDate,
+        };
+      });
+
+      const combinedOrders = [...existing.orders, ...newSnapshots];
+      const totalSales = combinedOrders.reduce(
+        (sum, order) => sum + order.total,
+        0,
+      );
+      const totalCommission = combinedOrders.reduce(
+        (sum, order) => sum + order.commissionAmount,
+        0,
+      );
+      const totalPayable = combinedOrders.reduce(
+        (sum, order) => sum + order.sellerPayable,
+        0,
+      );
+
+      const paymentDeadline = new Date(
+        Date.now() + 7 * 24 * 60 * 60 * 1000,
+      );
+
+      const updated = await Settlement.findByIdAndUpdate(
+        existing._id,
+        {
+          $set: {
+            orders: combinedOrders,
+            totalSales,
+            totalCommission,
+            totalPayable,
+            paymentDeadline,
+            razorpayOrderId: null,
+            razorpayPaymentId: null,
+            razorpaySignature: null,
+            paymentStatus: "PENDING",
+            status: SettlementStatus.PENDING,
+            paidAt: null,
+          },
+        },
+        { new: true },
+      ).exec();
+
+      if (updated) {
+        createdCount++;
+        results.push(toSettlementResponse(updated));
+        await notifySettlement(
+          updated,
+          "Settlement updated",
+          `Your settlement for ${periodKey} has been updated with new orders (₹${totalPayable}).`,
+        );
+      } else {
+        results.push(toSettlementResponse(existing));
+      }
       continue;
     }
 
+    const newOrders: typeof sellerOrders = [];
     for (const order of sellerOrders) {
+      const alreadySettled = await findSettlementForOrder(
+        sellerId,
+        order._id.toString(),
+      );
+      if (alreadySettled) {
+        continue;
+      }
+      newOrders.push(order);
+    }
+
+    if (newOrders.length === 0) {
+      continue;
+    }
+
+    for (const order of newOrders) {
       if (order.paymentStatus !== PaymentStatus.PAID || !order.deliveredAt) {
         await Order.findByIdAndUpdate(order._id, {
           $set: {
@@ -215,7 +359,7 @@ export const generateSettlements = async (
       }
     }
 
-    const orderSnapshots = sellerOrders.map((order) => {
+    const orderSnapshots = newOrders.map((order) => {
       const calc = calculateCommission(order.total, rate);
       const deliveryDate =
         order.deliveredAt ??
@@ -250,18 +394,28 @@ export const generateSettlements = async (
       0,
     );
 
+    const paymentDeadline = new Date(
+      Date.now() + 7 * 24 * 60 * 60 * 1000,
+    );
+
     const created = await createSettlement({
       sellerId,
       periodKey,
       periodStart,
       periodEnd,
       status: SettlementStatus.PENDING,
+      paymentStatus: "PENDING",
       orders: orderSnapshots,
       totalSales,
       totalCommission,
       totalPayable,
       commissionRate: rate,
+      paymentDeadline,
     });
+
+    if (created) {
+      createdCount++;
+    }
 
     /*
      * null means a concurrent request already created it (unique
@@ -286,6 +440,8 @@ export const generateSettlements = async (
       `Your settlement for ${periodKey} (₹${totalPayable}) is ready for payout.`,
     );
   }
+
+  (results as any).createdCount = createdCount;
 
   await logAudit({
     actorId: actor.id,
@@ -595,4 +751,245 @@ export const getSellerSettlement = async (
   }
 
   return toSettlementResponse(settlement);
+};
+
+/*
+ * ---------------------------------------------------------------------
+ * Seller payment flow
+ * ---------------------------------------------------------------------
+ */
+
+export const createSettlementPaymentOrder = async (
+  user: { id: string; role: UserRole },
+  settlementId: string,
+): Promise<{
+  razorpayOrderId: string;
+  amount: number;
+  currency: string;
+  keyId: string | null;
+}> => {
+  const settlement = await findSettlementById(settlementId);
+
+  if (!settlement) {
+    throw new AppError(
+      "Settlement not found",
+      404,
+      "SETTLEMENT_NOT_FOUND",
+    );
+  }
+
+  if (settlement.sellerId.toString() !== user.id) {
+    throw new AppError(
+      "You do not have permission to pay this settlement",
+      403,
+      "FORBIDDEN",
+    );
+  }
+
+  if (settlement.paymentStatus === "PAID") {
+    throw new AppError(
+      "Settlement is already paid",
+      400,
+      "INVALID_SETTLEMENT_STATE",
+    );
+  }
+
+  if (settlement.status === SettlementStatus.CANCELLED) {
+    throw new AppError(
+      "Cannot pay a cancelled settlement",
+      400,
+      "INVALID_SETTLEMENT_STATE",
+    );
+  }
+
+  const deadline =
+    settlement.paymentDeadline ??
+    new Date(
+      new Date(settlement.createdAt).getTime() +
+        7 * 24 * 60 * 60 * 1000,
+    );
+
+  if (Date.now() > deadline.getTime()) {
+    throw new AppError(
+      "Payment window expired",
+      400,
+      "PAYMENT_WINDOW_EXPIRED",
+    );
+  }
+
+  // If Razorpay order already exists, return it (idempotent)
+  if (settlement.razorpayOrderId) {
+    const { env } = await import("../../config/env.js");
+    return {
+      razorpayOrderId: settlement.razorpayOrderId,
+      amount: settlement.totalCommission,
+      currency: "INR",
+      keyId: env.RAZORPAY_KEY_ID ?? null,
+    };
+  }
+
+  // Create Razorpay order for the commission amount (settlement amount)
+  const gatewayOrder = await createGatewayOrder({
+    amount: settlement.totalCommission,
+    receipt: `settlement_${settlementId}`,
+    notes: {
+      settlementId,
+      sellerId: settlement.sellerId.toString(),
+      periodKey: settlement.periodKey,
+    },
+  });
+
+  // Store the gateway order ID on the settlement
+  await updateSettlementPaymentOrderId(
+    settlementId,
+    gatewayOrder.id,
+  );
+
+  const { env } = await import("../../config/env.js");
+
+  return {
+    razorpayOrderId: gatewayOrder.id,
+    amount: settlement.totalCommission,
+    currency: gatewayOrder.currency,
+    keyId: env.RAZORPAY_KEY_ID ?? null,
+  };
+};
+
+export const verifySettlementPayment = async (
+  user: { id: string; role: UserRole },
+  settlementId: string,
+  input: unknown,
+): Promise<SettlementResponse> => {
+  const data: VerifySettlementPaymentInput =
+    verifySettlementPaymentSchema.parse(input);
+
+  const settlement = await findSettlementById(settlementId);
+
+  if (!settlement) {
+    throw new AppError(
+      "Settlement not found",
+      404,
+      "SETTLEMENT_NOT_FOUND",
+    );
+  }
+
+  if (settlement.sellerId.toString() !== user.id) {
+    throw new AppError(
+      "You do not have permission to verify this settlement",
+      403,
+      "FORBIDDEN",
+    );
+  }
+
+  if (settlement.paymentStatus === "PAID") {
+    return toSettlementResponse(settlement);
+  }
+
+  const verifyDeadline =
+    settlement.paymentDeadline ??
+    new Date(
+      new Date(settlement.createdAt).getTime() +
+        7 * 24 * 60 * 60 * 1000,
+    );
+
+  if (Date.now() > verifyDeadline.getTime()) {
+    throw new AppError(
+      "Payment window expired",
+      400,
+      "PAYMENT_WINDOW_EXPIRED",
+    );
+  }
+
+  if (!settlement.razorpayOrderId) {
+    throw new AppError(
+      "No payment order found for this settlement",
+      400,
+      "INVALID_SETTLEMENT_STATE",
+    );
+  }
+
+  // Verify the signature
+  const valid = verifyClientPaymentSignature({
+    gatewayOrderId: settlement.razorpayOrderId,
+    paymentId: data.paymentId,
+    signature: data.signature,
+  });
+
+  if (!valid) {
+    // Keep settlement PENDING so seller can retry within the 7-day window
+    throw new AppError(
+      "Invalid payment signature",
+      400,
+      "INVALID_PAYMENT_SIGNATURE",
+    );
+  }
+
+  // Update settlement as paid
+  const updated = await verifyAndUpdateSettlementPayment(
+    settlementId,
+    data.paymentId,
+    data.signature,
+  );
+
+  if (!updated) {
+    throw new AppError(
+      "Settlement not found",
+      404,
+      "SETTLEMENT_NOT_FOUND",
+    );
+  }
+
+  // Notify seller
+  await notifySettlement(
+    updated,
+    "Settlement paid",
+    `Your settlement for ${updated.periodKey} (₹${updated.totalCommission}) has been paid.`,
+  );
+
+  await logAudit({
+    actorId: user.id,
+    actorRole: user.role,
+    action: "SETTLEMENT_PAYMENT_VERIFIED",
+    entityType: "SETTLEMENT",
+    entityId: settlementId,
+    metadata: {
+      paymentId: data.paymentId,
+      amount: settlement.totalCommission,
+    },
+  });
+
+  return toSettlementResponse(updated);
+};
+
+export const getSellerSettlements = async (
+  user: { id: string; role: UserRole },
+  query: unknown,
+): Promise<PaginatedSettlements> => {
+  const parsed: ListSettlementsQuery =
+    listSettlementsQuerySchema.parse(query);
+
+  const filter: Record<string, unknown> = {};
+
+  if (parsed.status) {
+    filter.paymentStatus = parsed.status;
+  }
+
+  if (parsed.month) {
+    filter.periodKey = parsed.month;
+  }
+
+  const { items, total } = await listSellerSettlements(
+    user.id,
+    filter,
+    parsed.page,
+    parsed.limit,
+  );
+
+  return {
+    items: items.map(toSettlementResponse),
+    page: parsed.page,
+    limit: parsed.limit,
+    total,
+    totalPages: Math.ceil(total / parsed.limit) || 0,
+  };
 };

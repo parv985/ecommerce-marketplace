@@ -71,6 +71,13 @@ export const commissionRateSchema = z
   })
   .strict();
 
+export const verifySettlementPaymentSchema = z
+  .object({
+    paymentId: z.string().min(1, "Payment ID is required"),
+    signature: z.string().min(1, "Signature is required"),
+  })
+  .strict();
+
 export type ListSettlementsQuery =
   z.infer<typeof listSettlementsQuerySchema>;
 export type GenerateSettlementInput =
@@ -79,3 +86,5 @@ export type SellerSettlementQuery =
   z.infer<typeof sellerSettlementQuerySchema>;
 export type CommissionRateInput =
   z.infer<typeof commissionRateSchema>;
+export type VerifySettlementPaymentInput =
+  z.infer<typeof verifySettlementPaymentSchema>;

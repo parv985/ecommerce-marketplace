@@ -197,9 +197,15 @@ export const generateSettlementController =
       req.body,
     );
 
+    const createdCount = (result as any).createdCount ?? 0;
+    const message =
+      createdCount > 0
+        ? `Generated ${createdCount} settlement(s)`
+        : "No settlements found";
+
     sendSuccess(
       res,
-      "Settlements generated",
+      message,
       result,
       201,
     );

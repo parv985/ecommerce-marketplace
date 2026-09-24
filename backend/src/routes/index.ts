@@ -125,6 +125,11 @@ router.use(
 );
 
 router.use(
+  "/settlements",
+  settlementRoutes,
+);
+
+router.use(
   "/notifications",
   notificationRoutes,
 );
