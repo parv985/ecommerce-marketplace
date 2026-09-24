@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { StateCityFields } from '@/components/seller/StateCityFields'
 import { ProfileAvatar } from '@/components/ui/ProfileAvatar'
 import { DocumentUpload } from '@/components/ui/DocumentUpload'
 import { useForm } from 'react-hook-form'
@@ -85,7 +86,14 @@ export function SellerProfilePage() {
     [profile],
   )
 
-  const { register, handleSubmit, reset } = useForm<SellerFormValues>({
+  const {
+    register,
+    handleSubmit,
+    reset,
+    control,
+    setValue,
+    getValues,
+  } = useForm<SellerFormValues>({
     defaultValues: EMPTY_VALUES,
     values: originalValues,
   })
@@ -241,8 +249,16 @@ export function SellerProfilePage() {
             <Input label="Address Line 1" {...register('addressLine1')} />
             <Input label="Address Line 2" {...register('addressLine2')} />
             <div className="grid grid-cols-2 gap-3">
-              <Input label="City" {...register('city')} />
-              <Input label="State" {...register('state')} />
+              {/* State first, then City — searchable comboboxes shared with
+                  seller registration; seeded with the server's original
+                  values so untouched legacy pairs still save cleanly. */}
+              <StateCityFields
+                control={control}
+                setValue={setValue}
+                getValues={getValues}
+                originalState={originalValues.state}
+                originalCity={originalValues.city}
+              />
             </div>
             <Input label="Pincode" {...register('pincode')} />
             <Button type="submit" disabled={update.isPending}>

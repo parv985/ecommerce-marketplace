@@ -37,6 +37,10 @@ import {
 import type { ISeller } from "../../models/Seller.js";
 
 import { AppError } from "../../errors/AppError.js";
+import {
+    isCityInState,
+    isValidIndianState,
+} from "../../utils/indiaLocations.js";
 import { destroyByPublicId, uploadBuffer } from "../../services/cloudinary.service.js";
 import { Address } from "../../models/Address.js";
 import { User } from "../../models/User.js";
@@ -375,6 +379,35 @@ export const updateSellerProfile = async (
             404,
             "SELLER_NOT_FOUND",
         );
+    }
+
+    /*
+     * State/City must always form a valid Indian pair. Patches only
+     * carry changed fields, so validate the EFFECTIVE pair (incoming
+     * value or the stored one) whenever the payload touches either
+     * side. This rejects mismatched pairs - including a lone `city`
+     * that no longer fits the stored state - while unrelated edits
+     * and legacy rows with off-dataset values stay untouched.
+     */
+    if (data.city !== undefined || data.state !== undefined) {
+        const effectiveState = data.state ?? seller.state;
+        const effectiveCity = data.city ?? seller.city;
+
+        if (!isValidIndianState(effectiveState)) {
+            throw new AppError(
+                "Not a valid Indian state",
+                400,
+                "INVALID_CITY_STATE",
+            );
+        }
+
+        if (!isCityInState(effectiveCity, effectiveState)) {
+            throw new AppError(
+                `"${effectiveCity}" is not a city in ${effectiveState}`,
+                400,
+                "INVALID_CITY_STATE",
+            );
+        }
     }
 
     const updated =

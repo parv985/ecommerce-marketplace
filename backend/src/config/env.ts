@@ -26,6 +26,27 @@ if (existsSync(backendEnvPath)) {
   config({ path: backendEnvPath, quiet: true, override: true });
 }
 
+/*
+ * An empty value — a blank row in a deployment dashboard, a stale
+ * local .env entry, or an exported-but-empty shell variable — means
+ * "unset": drop it before validation so optional fields fall back to
+ * their defaults (e.g. PORT -> 5000) and required fields fail with
+ * their own clear message instead of a cryptic coercion error
+ * ("PORT: Too small: expected number to be >0"). dotenv cannot help
+ * here because a set-but-empty process.env variable is still *set*.
+ */
+const normalizeEmptyEnv = (source: NodeJS.ProcessEnv): NodeJS.ProcessEnv => {
+  const normalized: NodeJS.ProcessEnv = { ...source };
+
+  for (const [key, value] of Object.entries(normalized)) {
+    if (value !== undefined && value.trim() === "") {
+      delete normalized[key];
+    }
+  }
+
+  return normalized;
+};
+
 const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -36,7 +57,12 @@ const envSchema = z.object({
   MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
 
   // Comma-separated list is allowed (production + preview origins).
-  CORS_ORIGIN: z.string().min(1).default("https://ecommerce-marketplace-coqps6dxb-parvkaneriya47-9168s-projects.vercel.app, http://localhost:5173, http://localhost:3000, http://127.0.0.1:3000"),
+  CORS_ORIGIN: z
+    .string()
+    .min(1)
+    .default(
+      "https://ecommerce-marketplace-coqps6dxb-parvkaneriya47-9168s-projects.vercel.app, http://localhost:5173, http://localhost:3000, http://127.0.0.1:3000",
+    ),
 
   CLIENT_URL: z.string().min(1).default("http://localhost:3000"),
 
@@ -65,9 +91,7 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((value) =>
-      value && value.trim().length > 0
-        ? value
-        : undefined,
+      value && value.trim().length > 0 ? value : undefined,
     )
     .pipe(
       /*
@@ -78,10 +102,7 @@ const envSchema = z.object({
        */
       z
         .string()
-        .min(
-          32,
-          "TOTP_ENCRYPTION_KEY must be at least 32 characters",
-        )
+        .min(32, "TOTP_ENCRYPTION_KEY must be at least 32 characters")
         .optional(),
     ),
 
@@ -107,9 +128,7 @@ const envSchema = z.object({
    * users out when the access token expires. "none" requires https,
    * which production already enforces via `secure`.
    */
-  COOKIE_SAME_SITE: z
-    .enum(["strict", "lax", "none"])
-    .optional(),
+  COOKIE_SAME_SITE: z.enum(["strict", "lax", "none"]).optional(),
 
   /*
    * Razorpay. When the key id/secret are unset the payment gateway
@@ -135,7 +154,7 @@ const envSchema = z.object({
   /* Redis (optional) */
   REDIS_URL: z.string().optional(),
 });
-export const env = envSchema.parse(process.env);
+export const env = envSchema.parse(normalizeEmptyEnv(process.env));
 
 /**
  * CORS_ORIGIN accepts a comma-separated list so a deployment can allow

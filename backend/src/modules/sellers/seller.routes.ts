@@ -125,8 +125,12 @@ router.get(
  *                 type: string
  *               city:
  *                 type: string
+ *                 description: City within the selected state — must be a real Indian city belonging to `state` (validated server-side)
+ *                 example: Ahmedabad
  *               state:
  *                 type: string
+ *                 description: Indian state name or ISO code (e.g. "Gujarat" or "GJ")
+ *                 example: Gujarat
  *               pincode:
  *                 type: string
  *                 pattern: "^[1-9][0-9]{5}$"

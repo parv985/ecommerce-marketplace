@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+    isCityInState,
+    isValidIndianState,
+} from "../../utils/indiaLocations.js";
+
 export const sellerRegistrationSchema =
   z.object({
     name: z
@@ -147,6 +152,31 @@ export const sellerRegistrationSchema =
       )
       .optional()
       .default([]),
+  })
+  .superRefine((data, ctx) => {
+    /*
+     * State and city must form a real Indian pair. The frontend
+     * restricts both fields to a searchable dataset, but the API is
+     * public — so the pair is re-checked here against the same
+     * dataset (name or ISO code for the state, case-insensitive).
+     */
+    if (data.state && !isValidIndianState(data.state)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["state"],
+        message: "Not a valid Indian state",
+      });
+
+      return;
+    }
+
+    if (data.state && data.city && !isCityInState(data.city, data.state)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["city"],
+        message: `"${data.city}" is not a city in ${data.state}`,
+      });
+    }
   });
 
 export type SellerRegistrationSchemaInput =
@@ -251,7 +281,37 @@ export const updateSellerProfileSchema =
         )
         .optional(),
     })
-    .strict();
+    .strict()
+    .superRefine((data, ctx) => {
+      /*
+       * Patches only carry the fields the seller changed, so a lone
+       * `city` cannot be paired here — the service layer re-checks the
+       * EFFECTIVE pair (incoming value or the stored one) whenever the
+       * payload touches either side. What can be decided from the
+       * payload alone is enforced right away for a clear 400.
+       */
+      if (data.state && !isValidIndianState(data.state)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["state"],
+          message: "Not a valid Indian state",
+        });
+
+        return;
+      }
+
+      if (
+        data.state &&
+        data.city &&
+        !isCityInState(data.city, data.state)
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["city"],
+          message: `"${data.city}" is not a city in ${data.state}`,
+        });
+      }
+    });
 
 export type UpdateSellerProfileSchemaInput =
   z.infer<

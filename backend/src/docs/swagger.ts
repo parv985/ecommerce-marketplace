@@ -200,9 +200,11 @@ const options: swaggerJSDoc.Options = {
                 },
                 city: {
                   type: "string",
+                  description: "City belonging to the stored state",
                 },
                 state: {
                   type: "string",
+                  description: "Indian state name or ISO code",
                 },
                 pincode: {
                   type: "string",
@@ -283,9 +285,12 @@ const options: swaggerJSDoc.Options = {
             },
             city: {
               type: "string",
+              description:
+                "City within `state` — when sent together with (or touching) state, the pair must be a valid Indian state/city combination",
             },
             state: {
               type: "string",
+              description: "Indian state name or ISO code (e.g. \"Gujarat\" or \"GJ\")",
             },
             pincode: {
               type: "string",
