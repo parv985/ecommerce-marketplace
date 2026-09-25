@@ -9,9 +9,14 @@ import type {
   Settlement,
   AuditLog,
   AuditLogQuery,
+  AdminDashboardResponse,
 } from '@/types/api'
 
 export const adminService = {
+  // Super Admin Dashboard (Single aggregated endpoint)
+  getDashboard: (params?: { range?: '7d' | '30d' | '3m' | '1y' }) =>
+    api.get<ApiResponse<AdminDashboardResponse>>('/admin/dashboard', { params }).then(r => r.data.data),
+
   // Users
   getUsers: (params?: { role?: string; page?: number; limit?: number }) =>
     api.get<ApiResponse<PaginatedResponse<AdminUser>>>('/admin/users', { params }).then(r => r.data.data),

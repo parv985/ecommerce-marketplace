@@ -11,6 +11,7 @@ import type { IProduct } from "../../models/Product.js";
 import type { IOrder } from "../../models/Order.js";
 import type { IAuditLog } from "../../models/AuditLog.js";
 import {
+  aggregateSuperAdminDashboard,
   findProductById,
   findSellerById,
   findUserById,
@@ -25,6 +26,7 @@ import {
   updateUserById,
 } from "./admin.repository.js";
 import {
+  adminDashboardQuerySchema,
   listAdminOrdersQuerySchema,
   listAdminProductsQuerySchema,
   listAuditLogsQuerySchema,
@@ -33,6 +35,7 @@ import {
   updateProductStatusSchema,
   updateSellerStatusSchema,
   updateUserStatusSchema,
+  type AdminDashboardQuery,
   type ListAdminOrdersQuery,
   type ListAdminProductsQuery,
   type ListAuditLogsQuery,
@@ -44,12 +47,14 @@ import {
 } from "./admin.schema.js";
 import type {
   AdminAuditLogResponse,
+  AdminDashboardResponse,
   AdminListResponse,
   AdminOrderResponse,
   AdminProductResponse,
   AdminSellerResponse,
   AdminUserResponse,
 } from "./admin.types.js";
+import { getCommissionRate } from "../settlements/commission.service.js";
 
 const toAdminUserResponse = (
   user: UserDocument,
@@ -608,3 +613,18 @@ export const getAuditLogsList = async (
       Math.ceil(total / parsed.limit) || 0,
   };
 };
+
+export const getSuperAdminDashboard = async (
+  query: unknown,
+): Promise<AdminDashboardResponse> => {
+  const parsed: AdminDashboardQuery =
+    adminDashboardQuerySchema.parse(query || {});
+
+  const commissionRate = await getCommissionRate();
+
+  return aggregateSuperAdminDashboard(
+    parsed.range,
+    commissionRate,
+  );
+};
+

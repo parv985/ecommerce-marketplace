@@ -228,3 +228,13 @@ export type UpdateSellerStatusInput = z.infer<
 export type UpdateProductStatusInput = z.infer<
   typeof updateProductStatusSchema
 >;
+
+export const adminDashboardQuerySchema = z
+  .object({
+    range: z.enum(["7d", "30d", "3m", "1y"]).optional().default("30d"),
+  })
+  .strip();
+
+export type AdminDashboardQuery = z.infer<
+  typeof adminDashboardQuerySchema
+>;

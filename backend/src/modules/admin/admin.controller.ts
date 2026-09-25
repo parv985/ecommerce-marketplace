@@ -10,6 +10,7 @@ import {
   getAdminProductsList,
   getAuditLogsList,
   getSellersList,
+  getSuperAdminDashboard,
   getUsersList,
   setProductStatus,
   setSellerStatus,
@@ -338,3 +339,16 @@ export const updateCommissionSettingsController =
       { rate },
     );
   };
+
+export const getAdminDashboardController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const result = await getSuperAdminDashboard(req.query);
+
+  sendSuccess(
+    res,
+    "Admin dashboard metrics fetched successfully",
+    result,
+  );
+};

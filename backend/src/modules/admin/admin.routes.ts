@@ -12,6 +12,7 @@ import {
   cancelSettlementController,
   failSettlementController,
   generateSettlementController,
+  getAdminDashboardController,
   getCommissionSettingsController,
   getSettlementController,
   listAuditLogsController,
@@ -35,6 +36,7 @@ import {
   settlementIdParamsSchema,
 } from "../settlements/settlement.schema.js";
 import {
+  adminDashboardQuerySchema,
   adminIdParamsSchema,
   listAdminOrdersQuerySchema,
   listAuditLogsQuerySchema,
@@ -52,6 +54,39 @@ router.use(
   authenticate,
   authorize(UserRole.SUPER_ADMIN),
   requireTwoFactorSetup,
+);
+
+/**
+ * @openapi
+ * /api/v1/admin/dashboard:
+ *   get:
+ *     tags:
+ *       - Admin
+ *     summary: Super Admin Dashboard Metrics
+ *     description: Aggregated single-endpoint metrics for the Super Admin Dashboard. Returns stats, sales series, order status distribution, top products, top sellers, recent orders, needs attention alerts, user growth, seller activity, and marketplace revenue.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: range
+ *         in: query
+ *         required: false
+ *         description: Sales overview range filter (7d, 30d, 3m, 1y)
+ *         schema:
+ *           type: string
+ *           enum: [7d, 30d, 3m, 1y]
+ *           default: 30d
+ *     responses:
+ *       200:
+ *         description: Super Admin Dashboard data retrieved successfully
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Requires SUPER_ADMIN role
+ */
+router.get(
+  "/dashboard",
+  validate(adminDashboardQuerySchema, "query"),
+  asyncHandler(getAdminDashboardController),
 );
 
 /**

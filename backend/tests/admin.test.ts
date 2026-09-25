@@ -180,4 +180,48 @@ describe("Admin", () => {
     expect(res.status).toBe(200);
     expect(res.body.data.items).toBeDefined();
   });
+
+  it("fetches single-endpoint super admin dashboard data", async () => {
+    const token = await adminLogin();
+    await registerUser("buyer1@test.com");
+    await registerSeller("seller1@test.com");
+
+    const res = await api
+      .get("/api/v1/admin/dashboard")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    const data = res.body.data;
+    expect(data.stats).toBeDefined();
+    expect(data.stats.totalUsers).toBeGreaterThanOrEqual(2);
+    expect(data.stats.totalSellers).toBeGreaterThanOrEqual(1);
+    expect(data.stats.totalOrders).toBeDefined();
+    expect(data.stats.totalSales).toBeDefined();
+    expect(data.stats.platformRevenue).toBeDefined();
+    expect(data.stats.lowStockProducts).toBeDefined();
+
+    expect(Array.isArray(data.salesOverview)).toBe(true);
+    expect(data.orderStatus).toBeDefined();
+    expect(Array.isArray(data.recentOrders)).toBe(true);
+    expect(Array.isArray(data.topProducts)).toBe(true);
+    expect(Array.isArray(data.topSellers)).toBe(true);
+    expect(data.needsAttention).toBeDefined();
+    expect(data.sellerActivity).toBeDefined();
+    expect(Array.isArray(data.sellerActivity.growth)).toBe(true);
+    expect(Array.isArray(data.userGrowth)).toBe(true);
+    expect(data.revenue).toBeDefined();
+    expect(data.revenue.commissionRate).toBeDefined();
+  });
+
+  it("accepts range parameter on admin dashboard", async () => {
+    const token = await adminLogin();
+
+    const res = await api
+      .get("/api/v1/admin/dashboard?range=7d")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.salesOverview.length).toBe(7);
+  });
 });
+
