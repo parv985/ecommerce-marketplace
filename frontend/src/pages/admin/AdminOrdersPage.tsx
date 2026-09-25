@@ -1,7 +1,6 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { AlertCircle, RefreshCw, ShoppingCart } from 'lucide-react'
+import { AlertCircle, RefreshCw, ShoppingCart, AlertTriangle, X } from 'lucide-react'
 import { adminService } from '@/services/admin.service'
 import { extractErrorMessage } from '@/services/api'
 import { formatPrice, formatDate } from '@/lib/utils'
@@ -16,23 +15,76 @@ const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error' |
 }
 
 export function AdminOrdersPage() {
-  const [page, setPage] = useState(1)
-  const [status, setStatus] = useState('')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const status = (searchParams.get('status') || '').toUpperCase()
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['admin-orders', page, status],
     queryFn: () => adminService.getOrders({ page, status: status || undefined }),
   })
 
+  const handleStatusChange = (s: string) => {
+    const next = new URLSearchParams(searchParams)
+    if (s) {
+      next.set('status', s.toLowerCase())
+    } else {
+      next.delete('status')
+    }
+    next.delete('page')
+    setSearchParams(next)
+  }
+
+  const handlePageChange = (newPage: number) => {
+    const next = new URLSearchParams(searchParams)
+    if (newPage > 1) {
+      next.set('page', String(newPage))
+    } else {
+      next.delete('page')
+    }
+    setSearchParams(next)
+  }
+
+  const handleClearFilter = () => {
+    setSearchParams({})
+  }
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">All Orders</h1>
+
+      {/* Active filter banner with Clear Filter button */}
+      {status && (
+        <div className="flex items-center justify-between p-3.5 mb-4 rounded-[var(--radius)] bg-amber-50/90 border border-amber-200/90 text-amber-900 text-sm">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1 rounded-full bg-amber-100 text-amber-800">
+              <AlertTriangle size={15} />
+            </div>
+            <div>
+              <span className="font-semibold">Filtered View:</span>{' '}
+              <span>
+                Showing only <strong>{status}</strong> orders
+              </span>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleClearFilter}
+            className="h-7 text-xs px-2.5 bg-white hover:bg-amber-100/50 border-amber-300 text-amber-900 cursor-pointer"
+          >
+            <X size={13} className="mr-1" />
+            Clear Filter
+          </Button>
+        </div>
+      )}
+
       <div className="flex gap-2 mb-4 flex-wrap">
         {['', 'PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'RETURNED'].map(s => (
           <button
             key={s}
-            onClick={() => { setStatus(s); setPage(1); }}
-            className={`px-3 py-1 text-sm rounded ${status === s ? 'bg-[var(--primary)] text-white' : 'bg-zinc-100 hover:bg-zinc-200'}`}
+            onClick={() => handleStatusChange(s)}
+            className={`px-3 py-1 text-sm rounded cursor-pointer transition-colors ${status === s ? 'bg-[var(--primary)] text-white font-medium' : 'bg-zinc-100 hover:bg-zinc-200'}`}
           >
             {s || 'All'}
           </button>
@@ -79,7 +131,7 @@ export function AdminOrdersPage() {
             />
           )}
           {data && data.totalPages > 1 && (
-            <Pagination currentPage={page} totalPages={data.totalPages} onPageChange={setPage} />
+            <Pagination currentPage={page} totalPages={data.totalPages} onPageChange={handlePageChange} />
           )}
         </div>
       )}

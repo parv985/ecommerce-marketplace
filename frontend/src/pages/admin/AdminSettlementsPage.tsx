@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { AlertCircle, CalendarDays, Loader2, ReceiptText, RefreshCw, Wallet } from 'lucide-react'
+import { AlertCircle, AlertTriangle, CalendarDays, Loader2, ReceiptText, RefreshCw, Wallet, X } from 'lucide-react'
 import { adminService } from '@/services/admin.service'
 import { extractErrorMessage } from '@/services/api'
 import { formatDate, formatDateFull, formatPrice } from '@/lib/utils'
@@ -45,9 +46,10 @@ const currentMonthKey = (): string => {
 const shortSellerId = (id: string): string => (id.length > 10 ? `${id.slice(0, 10)}…` : id)
 
 export function AdminSettlementsPage() {
-  const [page, setPage] = useState(1)
-  const [statusFilter, setStatusFilter] = useState('')
-  const [monthFilter, setMonthFilter] = useState('')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const statusFilter = (searchParams.get('status') || '').toUpperCase()
+  const monthFilter = searchParams.get('month') || ''
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
   const [showGenerate, setShowGenerate] = useState(false)
   const [generateMonth, setGenerateMonth] = useState('')
   const [detailId, setDetailId] = useState<string | null>(null)
@@ -55,6 +57,42 @@ export function AdminSettlementsPage() {
   const [showCommission, setShowCommission] = useState(false)
   const [commissionRate, setCommissionRate] = useState(10)
   const queryClient = useQueryClient()
+
+  const handleStatusFilterChange = (s: string) => {
+    const next = new URLSearchParams(searchParams)
+    if (s) {
+      next.set('status', s.toLowerCase())
+    } else {
+      next.delete('status')
+    }
+    next.delete('page')
+    setSearchParams(next)
+  }
+
+  const handleMonthFilterChange = (m: string) => {
+    const next = new URLSearchParams(searchParams)
+    if (m) {
+      next.set('month', m)
+    } else {
+      next.delete('month')
+    }
+    next.delete('page')
+    setSearchParams(next)
+  }
+
+  const handlePageChange = (newPage: number) => {
+    const next = new URLSearchParams(searchParams)
+    if (newPage > 1) {
+      next.set('page', String(newPage))
+    } else {
+      next.delete('page')
+    }
+    setSearchParams(next)
+  }
+
+  const handleClearFilter = () => {
+    setSearchParams({})
+  }
 
   const monthFilterValid = monthFilter === '' || MONTH_RE.test(monthFilter)
 
@@ -122,9 +160,9 @@ export function AdminSettlementsPage() {
     if (generate.isPending) return
     if (!MONTH_RE.test(generateMonth)) {
       toast.error('Enter a valid month in YYYY-MM format')
-      return
+    } else {
+      generate.mutate(generateMonth)
     }
-    generate.mutate(generateMonth)
   }
 
   const updateCommission = useMutation({
@@ -178,17 +216,44 @@ export function AdminSettlementsPage() {
         </div>
       </div>
 
+      {/* Active filter banner with Clear Filter button */}
+      {openFilters && (
+        <div className="flex items-center justify-between p-3.5 mb-4 rounded-[var(--radius)] bg-amber-50/90 border border-amber-200/90 text-amber-900 text-sm">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1 rounded-full bg-amber-100 text-amber-800">
+              <AlertTriangle size={15} />
+            </div>
+            <div>
+              <span className="font-semibold">Filtered View:</span>{' '}
+              <span>
+                Showing{' '}
+                {statusFilter ? <strong>{statusFilter}</strong> : null}
+                {statusFilter && monthFilter ? ' settlements for ' : ''}
+                {!statusFilter && monthFilter ? 'settlements for ' : ''}
+                {monthFilter ? <strong>{monthFilter}</strong> : ' settlements'}
+              </span>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleClearFilter}
+            className="h-7 text-xs px-2.5 bg-white hover:bg-amber-100/50 border-amber-300 text-amber-900 cursor-pointer"
+          >
+            <X size={13} className="mr-1" />
+            Clear Filter
+          </Button>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="flex gap-2 mb-4 flex-wrap items-end">
         {['', 'PENDING', 'PROCESSING', 'PAID', 'FAILED', 'CANCELLED'].map((s) => (
           <button
             key={s}
-            onClick={() => {
-              setStatusFilter(s)
-              setPage(1)
-            }}
-            className={`px-3 py-1 text-sm rounded ${
-              statusFilter === s ? 'bg-[var(--primary)] text-white' : 'bg-zinc-100 hover:bg-zinc-200'
+            onClick={() => handleStatusFilterChange(s)}
+            className={`px-3 py-1 text-sm rounded cursor-pointer transition-colors ${
+              statusFilter === s ? 'bg-[var(--primary)] text-white font-medium' : 'bg-zinc-100 hover:bg-zinc-200'
             }`}
           >
             {s || 'All'}
@@ -196,7 +261,7 @@ export function AdminSettlementsPage() {
         ))}
         <div className="ml-auto flex gap-2 items-end">
           {monthFilter && (
-            <Button size="sm" variant="ghost" onClick={() => setMonthFilter('')}>
+            <Button size="sm" variant="ghost" onClick={() => handleMonthFilterChange('')}>
               Clear month
             </Button>
           )}
@@ -205,10 +270,7 @@ export function AdminSettlementsPage() {
             aria-label="Filter by month"
             max={currentMonthKey()}
             value={monthFilter}
-            onChange={(e) => {
-              setMonthFilter(e.target.value)
-              setPage(1)
-            }}
+            onChange={(e) => handleMonthFilterChange(e.target.value)}
             className="w-44"
           />
         </div>
@@ -347,7 +409,7 @@ export function AdminSettlementsPage() {
               {data.total} settlement{data.total === 1 ? '' : 's'}
             </p>
           )}
-          {data && <Pagination currentPage={page} totalPages={data.totalPages} onPageChange={setPage} />}
+          {data && <Pagination currentPage={page} totalPages={data.totalPages} onPageChange={handlePageChange} />}
         </div>
       )}
 

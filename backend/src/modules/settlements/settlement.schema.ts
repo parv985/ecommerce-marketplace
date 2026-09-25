@@ -18,14 +18,18 @@ export const monthKeySchema = z
 export const listSettlementsQuerySchema = z
   .object({
     status: z
-      .enum([
-        "PENDING",
-        "PROCESSING",
-        "PAID",
-        "FAILED",
-        "CANCELLED",
-      ])
-      .optional(),
+      .preprocess(
+        (val) => (typeof val === "string" ? val.toUpperCase() : val),
+        z
+          .enum([
+            "PENDING",
+            "PROCESSING",
+            "PAID",
+            "FAILED",
+            "CANCELLED",
+          ])
+          .optional(),
+      ),
     sellerId: objectId.optional(),
     month: monthKeySchema.optional(),
     page: z.coerce

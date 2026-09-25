@@ -32,7 +32,7 @@ export const adminService = {
     api.patch<ApiResponse<SellerProfile>>(`/admin/sellers/${id}/status`, { status, reason }).then(r => r.data),
 
   // Products
-  getProducts: (params?: { status?: string; page?: number; limit?: number }) =>
+  getProducts: (params?: { status?: string; filter?: string; page?: number; limit?: number }) =>
     api.get<ApiResponse<PaginatedResponse<Product>>>('/admin/products', { params }).then(r => r.data.data),
 
   updateProductStatus: (id: string, status: string) =>

@@ -46,8 +46,10 @@ export const updateUserStatusSchema = z
 export const listSellersQuerySchema = z
   .object({
     status: z
-      .nativeEnum(SellerStatus)
-      .optional(),
+      .preprocess(
+        (val) => (typeof val === "string" ? val.toUpperCase() : val),
+        z.nativeEnum(SellerStatus).optional(),
+      ),
 
     ...pagination,
   })
@@ -68,7 +70,12 @@ export const updateSellerStatusSchema = z
 export const listAdminProductsQuerySchema = z
   .object({
     status: z
-      .nativeEnum(ProductStatus)
+      .preprocess(
+        (val) => (typeof val === "string" ? val.toUpperCase() : val),
+        z.nativeEnum(ProductStatus).optional(),
+      ),
+    filter: z
+      .enum(["low-stock", "reported"])
       .optional(),
 
     ...pagination,
@@ -83,7 +90,11 @@ export const updateProductStatusSchema = z
 
 export const listAdminOrdersQuerySchema = z
   .object({
-    status: z.nativeEnum(OrderStatus).optional(),
+    status: z
+      .preprocess(
+        (val) => (typeof val === "string" ? val.toUpperCase() : val),
+        z.nativeEnum(OrderStatus).optional(),
+      ),
 
     ...pagination,
   })

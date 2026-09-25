@@ -1,5 +1,6 @@
 import { AppError } from "../../errors/AppError.js";
 import { SellerStatus } from "../../constants/sellerStatus.js";
+import { ProductStatus } from "../../constants/productStatus.js";
 import mongoose from "mongoose";
 import { getCacheKey, invalidateCache } from "../../config/redis.js";
 import { logAudit } from "../../services/audit.service.js";
@@ -301,6 +302,12 @@ export const getAdminProductsList = async (
 
   if (parsed.status) {
     filter.status = parsed.status;
+  }
+
+  if (parsed.filter === "low-stock") {
+    filter.stock = { $lte: 5 };
+  } else if (parsed.filter === "reported") {
+    filter.status = ProductStatus.PENDING;
   }
 
   const { items, total } = await listAllProducts(

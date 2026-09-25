@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Store, AlertCircle, RefreshCw } from 'lucide-react'
+import { Store, AlertCircle, RefreshCw, AlertTriangle, X } from 'lucide-react'
 import { adminService } from '@/services/admin.service'
 import { formatDate } from '@/lib/utils'
 import { extractErrorMessage } from '@/services/api'
@@ -19,8 +20,9 @@ const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error'> 
 }
 
 export function AdminSellersPage() {
-  const [page, setPage] = useState(1)
-  const [statusFilter, setStatusFilter] = useState('')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const statusFilter = (searchParams.get('status') || '').toUpperCase()
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
   const [actionDialog, setActionDialog] = useState<{ id: string; action: string; name: string } | null>(null)
   const [reason, setReason] = useState('')
   const queryClient = useQueryClient()
@@ -29,6 +31,31 @@ export function AdminSellersPage() {
     queryKey: ['admin-sellers', page, statusFilter],
     queryFn: () => adminService.getSellers({ page, status: statusFilter || undefined }),
   })
+
+  const handleStatusFilterChange = (s: string) => {
+    const next = new URLSearchParams(searchParams)
+    if (s) {
+      next.set('status', s.toLowerCase())
+    } else {
+      next.delete('status')
+    }
+    next.delete('page')
+    setSearchParams(next)
+  }
+
+  const handlePageChange = (newPage: number) => {
+    const next = new URLSearchParams(searchParams)
+    if (newPage > 1) {
+      next.set('page', String(newPage))
+    } else {
+      next.delete('page')
+    }
+    setSearchParams(next)
+  }
+
+  const handleClearFilter = () => {
+    setSearchParams({})
+  }
 
   const updateStatus = useMutation({
     mutationFn: ({ id, status, reason }: { id: string; status: string; reason?: string }) => adminService.updateSellerStatus(id, status, reason),
@@ -74,10 +101,40 @@ export function AdminSellersPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Manage Sellers</h1>
+
+      {/* Active filter banner with Clear Filter button */}
+      {statusFilter && (
+        <div className="flex items-center justify-between p-3.5 mb-4 rounded-[var(--radius)] bg-amber-50/90 border border-amber-200/90 text-amber-900 text-sm">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1 rounded-full bg-amber-100 text-amber-800">
+              <AlertTriangle size={15} />
+            </div>
+            <div>
+              <span className="font-semibold">Filtered View:</span>{' '}
+              <span>
+                Showing only <strong>{statusFilter}</strong> sellers
+              </span>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleClearFilter}
+            className="h-7 text-xs px-2.5 bg-white hover:bg-amber-100/50 border-amber-300 text-amber-900 cursor-pointer"
+          >
+            <X size={13} className="mr-1" />
+            Clear Filter
+          </Button>
+        </div>
+      )}
+
       <div className="flex gap-2 mb-4 flex-wrap">
         {['', 'PENDING', 'APPROVED', 'REJECTED', 'PAUSED', 'SUSPENDED'].map(s => (
-          <button key={s} onClick={() => { setStatusFilter(s); setPage(1); }}
-            className={`px-3 py-1 text-sm rounded ${statusFilter === s ? 'bg-slate-900 text-white' : 'bg-slate-100 hover:bg-slate-200'}`}>
+          <button
+            key={s}
+            onClick={() => handleStatusFilterChange(s)}
+            className={`px-3 py-1 text-sm rounded cursor-pointer transition-colors ${statusFilter === s ? 'bg-slate-900 text-white font-medium' : 'bg-slate-100 hover:bg-slate-200'}`}
+          >
             {s || 'All'}
           </button>
         ))}
@@ -134,7 +191,7 @@ export function AdminSellersPage() {
           )}
 
           {data && data.totalPages > 1 && (
-            <Pagination currentPage={page} totalPages={data.totalPages} onPageChange={setPage} />
+            <Pagination currentPage={page} totalPages={data.totalPages} onPageChange={handlePageChange} />
           )}
         </div>
       )}

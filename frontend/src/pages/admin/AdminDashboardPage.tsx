@@ -503,7 +503,7 @@ export function AdminDashboardPage() {
           <CardContent className="space-y-2.5 flex-1">
             {/* Low stock */}
             <div
-              onClick={() => navigate('/admin/products')}
+              onClick={() => navigate('/admin/products?filter=low-stock')}
               className="flex items-center justify-between p-3 rounded-[var(--radius)] border border-[var(--border)] hover:border-[var(--border-strong)] hover:bg-[#faf9f6] transition-all cursor-pointer group"
             >
               <div className="flex items-center gap-3 min-w-0">
@@ -530,7 +530,7 @@ export function AdminDashboardPage() {
 
             {/* Pending seller approvals */}
             <div
-              onClick={() => navigate('/admin/sellers')}
+              onClick={() => navigate('/admin/sellers?status=pending')}
               className="flex items-center justify-between p-3 rounded-[var(--radius)] border border-[var(--border)] hover:border-[var(--border-strong)] hover:bg-[#faf9f6] transition-all cursor-pointer group"
             >
               <div className="flex items-center gap-3 min-w-0">
@@ -557,7 +557,7 @@ export function AdminDashboardPage() {
 
             {/* Pending orders */}
             <div
-              onClick={() => navigate('/admin/orders')}
+              onClick={() => navigate('/admin/orders?status=pending')}
               className="flex items-center justify-between p-3 rounded-[var(--radius)] border border-[var(--border)] hover:border-[var(--border-strong)] hover:bg-[#faf9f6] transition-all cursor-pointer group"
             >
               <div className="flex items-center gap-3 min-w-0">
@@ -584,7 +584,7 @@ export function AdminDashboardPage() {
 
             {/* Pending settlements */}
             <div
-              onClick={() => navigate('/admin/settlements')}
+              onClick={() => navigate('/admin/settlements?status=pending')}
               className="flex items-center justify-between p-3 rounded-[var(--radius)] border border-[var(--border)] hover:border-[var(--border-strong)] hover:bg-[#faf9f6] transition-all cursor-pointer group"
             >
               <div className="flex items-center gap-3 min-w-0">
@@ -611,7 +611,7 @@ export function AdminDashboardPage() {
 
             {/* Reported / Pending moderation products */}
             <div
-              onClick={() => navigate('/admin/products')}
+              onClick={() => navigate('/admin/products?filter=reported')}
               className="flex items-center justify-between p-3 rounded-[var(--radius)] border border-[var(--border)] hover:border-[var(--border-strong)] hover:bg-[#faf9f6] transition-all cursor-pointer group"
             >
               <div className="flex items-center gap-3 min-w-0">

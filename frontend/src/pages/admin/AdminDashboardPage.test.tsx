@@ -16,6 +16,15 @@ vi.mock('recharts', async () => {
 })
 
 const getDashboardMock = vi.hoisted(() => vi.fn())
+const mockNavigate = vi.hoisted(() => vi.fn())
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<any>('react-router-dom')
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  }
+})
 
 vi.mock('@/services/admin.service', () => ({
   adminService: {
@@ -220,4 +229,42 @@ describe('AdminDashboardPage', () => {
       expect(getDashboardMock).toHaveBeenCalledWith({ range: '7d' })
     })
   })
+
+  it('navigates with appropriate query parameters when Needs Attention items are clicked', async () => {
+    const user = userEvent.setup()
+    renderDashboard()
+
+    await screen.findByText('Super Admin Dashboard')
+
+    // Low-Stock Products -> /admin/products?filter=low-stock
+    const lowStockItem = screen.getByText('Low-Stock Products').closest('div[class*="cursor-pointer"]')
+    expect(lowStockItem).toBeInTheDocument()
+    await user.click(lowStockItem!)
+    expect(mockNavigate).toHaveBeenCalledWith('/admin/products?filter=low-stock')
+
+    // Pending Seller Approvals -> /admin/sellers?status=pending
+    const pendingSellersItem = screen.getByText('Pending Seller Approvals').closest('div[class*="cursor-pointer"]')
+    expect(pendingSellersItem).toBeInTheDocument()
+    await user.click(pendingSellersItem!)
+    expect(mockNavigate).toHaveBeenCalledWith('/admin/sellers?status=pending')
+
+    // Pending Orders -> /admin/orders?status=pending
+    const pendingOrdersItem = screen.getByText('Buyer orders waiting confirmation').closest('div[class*="cursor-pointer"]')
+    expect(pendingOrdersItem).toBeInTheDocument()
+    await user.click(pendingOrdersItem!)
+    expect(mockNavigate).toHaveBeenCalledWith('/admin/orders?status=pending')
+
+    // Pending Settlements -> /admin/settlements?status=pending
+    const pendingSettlementsItem = screen.getByText('Seller period payouts to be disbursed').closest('div[class*="cursor-pointer"]')
+    expect(pendingSettlementsItem).toBeInTheDocument()
+    await user.click(pendingSettlementsItem!)
+    expect(mockNavigate).toHaveBeenCalledWith('/admin/settlements?status=pending')
+
+    // Reported / Moderation Products -> /admin/products?filter=reported
+    const reportedProductsItem = screen.getByText('Reported / Moderation Products').closest('div[class*="cursor-pointer"]')
+    expect(reportedProductsItem).toBeInTheDocument()
+    await user.click(reportedProductsItem!)
+    expect(mockNavigate).toHaveBeenCalledWith('/admin/products?filter=reported')
+  })
 })
+
