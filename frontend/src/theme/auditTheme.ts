@@ -86,6 +86,15 @@ export const auditTheme = createTheme({
           fontSize: 14,
           color: '#78756f',
           '&.Mui-focused': { color: '#b83e20' },
+          '&.MuiInputLabel-shrink': {
+            transform: 'translate(14px, -9px) scale(0.75)',
+            backgroundColor: '#ffffff',
+            padding: '0 4px',
+            fontWeight: 500,
+          },
+          '&.MuiInputLabel-shrink.Mui-focused': {
+            color: '#b83e20',
+          },
         },
       },
     },
