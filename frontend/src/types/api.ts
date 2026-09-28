@@ -157,6 +157,7 @@ export interface Product {
   specifications: ProductSpecification[]
   averageRating?: number
   totalReviews?: number
+  aiReviewSummary?: string | null
   createdAt: string
   updatedAt: string
   /**
@@ -445,6 +446,7 @@ export interface ProductReviews {
   productId: string
   averageRating: number
   reviewCount: number
+  aiReviewSummary?: string | null
   items: Review[]
   page: number
   limit: number
@@ -873,6 +875,8 @@ export type AIChatIntent =
   | 'CUSTOMER_SUPPORT'
   | 'ORDER_QUERY'
   | 'OUT_OF_SCOPE'
+  | 'GREETING'
+  | 'UNCLEAR'
 
 export interface AIChatMessage {
   role: 'user' | 'assistant'
@@ -882,6 +886,8 @@ export interface AIChatMessage {
 export interface AIChatOrderSummary {
   orderNumber: string
   status: string
+  paymentStatus?: string
+  paymentMethod?: string
   total: number
   createdAt: string
   itemCount: number

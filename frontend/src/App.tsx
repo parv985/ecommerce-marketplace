@@ -122,6 +122,7 @@ export default function App() {
               <Route path="/products" element={<ProductListPage />} />
               <Route path="/products/:id" element={<ProductDetailPage />} />
               <Route path="/login" element={<AuthPage />} />
+              <Route path="/register" element={<AuthPage defaultMode="register" />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
 

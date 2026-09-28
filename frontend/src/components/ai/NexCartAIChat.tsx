@@ -256,7 +256,7 @@ export function NexCartAIChat() {
                 <p className="text-[11px] text-neutral-400 mt-4">
                   New to NexCart?{' '}
                   <Link
-                    to="/login"
+                    to="/register"
                     onClick={() => setIsOpen(false)}
                     className="text-amber-700 underline font-medium hover:text-amber-800"
                   >
@@ -297,46 +297,77 @@ export function NexCartAIChat() {
                         <div className="grid grid-cols-1 gap-2">
                           {msg.products.map((p) => {
                             const mainImg = p.images?.[0]?.url || ''
+                            const hasReviews = (p.totalReviews ?? 0) > 0
                             return (
-                              <Link
+                              <div
                                 key={p.id}
-                                to={`/products/${p.id}`}
-                                onClick={() => setIsOpen(false)}
-                                className="flex items-center gap-3 p-2 bg-white rounded-xl border border-neutral-200 hover:border-amber-400 hover:shadow-md transition-all group"
+                                className="p-2.5 bg-white rounded-xl border border-neutral-200 hover:border-amber-400 hover:shadow-md transition-all group"
                               >
-                                {mainImg ? (
-                                  <img
-                                    src={mainImg}
-                                    alt={p.name}
-                                    className="h-12 w-12 rounded-lg object-cover bg-neutral-100 shrink-0"
-                                  />
-                                ) : (
-                                  <div className="h-12 w-12 rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-400 shrink-0">
-                                    <ShoppingBag size={18} />
+                                <Link
+                                  to={`/products/${p.id}`}
+                                  onClick={() => setIsOpen(false)}
+                                  className="flex items-center gap-3"
+                                >
+                                  {mainImg ? (
+                                    <img
+                                      src={mainImg}
+                                      alt={p.name}
+                                      className="h-12 w-12 rounded-lg object-cover bg-neutral-100 shrink-0"
+                                    />
+                                  ) : (
+                                    <div className="h-12 w-12 rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-400 shrink-0">
+                                      <ShoppingBag size={18} />
+                                    </div>
+                                  )}
+                                  <div className="min-w-0 flex-1">
+                                    <h5 className="text-xs font-semibold text-neutral-900 truncate group-hover:text-amber-700">
+                                      {p.name}
+                                    </h5>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                      <span className="text-xs font-bold text-neutral-900">
+                                        ₹{p.price.toLocaleString('en-IN')}
+                                      </span>
+                                      {p.category?.name && (
+                                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-neutral-100 text-neutral-600 truncate max-w-[100px]">
+                                          {p.category.name}
+                                        </span>
+                                      )}
+                                      {p.stock > 0 ? (
+                                        <span className="text-[10px] text-emerald-600 font-medium">In stock</span>
+                                      ) : (
+                                        <span className="text-[10px] text-rose-500 font-medium">Out of stock</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <ExternalLink size={14} className="text-neutral-400 group-hover:text-amber-600 mr-1 shrink-0" />
+                                </Link>
+
+                                {/* Rating and AI Review Summary */}
+                                {hasReviews && (
+                                  <div className="mt-2 pt-2 border-t border-neutral-100 space-y-1.5">
+                                    <div className="flex items-center gap-1.5 text-xs">
+                                      <span className="font-semibold text-amber-600 flex items-center gap-1">
+                                        <span>⭐</span> {(p.averageRating ?? 0).toFixed(1)}/5
+                                      </span>
+                                      <span className="text-[10px] text-neutral-400">
+                                        ({p.totalReviews} {p.totalReviews === 1 ? 'review' : 'reviews'})
+                                      </span>
+                                    </div>
+
+                                    {p.aiReviewSummary && (
+                                      <div className="p-2 bg-amber-50/70 border border-amber-200/80 rounded-lg text-[11px] text-neutral-800">
+                                        <div className="font-semibold text-amber-900 flex items-center gap-1 mb-0.5">
+                                          <Sparkles size={11} className="text-amber-600 shrink-0" />
+                                          AI Summary:
+                                        </div>
+                                        <p className="text-neutral-700 leading-snug">
+                                          “{p.aiReviewSummary}”
+                                        </p>
+                                      </div>
+                                    )}
                                   </div>
                                 )}
-                                <div className="min-w-0 flex-1">
-                                  <h5 className="text-xs font-semibold text-neutral-900 truncate group-hover:text-amber-700">
-                                    {p.name}
-                                  </h5>
-                                  <div className="flex items-center gap-2 mt-0.5">
-                                    <span className="text-xs font-bold text-neutral-900">
-                                      ₹{p.price.toLocaleString('en-IN')}
-                                    </span>
-                                    {p.category?.name && (
-                                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-neutral-100 text-neutral-600 truncate max-w-[100px]">
-                                        {p.category.name}
-                                      </span>
-                                    )}
-                                    {p.stock > 0 ? (
-                                      <span className="text-[10px] text-emerald-600 font-medium">In stock</span>
-                                    ) : (
-                                      <span className="text-[10px] text-rose-500 font-medium">Out of stock</span>
-                                    )}
-                                  </div>
-                                </div>
-                                <ExternalLink size={14} className="text-neutral-400 group-hover:text-amber-600 mr-1 shrink-0" />
-                              </Link>
+                              </div>
                             )
                           })}
                         </div>

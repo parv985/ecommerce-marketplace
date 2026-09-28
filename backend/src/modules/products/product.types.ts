@@ -44,6 +44,9 @@ export interface ProductResponse {
   updatedAt: Date;
   /** Present on public catalog responses; null when nothing is live. */
   activeDiscount?: ProductActiveDiscount | null;
+  averageRating?: number;
+  totalReviews?: number;
+  aiReviewSummary?: string | null;
 }
 
 export interface PaginatedProducts {

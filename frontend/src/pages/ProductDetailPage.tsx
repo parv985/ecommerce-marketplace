@@ -406,6 +406,19 @@ export function ProductDetailPage() {
           </div>
 
           <div className="md:col-span-2 flex flex-col justify-center">
+            {/* AI Review Summary */}
+            {reviewData?.aiReviewSummary && (
+              <div className="mb-3 p-3.5 bg-gradient-to-r from-amber-50 to-orange-50/60 rounded-[var(--radius)] border border-amber-200">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900 mb-1">
+                  <Sparkles size={14} className="text-amber-600 shrink-0" />
+                  AI Summary of Reviews
+                </div>
+                <p className="text-xs text-neutral-800 leading-relaxed italic">
+                  “{reviewData.aiReviewSummary}”
+                </p>
+              </div>
+            )}
+
             {/* Authenticated buyer status notice */}
             {isBuyer && (
               <div className="text-xs space-y-1.5">

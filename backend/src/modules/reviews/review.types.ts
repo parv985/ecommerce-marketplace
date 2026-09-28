@@ -14,6 +14,7 @@ export interface ProductReviewsResponse {
   productId: string;
   averageRating: number;
   reviewCount: number;
+  aiReviewSummary?: string | null;
   items: ReviewResponse[];
   page: number;
   limit: number;

@@ -22,6 +22,7 @@ import {
 import { Product } from "../../models/Product.js";
 import { Review } from "../../models/Review.js";
 import { Seller } from "../../models/Seller.js";
+import { getOrGenerateAIReviewSummary } from "../ai/ai.service.js";
 import type {
   ProductReviewsResponse,
   ReviewResponse,
@@ -127,10 +128,21 @@ export const getProductReviews = async (
     userIds,
   );
 
+  let aiReviewSummary: string | null = null;
+  if (items.length > 0) {
+    const prod = await Product.findById(productId).select("name").lean().exec();
+    aiReviewSummary = await getOrGenerateAIReviewSummary(
+      prod?.name || "Product",
+      productId,
+      items.map((i) => ({ rating: i.rating, comment: i.comment })),
+    );
+  }
+
   return {
     productId,
     averageRating: average,
     reviewCount: count,
+    aiReviewSummary,
     items: items.map((review) => {
       const user = names.get(
         review.userId.toString(),

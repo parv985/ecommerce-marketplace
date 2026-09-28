@@ -48,15 +48,35 @@ type LoginForm = z.infer<typeof loginSchema>
 type BuyerRegisterForm = z.infer<typeof buyerRegisterSchema>
 type SellerRegisterForm = z.infer<typeof sellerRegisterSchema>
 
+interface AuthPageProps {
+  defaultMode?: 'login' | 'register'
+}
+
 // ── Component ────────────────────────────────────────────────────
-export default function AuthPage() {
+export default function AuthPage({ defaultMode }: AuthPageProps = {}) {
   const { setAuth, accountInactive } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname
 
-  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const isRegisterRoute =
+    defaultMode === 'register' ||
+    location.pathname === '/register' ||
+    searchParams.get('mode') === 'register'
+
+  const [mode, setMode] = useState<'login' | 'register'>(
+    isRegisterRoute ? 'register' : 'login'
+  )
+
+  useEffect(() => {
+    if (location.pathname === '/register' || searchParams.get('mode') === 'register') {
+      setMode('register')
+    } else if (location.pathname === '/login' && !searchParams.get('mode')) {
+      setMode('login')
+    }
+  }, [location.pathname, searchParams])
+
   const [registerRole, setRegisterRole] = useState<'BUYER' | 'SELLER'>('BUYER')
   const [loading, setLoading] = useState(false)
   const [show2FA, setShow2FA] = useState(false)
