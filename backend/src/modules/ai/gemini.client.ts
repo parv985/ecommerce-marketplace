@@ -146,3 +146,58 @@ export const generateGeminiText = async (
     );
   }
 };
+
+export interface GenerateWithToolsOptions {
+  contents: any;
+  systemInstruction?: string;
+  tools?: any[];
+  temperature?: number;
+}
+
+export interface GenerateWithToolsResponse {
+  text?: string | undefined;
+  functionCalls?: Array<{ name: string; args: Record<string, any> }> | undefined;
+}
+
+/**
+ * Generates response from Gemini with tool / function calling support.
+ */
+export const generateGeminiWithTools = async (
+  options: GenerateWithToolsOptions,
+): Promise<GenerateWithToolsResponse> => {
+  const ai = getGeminiClient();
+  const model = getGeminiModelName();
+
+  try {
+    const config: Record<string, unknown> = {
+      temperature: options.temperature ?? 0.2,
+    };
+
+    if (options.systemInstruction) {
+      config.systemInstruction = options.systemInstruction;
+    }
+
+    if (options.tools && options.tools.length > 0) {
+      config.tools = options.tools;
+    }
+
+    const response = await ai.models.generateContent({
+      model,
+      contents: options.contents,
+      config,
+    });
+
+    return {
+      text: response.text?.trim() || undefined,
+      functionCalls: (response.functionCalls as Array<{ name: string; args: Record<string, any> }>) || undefined,
+    };
+  } catch (error: any) {
+    if (error instanceof AppError) throw error;
+    throw new AppError(
+      `Gemini tool generation failed: ${error?.message || String(error)}`,
+      502,
+      "AI_SERVICE_ERROR",
+    );
+  }
+};
+
