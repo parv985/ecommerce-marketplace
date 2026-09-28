@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'react-hot-toast'
-import { Ticket, X } from 'lucide-react'
+import { Ticket, X, Pencil } from 'lucide-react'
 import { useCart } from '@/hooks/useCart'
 import { useRestrictedAction } from '@/hooks/useRestrictedAction'
 import { userService } from '@/services/user.service'
@@ -22,20 +22,32 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Dialog } from '@/components/ui/Dialog'
-import type { CheckoutPreview } from '@/types/api'
+import { StateCityFields } from '@/components/ui/StateCityFields'
+import type { CheckoutPreview, Address } from '@/types/api'
 
 const addressSchema = z.object({
-  label: z.string().min(1, 'Label is required').max(30),
-  recipientName: z.string().min(2, 'Recipient name is required').max(100),
-  phone: z.string().regex(/^\d{10}$/, 'Phone must be 10 digits'),
-  addressLine1: z.string().min(3, 'Address is required').max(200),
+  label: z.string().trim().min(1, 'Label is required').max(30),
+  recipientName: z.string().trim().min(2, 'Recipient name is required').max(100),
+  phone: z.string().trim().regex(/^\d{10}$/, 'Phone must be 10 digits'),
+  addressLine1: z.string().trim().min(3, 'Address is required').max(200),
   addressLine2: z.string().optional(),
-  city: z.string().min(1, 'City is required'),
-  state: z.string().min(1, 'State is required'),
-  pincode: z.string().regex(/^\d{6}$/, 'PIN must be 6 digits'),
+  state: z.string().trim().min(1, 'State is required'),
+  city: z.string().trim().min(1, 'City is required'),
+  pincode: z.string().trim().regex(/^\d{6}$/, 'PIN must be 6 digits'),
 })
 
 type AddressForm = z.infer<typeof addressSchema>
+
+const EMPTY_ADDRESS_FORM: AddressForm = {
+  label: '',
+  recipientName: '',
+  phone: '',
+  addressLine1: '',
+  addressLine2: '',
+  state: '',
+  city: '',
+  pincode: '',
+}
 
 export function CheckoutPage() {
   const navigate = useNavigate()
@@ -46,7 +58,8 @@ export function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<'CASH_ON_DELIVERY' | 'ONLINE'>('CASH_ON_DELIVERY')
   const [couponInput, setCouponInput] = useState('')
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null)
-  const [showNewAddress, setShowNewAddress] = useState(false)
+  const [showAddressModal, setShowAddressModal] = useState(false)
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null)
 
   /*
    * Server-side checkout preview (no side effects). Runs whenever the
@@ -130,19 +143,87 @@ export function CheckoutPage() {
     queryFn: userService.getAddresses,
   })
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<AddressForm>({
+  // Auto-select first address if none selected yet
+  useEffect(() => {
+    if (!selectedAddress && addresses && addresses.length > 0) {
+      setSelectedAddress(addresses[0].id)
+    }
+  }, [addresses, selectedAddress])
+
+  const editingAddress = addresses?.find((a) => a.id === editingAddressId)
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    control,
+    setValue,
+    getValues,
+    formState: { errors },
+  } = useForm<AddressForm>({
     resolver: zodResolver(addressSchema),
+    defaultValues: EMPTY_ADDRESS_FORM,
   })
 
   const createAddress = useMutation({
     mutationFn: (data: AddressForm) => userService.createAddress(data),
     onSuccess: (res) => {
+      // Immediately add the new address to the query cache so it appears with zero refresh
+      queryClient.setQueryData<Address[]>(['addresses'], (old) =>
+        old ? [...old, res.data] : [res.data]
+      )
+      queryClient.invalidateQueries({ queryKey: ['addresses'] })
       setSelectedAddress(res.data.id)
-      setShowNewAddress(false)
-      reset()
+      setShowAddressModal(false)
+      reset(EMPTY_ADDRESS_FORM)
       toast.success('Address added')
     },
   })
+
+  const updateAddress = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: AddressForm }) =>
+      userService.updateAddress(id, data),
+    onSuccess: (res) => {
+      queryClient.setQueryData<Address[]>(['addresses'], (old) =>
+        old?.map((a) => (a.id === res.data.id ? res.data : a))
+      )
+      queryClient.invalidateQueries({ queryKey: ['addresses'] })
+      setSelectedAddress(res.data.id)
+      setShowAddressModal(false)
+      setEditingAddressId(null)
+      reset(EMPTY_ADDRESS_FORM)
+      toast.success('Address updated')
+    },
+  })
+
+  const handleOpenAddAddress = () => {
+    setEditingAddressId(null)
+    reset(EMPTY_ADDRESS_FORM)
+    setShowAddressModal(true)
+  }
+
+  const handleOpenEditAddress = (addr: Address) => {
+    setEditingAddressId(addr.id)
+    reset({
+      label: addr.label,
+      recipientName: addr.recipientName,
+      phone: addr.phone,
+      addressLine1: addr.addressLine1,
+      addressLine2: addr.addressLine2 ?? '',
+      state: addr.state,
+      city: addr.city,
+      pincode: addr.pincode,
+    })
+    setShowAddressModal(true)
+  }
+
+  const handleAddressSubmit = (data: AddressForm) => {
+    if (editingAddressId) {
+      updateAddress.mutate({ id: editingAddressId, data })
+    } else {
+      createAddress.mutate(data)
+    }
+  }
 
   const placeOrder = useMutation({
     mutationFn: () => orderService.create({
@@ -196,33 +277,50 @@ export function CheckoutPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Shipping Address</CardTitle>
-              <Button variant="outline" size="sm" onClick={() => setShowNewAddress(true)}>Add New</Button>
+              <Button variant="outline" size="sm" onClick={handleOpenAddAddress}>Add New</Button>
             </CardHeader>
             <CardContent>
               {addresses && addresses.length > 0 ? (
                 <div className="space-y-2.5">
                   {addresses.map(addr => (
-                    <label
+                    <div
                       key={addr.id}
-                      className={`block border rounded-[var(--radius)] p-3.5 cursor-pointer transition-colors ${selectedAddress === addr.id ? 'border-[var(--primary)] bg-[var(--primary-subtle)]' : 'border-[var(--border)] hover:bg-[var(--accent)]'}`}
+                      className={`flex items-start justify-between border rounded-[var(--radius)] p-3.5 cursor-pointer transition-colors ${selectedAddress === addr.id ? 'border-[var(--primary)] bg-[var(--primary-subtle)]' : 'border-[var(--border)] hover:bg-[var(--accent)]'}`}
                     >
-                      <div className="flex items-center gap-2.5">
-                        <input
-                          type="radio"
-                          name="address"
-                          value={addr.id}
-                          checked={selectedAddress === addr.id}
-                          onChange={() => setSelectedAddress(addr.id)}
-                          className="accent-[var(--primary)]"
-                        />
-                        <span className="font-semibold text-sm text-[var(--fg)]">{addr.label}</span>
-                      </div>
-                      <p className="text-xs text-[var(--fg-secondary)] ml-6 mt-1 leading-relaxed">
-                        {addr.recipientName && <span className="font-medium text-[var(--fg)]">{addr.recipientName}, </span>}
-                        {addr.addressLine1}{addr.addressLine2 ? `, ${addr.addressLine2}` : ''}, {addr.city}, {addr.state} - {addr.pincode}
-                        {addr.phone && <span className="block text-[var(--muted)] mt-0.5">Phone: {addr.phone}</span>}
-                      </p>
-                    </label>
+                      <label
+                        className="flex-1 cursor-pointer"
+                        onClick={() => setSelectedAddress(addr.id)}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <input
+                            type="radio"
+                            name="address"
+                            value={addr.id}
+                            checked={selectedAddress === addr.id}
+                            onChange={() => setSelectedAddress(addr.id)}
+                            className="accent-[var(--primary)]"
+                          />
+                          <span className="font-semibold text-sm text-[var(--fg)]">{addr.label}</span>
+                        </div>
+                        <p className="text-xs text-[var(--fg-secondary)] ml-6 mt-1 leading-relaxed">
+                          {addr.recipientName && <span className="font-medium text-[var(--fg)]">{addr.recipientName}, </span>}
+                          {addr.addressLine1}{addr.addressLine2 ? `, ${addr.addressLine2}` : ''}, {addr.city}, {addr.state} - {addr.pincode}
+                          {addr.phone && <span className="block text-[var(--muted)] mt-0.5">Phone: {addr.phone}</span>}
+                        </p>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleOpenEditAddress(addr)
+                        }}
+                        className="text-[var(--muted)] hover:text-[var(--primary)] shrink-0 p-1.5 ml-2 rounded hover:bg-[var(--bg-subtle)]"
+                        aria-label="Edit address"
+                        title="Edit address"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                    </div>
                   ))}
                 </div>
               ) : (
@@ -248,7 +346,7 @@ export function CheckoutPage() {
                     />
                     <span className="font-semibold text-sm text-[var(--fg)]">Cash on Delivery (COD)</span>
                   </div>
-                  <p className="text-xs text-[var(--muted)] ml-6 mt-0.5">Pay via cash or UPI upon parcel delivery</p>
+                  <p className="text-xs text-[var(--fg-secondary)] ml-6 mt-1">Pay when your order is delivered to your doorstep</p>
                 </label>
                 <label className={`block border rounded-[var(--radius)] p-3.5 cursor-pointer transition-colors ${paymentMethod === 'ONLINE' ? 'border-[var(--primary)] bg-[var(--primary-subtle)]' : 'border-[var(--border)] hover:bg-[var(--accent)]'}`}>
                   <div className="flex items-center gap-2.5">
@@ -260,49 +358,58 @@ export function CheckoutPage() {
                       onChange={() => setPaymentMethod('ONLINE')}
                       className="accent-[var(--primary)]"
                     />
-                    <span className="font-semibold text-sm text-[var(--fg)]">Pay Online (Razorpay)</span>
+                    <span className="font-semibold text-sm text-[var(--fg)]">Online Payment</span>
                   </div>
-                  <p className="text-xs text-[var(--muted)] ml-6 mt-0.5">UPI, Debit/Credit Card, Netbanking with 256-bit encryption</p>
+                  <p className="text-xs text-[var(--fg-secondary)] ml-6 mt-1">Credit / Debit Card, UPI, Net Banking via Razorpay</p>
                 </label>
               </div>
             </CardContent>
           </Card>
 
-          {/* Coupon */}
+          {/* Coupon Code Section */}
           <Card>
-            <CardHeader><CardTitle>Coupon</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <div className="flex items-center gap-2">
+                <Ticket size={18} className="text-[var(--primary)]" />
+                <CardTitle className="text-base">Apply Coupon</CardTitle>
+              </div>
+              {appliedCoupon && (
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                  Applied
+                </span>
+              )}
+            </CardHeader>
             <CardContent>
               {appliedCoupon ? (
-                <div className="flex items-center justify-between gap-3 border border-emerald-200 bg-emerald-50 rounded-[var(--radius)] px-3.5 py-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Ticket size={16} className="text-emerald-700 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-emerald-800">
-                        Coupon <span className="uppercase">{appliedCoupon}</span> applied
-                      </p>
-                      <p className="text-xs text-emerald-700">
-                        {preview && preview.couponDiscount > 0
-                          ? `You save ${formatPrice(preview.couponDiscount)} on this order`
-                          : 'Discount applied at checkout'}
-                      </p>
-                    </div>
+                <div className="flex items-center justify-between p-3 border border-emerald-300 rounded-[var(--radius)] bg-emerald-50 text-emerald-800 text-sm">
+                  <div>
+                    <span className="font-bold tracking-wide">{appliedCoupon}</span>
+                    {preview && preview.couponDiscount > 0 ? (
+                      <span className="ml-2 text-xs text-emerald-600 font-medium">
+                        ({formatPrice(preview.couponDiscount)} off)
+                      </span>
+                    ) : (
+                      <span className="ml-2 text-xs text-emerald-600 font-medium">(applied)</span>
+                    )}
                   </div>
                   <button
-                    type="button"
                     onClick={removeCoupon}
-                    className="shrink-0 text-emerald-700 hover:text-red-700 transition-colors p-1"
+                    className="text-emerald-700 hover:text-emerald-900 transition-colors p-1"
                     title="Remove coupon"
+                    aria-label="Remove coupon"
                   >
-                    <X size={15} />
+                    <X size={16} />
                   </button>
                 </div>
               ) : (
                 <div className="flex gap-2">
-                  <Input
-                    placeholder="Enter coupon code"
+                  <input
+                    type="text"
                     value={couponInput}
-                    onChange={e => setCouponInput(e.target.value)}
-                    onKeyDown={e => {
+                    onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                    placeholder="Enter coupon code"
+                    className="flex-1 rounded-[var(--radius)] border border-[var(--border)] px-3 py-2 text-sm uppercase placeholder:normal-case focus:outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)]"
+                    onKeyDown={(e) => {
                       if (e.key === 'Enter' && couponInput.trim()) {
                         e.preventDefault()
                         applyCoupon.mutate(couponInput.trim())
@@ -310,53 +417,56 @@ export function CheckoutPage() {
                     }}
                   />
                   <Button
+                    type="button"
                     variant="outline"
+                    size="sm"
                     disabled={!couponInput.trim() || applyCoupon.isPending}
                     onClick={() => applyCoupon.mutate(couponInput.trim())}
                   >
-                    {applyCoupon.isPending ? 'Checking...' : 'Apply'}
+                    {applyCoupon.isPending ? 'Applying...' : 'Apply'}
                   </Button>
                 </div>
-              )}
-              {!appliedCoupon && (
-                <p className="text-[11px] text-[var(--muted)] mt-2">
-                  Enter a seller coupon code — it is validated instantly and the discount is shown below.
-                </p>
               )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Order Summary */}
-        <div className="border border-[var(--border)] bg-white rounded-[var(--radius-lg)] p-5 h-fit shadow-[var(--shadow-sm)]">
-          <h2 className="font-semibold text-base text-[var(--fg)] mb-4 pb-3 border-b border-[var(--border)]">Order Summary</h2>
-          <div className="space-y-2.5 text-sm">
-            {cart.items.map(item => item.product && (
-              <div key={item.productId} className="flex justify-between items-start text-xs text-[var(--fg-secondary)]">
-                <span className="truncate mr-2 font-medium text-[var(--fg)]">{item.product.name} <span className="text-[var(--muted)]">x{item.quantity}</span></span>
-                <span className="shrink-0 font-semibold text-[var(--fg)]">{formatPrice(item.subtotal)}</span>
+        {/* Order Summary Sidebar */}
+        <div className="border border-[var(--border)] rounded-[var(--radius-lg)] p-6 bg-white self-start sticky top-24 shadow-[var(--shadow-sm)]">
+          <h2 className="font-semibold text-lg text-[var(--fg)] mb-4 pb-2 border-b border-[var(--border)]">
+            Order Summary
+          </h2>
+          <div className="space-y-3 max-h-60 overflow-y-auto mb-4 pr-1">
+            {cart.items.map(item => (
+              <div key={item.productId} className="flex justify-between items-start text-xs gap-2">
+                <span className="line-clamp-1 flex-1 text-[var(--fg-secondary)]">
+                  {item.product?.name ?? 'Product'} × {item.quantity}
+                </span>
+                <span className="font-medium text-[var(--fg)] shrink-0">
+                  {formatPrice((item.product?.price ?? 0) * item.quantity)}
+                </span>
               </div>
             ))}
           </div>
-          <div className="border-t border-[var(--border)] mt-4 pt-4 space-y-2 text-sm">
+          <div className="border-t border-[var(--border)] pt-4 space-y-2 text-sm">
             <div className="flex justify-between text-[var(--fg-secondary)]">
-              <span>Subtotal ({cart.totalQuantity} items)</span>
-              <span className="font-semibold text-[var(--fg)]">{formatPrice(preview?.itemsTotal ?? cart.totalPrice)}</span>
+              <span>Items Total</span>
+              <span>{formatPrice(preview?.itemsTotal ?? cart.totalPrice)}</span>
             </div>
-            {(preview?.discountTotal ?? 0) > 0 && (
-              <div className="flex justify-between text-emerald-700">
+            {preview && preview.discountTotal > 0 && (
+              <div className="flex justify-between text-emerald-700 font-medium">
                 <span>Product Discounts</span>
-                <span className="font-semibold">− {formatPrice(preview!.discountTotal)}</span>
+                <span>-{formatPrice(preview.discountTotal)}</span>
               </div>
             )}
-            {(preview?.couponDiscount ?? 0) > 0 && appliedCoupon && (
-              <div className="flex justify-between text-emerald-700">
-                <span className="uppercase">Coupon ({appliedCoupon})</span>
-                <span className="font-semibold">− {formatPrice(preview!.couponDiscount)}</span>
+            {preview && preview.couponDiscount > 0 && (
+              <div className="flex justify-between text-emerald-700 font-medium">
+                <span>Coupon ({preview.couponCode})</span>
+                <span>-{formatPrice(preview.couponDiscount)}</span>
               </div>
             )}
             <div className="flex justify-between text-[var(--fg-secondary)]">
-              <span>Shipping</span>
+              <span>Delivery Fee</span>
               <span className="text-emerald-700 font-medium">Calculated at checkout</span>
             </div>
             <div className="border-t border-[var(--border)] pt-3 flex justify-between font-bold text-base text-[var(--fg)]">
@@ -379,22 +489,44 @@ export function CheckoutPage() {
         </div>
       </div>
 
-      {/* New Address Dialog */}
-      <Dialog open={showNewAddress} onClose={() => setShowNewAddress(false)} title="Add New Address">
-        <form onSubmit={handleSubmit((data) => createAddress.mutate(data))} className="space-y-3.5">
+      {/* Address Dialog */}
+      <Dialog
+        open={showAddressModal}
+        onClose={() => {
+          setShowAddressModal(false)
+          setEditingAddressId(null)
+        }}
+        title={editingAddressId ? 'Edit Address' : 'Add New Address'}
+      >
+        <form onSubmit={handleSubmit(handleAddressSubmit)} className="space-y-3.5">
           <Input label="Label" placeholder="Home, Office, etc." error={errors.label?.message} {...register('label')} />
           <Input label="Recipient Name" placeholder="Full name" error={errors.recipientName?.message} {...register('recipientName')} />
           <Input label="Address Line 1" error={errors.addressLine1?.message} {...register('addressLine1')} />
           <Input label="Address Line 2" {...register('addressLine2')} />
           <div className="grid grid-cols-2 gap-3">
-            <Input label="City" error={errors.city?.message} {...register('city')} />
-            <Input label="State" error={errors.state?.message} {...register('state')} />
+            <StateCityFields
+              control={control}
+              setValue={setValue}
+              getValues={getValues}
+              originalState={editingAddress?.state}
+              originalCity={editingAddress?.city}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Input label="PIN Code" error={errors.pincode?.message} {...register('pincode')} />
             <Input label="Phone (10 digits)" error={errors.phone?.message} {...register('phone')} />
           </div>
-          <Button type="submit" className="w-full" disabled={createAddress.isPending}>Save Address</Button>
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={createAddress.isPending || updateAddress.isPending}
+          >
+            {createAddress.isPending || updateAddress.isPending
+              ? 'Saving...'
+              : editingAddressId
+              ? 'Update Address'
+              : 'Save Address'}
+          </Button>
         </form>
       </Dialog>
     </div>
