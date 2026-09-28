@@ -19,10 +19,14 @@ import {
   type ListReviewsQuery,
   type UpdateReviewInput,
 } from "./review.schema.js";
+import mongoose from "mongoose";
 import { Product } from "../../models/Product.js";
 import { Review } from "../../models/Review.js";
 import { Seller } from "../../models/Seller.js";
-import { getOrGenerateAIReviewSummary } from "../ai/ai.service.js";
+import {
+  getOrGenerateAIReviewSummary,
+  invalidateAIReviewSummary,
+} from "../ai/ai.service.js";
 import type {
   ProductReviewsResponse,
   ReviewResponse,
@@ -96,6 +100,8 @@ export const createProductReview = async (
     comment: data.comment,
   });
 
+  invalidateAIReviewSummary(data.productId);
+
   return toReviewResponse(review);
 };
 
@@ -129,13 +135,23 @@ export const getProductReviews = async (
   );
 
   let aiReviewSummary: string | null = null;
-  if (items.length > 0) {
-    const prod = await Product.findById(productId).select("name").lean().exec();
-    aiReviewSummary = await getOrGenerateAIReviewSummary(
-      prod?.name || "Product",
-      productId,
-      items.map((i) => ({ rating: i.rating, comment: i.comment })),
-    );
+  if (count > 0) {
+    const [prod, currentDbReviews] = await Promise.all([
+      Product.findById(productId).select("name").lean().exec(),
+      Review.find({ productId: new mongoose.Types.ObjectId(productId) })
+        .select("rating comment updatedAt")
+        .sort({ updatedAt: -1 })
+        .lean()
+        .exec(),
+    ]);
+
+    if (currentDbReviews.length > 0) {
+      aiReviewSummary = await getOrGenerateAIReviewSummary(
+        prod?.name || "Product",
+        productId,
+        currentDbReviews.map((r) => ({ rating: r.rating, comment: r.comment })),
+      );
+    }
   }
 
   return {
@@ -207,6 +223,8 @@ export const updateProductReview = async (
     );
   }
 
+  invalidateAIReviewSummary(review.productId.toString());
+
   return toReviewResponse(updated);
 };
 
@@ -232,7 +250,9 @@ export const deleteProductReview = async (
     );
   }
 
+  const productId = review.productId.toString();
   await deleteReviewById(reviewId);
+  invalidateAIReviewSummary(productId);
 };
 
 export const getSellerReviews = async (

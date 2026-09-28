@@ -70,11 +70,70 @@ const escapeRegex = (text: string): string => {
 
 /**
  * In-memory cache for generated AI review summaries (1 hour TTL).
+ * Keyed by productId, storing the summary, reviews fingerprint, and creation timestamp.
  */
 const reviewSummaryCache = new Map<
   string,
-  { summary: string; reviewCount: number; timestamp: number }
+  { summary: string; fingerprint: string; timestamp: number }
 >();
+
+/**
+ * Invalidates the cached AI review summary for a specific product.
+ * Should be called whenever a review is created, updated, or deleted.
+ */
+export const invalidateAIReviewSummary = (productId: string): void => {
+  if (productId) {
+    reviewSummaryCache.delete(productId.toString());
+  }
+};
+
+/**
+ * Computes a deterministic content-based fingerprint of a set of reviews.
+ * If any review is added, deleted, or has its rating/comment edited, the fingerprint changes.
+ */
+const computeReviewFingerprint = (
+  reviews: Array<{ rating: number; comment?: string | null | undefined }>,
+): string => {
+  return reviews
+    .map((r) => `${r.rating}:${(r.comment || "").trim().toLowerCase()}`)
+    .sort()
+    .join("||");
+};
+
+const NEGATIVE_SENTIMENT_REGEX =
+  /\b(bad|poor|worst|terrible|horrible|awful|pathetic|rubbish|waste|junk|defective|broken|damage|damaged|issue|issues|problem|problems|fake|disappoint|disappointed|disappointing|unsatisfied|dissatisfied|useless|regret|scam|hate|rough|slow|lag|heating|overheat|overheating|crack|cracked)\b|not\s+(good|working|worth|happy|satisfied|great|recommend)|cheap quality|low quality|stopped working|does not work|doesn't work/i;
+
+const POSITIVE_SENTIMENT_REGEX =
+  /\b(good|great|excellent|awesome|amazing|superb|fantastic|outstanding|brilliant|love|loved|perfect|nice|best|satisfy|satisfied|satisfying|worth|solid|jordar|badhiya|badiya|mast|gazab|jhakaas|wonderful|durable|premium|super|value for money)\b/i;
+
+const classifyReviewSentiment = (r: {
+  rating: number;
+  comment?: string | null | undefined;
+}): "positive" | "negative" | "neutral" => {
+  const comment = (r.comment || "").trim();
+  const hasNegative = NEGATIVE_SENTIMENT_REGEX.test(comment);
+  const hasPositive = POSITIVE_SENTIMENT_REGEX.test(comment);
+
+  if (hasNegative && !hasPositive) {
+    return "negative";
+  }
+  if (hasPositive && !hasNegative) {
+    return "positive";
+  }
+  if (hasNegative && hasPositive) {
+    return r.rating <= 3 ? "negative" : "positive";
+  }
+
+  // If no sentiment keywords in comment, rely on star rating
+  if (r.rating >= 4) return "positive";
+  if (r.rating <= 2.5) return "negative";
+  return "neutral";
+};
+
+const cleanSnippet = (text: string, maxLen = 50): string => {
+  const trimmed = text.replace(/^["'“”]|["'“”]$/g, "").trim();
+  return trimmed.length > maxLen ? `${trimmed.slice(0, maxLen)}...` : trimmed;
+};
 
 /**
  * Generates an AI summary of customer reviews for a given product.
@@ -86,41 +145,48 @@ export const getOrGenerateAIReviewSummary = async (
   reviews: Array<{ rating: number; comment?: string | null | undefined }>,
 ): Promise<string | null> => {
   if (!reviews || reviews.length === 0) {
+    invalidateAIReviewSummary(productId);
     return null;
-  }
-
-  const cached = reviewSummaryCache.get(productId);
-  if (
-    cached &&
-    cached.reviewCount === reviews.length &&
-    Date.now() - cached.timestamp < 3600000
-  ) {
-    return cached.summary;
   }
 
   const validReviews = reviews.filter(
     (r) => r && (r.comment?.trim() || r.rating != null),
   );
   if (validReviews.length === 0) {
+    invalidateAIReviewSummary(productId);
     return null;
+  }
+
+  const fingerprint = computeReviewFingerprint(validReviews);
+  const cached = reviewSummaryCache.get(productId);
+  if (
+    cached &&
+    cached.fingerprint === fingerprint &&
+    Date.now() - cached.timestamp < 3600000
+  ) {
+    return cached.summary;
   }
 
   if (isGeminiConfigured()) {
     const prompt = `
 You are the AI review summarizer for NexCart, an e-commerce platform.
-Analyze the following customer reviews for the product "${productName}":
+Analyze the following current customer reviews for the product "${productName}":
 
 ${validReviews.map((r, i) => `Review ${i + 1} (${r.rating}/5 stars): "${r.comment?.trim() || `Rated ${r.rating} stars`}"`).join("\n")}
 
-Instructions:
+CRITICAL INSTRUCTIONS:
 1. Generate an AI Summary of the reviews in 1 to 2 natural, concise sentences.
-2. The summary should identify the common positive points and common criticisms from the available reviews rather than simply repeating individual reviews.
-3. Example style:
-   "Customers generally praise the battery life and display quality. The most common criticism is the keyboard layout."
-4. If reviews are mostly positive with no criticisms mentioned, summarize the praises accurately (e.g. "Customers generally praise the build quality and performance. No major criticisms were reported.").
-5. If reviews are mostly negative, summarize the main criticisms accurately.
-6. Base the summary strictly on the actual reviews provided above. Do NOT invent features, pros, or cons not present in these reviews.
-7. Return only the summary text without adding "AI Summary:" prefix.
+2. The summary must strictly reflect the CURRENT reviews above. Do not carry over or assume any previous reviews or opinions.
+3. Identify common positive points (praises) and common criticisms from the available reviews.
+4. IMPORTANT SENTIMENT ANALYSIS:
+   - Carefully analyze what reviewers actually wrote in their comments.
+   - If a review's comment states dissatisfaction, defects, issues, or bad/poor quality (e.g. "the product quality is bad", "poor battery", "defective item"), classify that comment as a CRITICISM regardless of what star rating number was selected.
+   - If a review's comment praises the product (e.g. "jordar product che", "excellent quality", "works great"), classify that comment as PRAISE.
+5. If the current reviews only express criticisms or negative feedback, summarize the criticisms accurately (e.g. "Customers express criticism regarding product quality, noting poor quality. No major positive points were reported.").
+6. If the current reviews only express positive feedback with no criticisms, summarize the praises accurately (e.g. "Customers generally praise the product's quality and satisfaction. No major criticisms were reported.").
+7. If both praises and criticisms exist, summarize both balanced and concisely (e.g. "Customers generally praise the battery life and display quality. The most common criticism is the keyboard layout.").
+8. Base the summary strictly on the actual current reviews provided above. Do NOT invent features, pros, or cons not present in these reviews.
+9. Return only the summary text without adding "AI Summary:" prefix.
 `.trim();
 
     try {
@@ -138,7 +204,7 @@ Instructions:
           .replace(/^["'“”]|["'“”]$/g, "");
         reviewSummaryCache.set(productId, {
           summary: cleanSummary,
-          reviewCount: reviews.length,
+          fingerprint,
           timestamp: Date.now(),
         });
         return cleanSummary;
@@ -148,26 +214,38 @@ Instructions:
     }
   }
 
-  // Heuristic review summarization based on actual ratings & comments
-  const positives = validReviews.filter((r) => r.rating >= 4);
-  const criticisms = validReviews.filter((r) => r.rating <= 2);
+  // Heuristic review summarization based on actual ratings & comment sentiments
+  const positiveReviews = validReviews.filter(
+    (r) => classifyReviewSentiment(r) === "positive",
+  );
+  const criticismReviews = validReviews.filter(
+    (r) => classifyReviewSentiment(r) === "negative",
+  );
+
+  const posComment = positiveReviews
+    .find((r) => r.comment && r.comment.trim().length > 2)
+    ?.comment?.trim();
+
+  const critComment = criticismReviews
+    .find((r) => r.comment && r.comment.trim().length > 2)
+    ?.comment?.trim();
+
   const avg = (
     validReviews.reduce((acc, r) => acc + r.rating, 0) / validReviews.length
   ).toFixed(1);
 
-  const posComment = positives.find((r) => r.comment && r.comment.trim().length > 3)?.comment?.trim();
-  const critComment = criticisms.find((r) => r.comment && r.comment.trim().length > 3)?.comment?.trim();
-
   let summary = "";
   if (posComment && critComment) {
-    summary = `Customers generally praise the product experience ("${posComment.slice(0, 45)}"). The most common criticism is regarding "${critComment.slice(0, 45)}".`;
+    summary = `Customers generally praise the product experience ("${cleanSnippet(posComment, 45)}"). The most common criticism is regarding "${cleanSnippet(critComment, 45)}".`;
+  } else if (critComment && (!posComment || criticismReviews.length >= positiveReviews.length)) {
+    summary = `Customers express criticism regarding product quality and satisfaction ("${cleanSnippet(critComment, 50)}"). No major positive points were reported.`;
   } else if (posComment) {
-    summary = `Customers generally praise the product's quality and satisfaction ("${posComment.slice(0, 50)}"). No major criticisms were reported.`;
-  } else if (critComment) {
-    summary = `Customers express criticism regarding product satisfaction ("${critComment.slice(0, 50)}"). Few positive points were noted.`;
-  } else if (positives.length > criticisms.length) {
+    summary = `Customers generally praise the product's quality and satisfaction ("${cleanSnippet(posComment, 50)}"). No major criticisms were reported.`;
+  } else if (criticismReviews.length > 0 && positiveReviews.length === 0) {
+    summary = `Customers express criticism regarding overall quality with an average rating of ${avg}/5 stars.`;
+  } else if (positiveReviews.length > criticismReviews.length) {
     summary = `Customers generally praise the overall value and performance with an average rating of ${avg}/5 stars.`;
-  } else if (criticisms.length > positives.length) {
+  } else if (criticismReviews.length > positiveReviews.length) {
     summary = `Customers express criticism regarding overall quality with an average rating of ${avg}/5 stars.`;
   } else {
     summary = `Customers rated this product an average of ${avg}/5 based on ${validReviews.length} customer review${validReviews.length === 1 ? "" : "s"}.`;
@@ -175,7 +253,7 @@ Instructions:
 
   reviewSummaryCache.set(productId, {
     summary,
-    reviewCount: reviews.length,
+    fingerprint,
     timestamp: Date.now(),
   });
   return summary;
