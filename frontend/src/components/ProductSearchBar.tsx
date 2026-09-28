@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Loader2, Search } from 'lucide-react'
+import { Loader2, Search, Sparkles } from 'lucide-react'
 import { productService } from '@/services/product.service'
 import { cn, formatPrice } from '@/lib/utils'
 import type { Product } from '@/types/api'
@@ -13,7 +13,8 @@ import type { Product } from '@/types/api'
  * name/description — categories and brands are not searched) and offers
  * live suggestions while the user types. Selecting a suggestion goes
  * straight to that product's detail page; pressing Enter without picking
- * a suggestion opens the full results page.
+ * a suggestion opens the full results page. Also offers natural-language
+ * AI search powered by Gemini.
  */
 const DEBOUNCE_MS = 300
 const MIN_QUERY_LENGTH = 2
@@ -108,6 +109,22 @@ export function ProductSearchBar({ onNavigate, className }: ProductSearchBarProp
     navigate(`/products?search=${encodeURIComponent(term)}`)
   }
 
+  /* Natural-language AI search via Gemini */
+  const goToAISearch = (customQuery?: string) => {
+    const term = (customQuery ?? query).trim()
+    if (!term) {
+      onNavigate?.()
+      navigate('/products?ai=true')
+      return
+    }
+
+    close()
+    setQuery('')
+    setDebouncedQuery('')
+    onNavigate?.()
+    navigate(`/products?aiQuery=${encodeURIComponent(term)}`)
+  }
+
   /* Enter with no highlighted suggestion falls back to the results page. */
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault()
@@ -149,20 +166,31 @@ export function ProductSearchBar({ onNavigate, className }: ProductSearchBarProp
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder="Search products..."
+          placeholder="Search products or ask AI..."
           aria-label="Search products"
           aria-autocomplete="list"
           aria-controls="product-search-suggestions"
           aria-expanded={showDropdown}
           autoComplete="off"
-          className="w-full pl-9 pr-9 py-2 bg-[#f6f5f2] border border-[var(--border)] rounded-[var(--radius)] text-sm text-[var(--fg)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] focus:bg-white transition-all"
+          className="w-full pl-9 pr-16 py-2 bg-[#f6f5f2] border border-[var(--border)] rounded-[var(--radius)] text-sm text-[var(--fg)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] focus:bg-white transition-all"
         />
-        {isFetching && enabled && (
-          <Loader2
-            size={15}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)] animate-spin"
-          />
-        )}
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+          {isFetching && enabled && (
+            <Loader2
+              size={14}
+              className="text-[var(--muted)] animate-spin"
+            />
+          )}
+          <button
+            type="button"
+            onClick={() => goToAISearch()}
+            title="Natural-Language AI Search (Gemini)"
+            aria-label="Search with AI"
+            className="p-1 text-amber-600 hover:text-amber-700 hover:bg-amber-100/60 rounded transition-colors"
+          >
+            <Sparkles size={15} />
+          </button>
+        </div>
       </form>
 
       {showDropdown && (
@@ -218,6 +246,23 @@ export function ProductSearchBar({ onNavigate, className }: ProductSearchBarProp
             <p className="px-3 py-3 text-sm text-[var(--muted)]">
               {isFetching ? 'Searching products…' : `No products found for “${debouncedQuery}”`}
             </p>
+          )}
+
+          {query.trim().length > 1 && (
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => goToAISearch()}
+              className="w-full border-t border-[var(--border-subtle)] bg-amber-50/70 hover:bg-amber-100/80 px-3 py-2 text-xs font-semibold text-amber-900 transition-colors text-left flex items-center justify-between gap-2"
+            >
+              <span className="flex items-center gap-1.5 truncate">
+                <Sparkles size={14} className="text-amber-600 shrink-0" />
+                <span className="truncate">Ask AI: &ldquo;{query.trim()}&rdquo;</span>
+              </span>
+              <span className="shrink-0 text-[10px] font-bold text-amber-700 bg-white/90 border border-amber-200 px-1.5 py-0.5 rounded-[var(--radius-sm)]">
+                Gemini
+              </span>
+            </button>
           )}
 
           {suggestions.length > 0 && (

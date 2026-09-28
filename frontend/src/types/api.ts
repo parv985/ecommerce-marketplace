@@ -846,3 +846,23 @@ export interface AdminDashboardResponse {
   userGrowth: GrowthPoint[]
   revenue: AdminRevenueSummary
 }
+
+// AI Natural-Language Search
+export interface AISearchCriteria {
+  category?: string | null
+  minPrice?: number | null
+  maxPrice?: number | null
+  brand?: string | null
+  color?: string | null
+  useCase?: string | null
+  searchTerms: string[]
+  summary: string
+}
+
+export interface AISearchResult {
+  query: string
+  extractedCriteria: AISearchCriteria
+  products: Product[]
+  total: number
+}
+

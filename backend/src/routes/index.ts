@@ -19,6 +19,7 @@ import paymentRoutes from "../modules/payments/payment.routes.js";
 import adminRoutes from "../modules/admin/admin.routes.js";
 import wishlistRoutes from "../modules/wishlist/wishlist.routes.js";
 import inventoryRoutes from "../modules/inventory/inventory.routes.js";
+import aiRoutes from "../modules/ai/ai.routes.js";
 
 const router = Router();
 
@@ -152,6 +153,11 @@ router.use(
 router.use(
   "/inventory",
   inventoryRoutes,
+);
+
+router.use(
+  "/ai",
+  aiRoutes,
 );
 
 export default router;

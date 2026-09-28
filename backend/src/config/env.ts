@@ -153,6 +153,10 @@ const envSchema = z.object({
 
   /* Redis (optional) */
   REDIS_URL: z.string().optional(),
+
+  /* Google Gemini API (optional at schema level for graceful offline/fallback) */
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_MODEL: z.string().default("gemini-2.5-flash"),
 });
 export const env = envSchema.parse(normalizeEmptyEnv(process.env));
 
