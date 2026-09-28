@@ -10,3 +10,20 @@ export const aiSearchSchema = z.object({
 });
 
 export type AISearchInput = z.infer<typeof aiSearchSchema>;
+
+export const aiChatMessageSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.string().trim().max(2000),
+});
+
+export const aiChatSchema = z.object({
+  message: z
+    .string()
+    .trim()
+    .min(1, "Message cannot be empty")
+    .max(1000, "Message cannot exceed 1000 characters"),
+  history: z.array(aiChatMessageSchema).optional().default([]),
+});
+
+export type AIChatInput = z.infer<typeof aiChatSchema>;
+

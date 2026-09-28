@@ -1,7 +1,13 @@
 import { Router } from "express";
 
 import { asyncHandler } from "../../utils/asyncHandler.js";
-import { aiSearchProductsController } from "./ai.controller.js";
+import { authenticate } from "../auth/auth.middleware.js";
+import { authorize } from "../../middlewares/role.middleware.js";
+import { UserRole } from "../../constants/roles.js";
+import {
+  aiChatController,
+  aiSearchProductsController,
+} from "./ai.controller.js";
 
 const router = Router();
 
@@ -49,4 +55,52 @@ const router = Router();
 router.post("/search", asyncHandler(aiSearchProductsController));
 router.get("/search", asyncHandler(aiSearchProductsController));
 
+/**
+ * @openapi
+ * /api/v1/ai/chat:
+ *   post:
+ *     tags:
+ *       - AI
+ *     summary: Conversational NexCart AI Assistant
+ *     description: Multi-turn conversational AI shopping assistant for authenticated buyers, grounded in MongoDB products, orders, and verified store policies.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - message
+ *             properties:
+ *               message:
+ *                 type: string
+ *                 example: "Where is my order?"
+ *               history:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     role:
+ *                       type: string
+ *                       enum: [user, assistant]
+ *                     content:
+ *                       type: string
+ *     responses:
+ *       200:
+ *         description: AI response generated with grounded data
+ *       401:
+ *         description: Authentication required
+ *       403:
+ *         description: Forbidden - Buyer account required
+ */
+router.post(
+  "/chat",
+  authenticate,
+  authorize(UserRole.BUYER),
+  asyncHandler(aiChatController),
+);
+
 export default router;
+

@@ -9,6 +9,8 @@ import { useAccountStatus } from '@/hooks/useAccountStatus'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { cn } from '@/lib/utils'
 
+import { NexCartAIChat } from '@/components/ai/NexCartAIChat'
+
 export function MainLayout() {
   const { isAuthenticated, isLoading, user, setLoading, logout } = useAuthStore()
   const location = useLocation()
@@ -112,6 +114,8 @@ export function MainLayout() {
         <Outlet />
       </main>
       {!isSeller && !isSellerPanel && <Footer />}
+      {!isSellerPanel && <NexCartAIChat />}
     </div>
   )
 }
+

@@ -866,3 +866,38 @@ export interface AISearchResult {
   total: number
 }
 
+// AI Assistant Chatbot
+export type AIChatIntent =
+  | 'SHOPPING_SEARCH'
+  | 'PRODUCT_QA'
+  | 'CUSTOMER_SUPPORT'
+  | 'ORDER_QUERY'
+  | 'OUT_OF_SCOPE'
+
+export interface AIChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface AIChatOrderSummary {
+  orderNumber: string
+  status: string
+  total: number
+  createdAt: string
+  itemCount: number
+  items: Array<{
+    name: string
+    quantity: number
+    price: number
+  }>
+  cancellable: boolean
+}
+
+export interface AIChatResult {
+  message: string
+  intent: AIChatIntent
+  products?: Product[]
+  orders?: AIChatOrderSummary[]
+}
+
+

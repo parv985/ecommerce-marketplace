@@ -1,8 +1,11 @@
 import type { Request, Response } from "express";
 
 import { sendSuccess } from "../../utils/apiResponse.js";
-import { aiSearchSchema } from "./ai.schema.js";
-import { searchProductsWithAI } from "./ai.service.js";
+import { aiChatSchema, aiSearchSchema } from "./ai.schema.js";
+import {
+  chatWithShoppingAssistant,
+  searchProductsWithAI,
+} from "./ai.service.js";
 
 /**
  * Handles natural-language AI product search.
@@ -26,3 +29,23 @@ export const aiSearchProductsController = async (
 
   sendSuccess(res, "AI search completed successfully", result);
 };
+
+/**
+ * Handles AI Chatbot conversations for authenticated buyers.
+ * POST /api/v1/ai/chat
+ */
+export const aiChatController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const validated = aiChatSchema.parse(req.body);
+
+  const result = await chatWithShoppingAssistant({
+    userId: req.user!.id,
+    message: validated.message,
+    history: validated.history,
+  });
+
+  sendSuccess(res, "AI Assistant response generated successfully", result);
+};
+

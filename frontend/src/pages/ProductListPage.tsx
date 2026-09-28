@@ -154,36 +154,6 @@ export function ProductListPage() {
     <div className="container-app py-8">
       {/* AI Natural-Language Search Banner */}
       <div className="mb-8 p-5 bg-gradient-to-r from-amber-50/80 via-orange-50/50 to-amber-100/50 border border-amber-200/80 rounded-[var(--radius-lg)] shadow-[var(--shadow-sm)]">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-amber-500 text-white rounded-[var(--radius-sm)]">
-              <Sparkles size={18} />
-            </div>
-            <div>
-              <h2 className="text-base font-bold tracking-tight text-[var(--fg)] flex items-center gap-2">
-                AI Natural-Language Product Search
-                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900 border border-amber-300">
-                  Gemini Powered
-                </span>
-              </h2>
-              <p className="text-xs text-[var(--fg-secondary)]">
-                Ask in plain English — Gemini extracts budget, categories, brands, and finds real matching products in our database.
-              </p>
-            </div>
-          </div>
-          {aiQuery && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={clearAiSearch}
-              className="text-xs border-amber-300 hover:bg-amber-100/80 shrink-0 self-start md:self-auto"
-            >
-              <RotateCcw size={13} className="mr-1" />
-              Reset to Catalog
-            </Button>
-          )}
-        </div>
 
         <form onSubmit={handleAiSubmit} className="flex gap-2">
           <div className="relative flex-1">
@@ -218,6 +188,17 @@ export function ProductListPage() {
             )}
             Search with AI
           </Button>
+          {aiQuery && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={clearAiSearch}
+              className="text-xs border-amber-300 hover:bg-amber-100/80 shrink-0"
+            >
+              <RotateCcw size={13} className="mr-1" />
+              Reset to Catalog
+            </Button>
+          )}
         </form>
 
         {/* Suggestion Chips */}

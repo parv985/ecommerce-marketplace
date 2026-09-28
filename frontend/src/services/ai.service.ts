@@ -1,5 +1,10 @@
 import api from './api'
-import type { ApiResponse, AISearchResult } from '@/types/api'
+import type {
+  ApiResponse,
+  AISearchResult,
+  AIChatMessage,
+  AIChatResult,
+} from '@/types/api'
 
 export const aiService = {
   /**
@@ -14,4 +19,17 @@ export const aiService = {
       })
       .then((r) => r.data.data)
   },
+
+  /**
+   * Conversational NexCart AI Assistant for authenticated buyers.
+   */
+  chat: (message: string, history?: AIChatMessage[]) => {
+    return api
+      .post<ApiResponse<AIChatResult>>('/ai/chat', {
+        message,
+        history: history || [],
+      })
+      .then((r) => r.data.data)
+  },
 }
+
