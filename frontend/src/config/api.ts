@@ -15,21 +15,52 @@ export const API_BASE_URL = (
   import.meta.env.VITE_API_URL || '/api/v1'
 ).replace(/\/+$/, '')
 
+export interface GoogleSignInOptions {
+  to?: string
+  intent?: 'signin' | 'signup'
+  role?: 'BUYER' | 'SELLER'
+}
+
 /**
  * Entry point of the server-side Google OAuth flow. The browser navigates
  * here (full page), the backend redirects to Google, and Google sends the
- * user back to the backend callback, which finally lands on the frontend's
- * `/auth/google/callback` route with a session.
+ * user back to the backend callback.
  *
- * @param returnTo Optional in-app path the user should return to after
- *   sign-in (carried through the OAuth `state` value by the backend).
+ * @param returnToOrOptions Optional in-app path or configuration options
+ *   including intent ('signin' | 'signup') and role ('BUYER' | 'SELLER').
  */
-export function googleSignInUrl(returnTo?: string): string {
+export function googleSignInUrl(
+  returnToOrOptions?: string | GoogleSignInOptions,
+  intent?: 'signin' | 'signup',
+  role?: 'BUYER' | 'SELLER',
+): string {
   const base = `${API_BASE_URL}/auth/google`
+  const params = new URLSearchParams()
 
-  if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
-    return `${base}?to=${encodeURIComponent(returnTo)}`
+  let returnTo: string | undefined
+  let effectiveIntent: 'signin' | 'signup' | undefined = intent
+  let effectiveRole: 'BUYER' | 'SELLER' | undefined = role
+
+  if (typeof returnToOrOptions === 'object' && returnToOrOptions !== null) {
+    returnTo = returnToOrOptions.to
+    if (returnToOrOptions.intent) effectiveIntent = returnToOrOptions.intent
+    if (returnToOrOptions.role) effectiveRole = returnToOrOptions.role
+  } else if (typeof returnToOrOptions === 'string') {
+    returnTo = returnToOrOptions
   }
 
-  return base
+  if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
+    params.set('to', returnTo)
+  }
+
+  if (effectiveIntent) {
+    params.set('intent', effectiveIntent)
+  }
+
+  if (effectiveRole) {
+    params.set('role', effectiveRole)
+  }
+
+  const query = params.toString()
+  return query ? `${base}?${query}` : base
 }

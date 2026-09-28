@@ -40,8 +40,8 @@ export const authApi = {
   login: (data: { email: string; password: string }) =>
     api.post<ApiResponse<LoginResponse>>('/auth/login', data).then(r => r.data),
 
-  googleLogin: (idToken: string) =>
-    api.post<ApiResponse<LoginResponse>>('/auth/google', { idToken }).then(r => r.data),
+  googleLogin: (idToken: string, intent?: 'signin' | 'signup', role?: 'BUYER' | 'SELLER') =>
+    api.post<ApiResponse<LoginResponse>>('/auth/google', { idToken, intent, role }).then(r => r.data),
 
   logout: () =>
     api.post<ApiResponse<null>>('/auth/logout').then(r => r.data),

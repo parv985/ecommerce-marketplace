@@ -63,6 +63,8 @@ export type ResetPasswordInput =
 
 export const googleLoginSchema = z.object({
   idToken: z.string().min(1, "Google ID token is required"),
+  intent: z.enum(["signin", "signup"]).optional(),
+  role: z.enum(["BUYER", "SELLER"]).optional(),
 });
 
 export type GoogleLoginInput = z.infer<typeof googleLoginSchema>;

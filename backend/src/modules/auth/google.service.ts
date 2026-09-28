@@ -205,7 +205,46 @@ export const describeGoogleOAuthConfig = (): string[] => {
   return lines;
 };
 
-export const loginWithGoogle = async (idToken: string) => {
+export interface GoogleAuthOptions {
+  intent?: "signin" | "signup" | undefined;
+  role?: "BUYER" | "SELLER" | undefined;
+}
+
+export interface GoogleAuthSuccessResult {
+  accessToken: string;
+  refreshToken: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    isEmailVerified: boolean;
+    avatarUrl: string | null;
+    isActive: boolean;
+  };
+}
+
+export interface GoogleAuthCreatedResult {
+  created: true;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    isEmailVerified: boolean;
+    avatarUrl: string | null;
+    isActive: boolean;
+  };
+}
+
+export type GoogleAuthResult =
+  | GoogleAuthSuccessResult
+  | GoogleAuthCreatedResult;
+
+export const loginWithGoogle = async (
+  idToken: string,
+  options?: GoogleAuthOptions,
+): Promise<GoogleAuthResult> => {
   if (!idToken) {
     throw new AppError("Google ID token is required", 400, "MISSING_TOKEN");
   }
@@ -236,36 +275,71 @@ export const loginWithGoogle = async (idToken: string) => {
   }
 
   const { email, sub: googleId, name, picture: avatar } = payload;
+  const normalizedEmail = email.toLowerCase().trim();
 
-  let user = await User.findOne({
-    $or: [{ googleId }, { email }],
+  const user = await User.findOne({
+    $or: [{ googleId }, { email: normalizedEmail }],
   });
 
   const displayName: string = name || (email ? email.split("@")[0]! : "User");
 
-  if (user) {
-    if (!user.googleId) {
-      user.googleId = googleId;
-      user.authProvider = "GOOGLE";
+  // Sign up flow
+  if (options?.intent === "signup") {
+    if (user) {
+      throw new AppError(
+        "❌ Account already exists. Please login to continue.",
+        409,
+        "ACCOUNT_ALREADY_EXISTS",
+      );
     }
-    if (avatar && !user.avatarUrl) {
-      user.avatarUrl = avatar;
-    }
-    user.isEmailVerified = true;
-    user.lastLoginAt = new Date();
-    await user.save();
-  } else {
-    user = await User.create({
+
+    const assignedRole =
+      options?.role === "SELLER" ? UserRole.SELLER : UserRole.BUYER;
+
+    const newUser = await User.create({
       name: displayName,
-      email,
+      email: normalizedEmail,
       googleId,
       authProvider: "GOOGLE",
       ...(avatar ? { avatarUrl: avatar } : {}),
       isEmailVerified: true,
-      role: UserRole.BUYER,
+      role: assignedRole,
       lastLoginAt: new Date(),
     });
+
+    return {
+      created: true,
+      user: {
+        id: newUser._id.toString(),
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        isEmailVerified: newUser.isEmailVerified,
+        avatarUrl: newUser.avatarUrl ?? null,
+        isActive: newUser.isActive,
+      },
+    };
   }
+
+  // Sign in flow (default)
+  if (!user) {
+    throw new AppError(
+      "❌ Account does not exist. Please sign up to continue.",
+      404,
+      "ACCOUNT_NOT_FOUND",
+    );
+  }
+
+  if (!user.googleId) {
+    user.googleId = googleId;
+    user.authProvider = "GOOGLE";
+  }
+  if (avatar && !user.avatarUrl) {
+    user.avatarUrl = avatar;
+  }
+  user.isEmailVerified = true;
+  user.lastLoginAt = new Date();
+  await user.save();
 
   if (!user.isActive) {
     throw new AppError("Your account is inactive", 403, "ACCOUNT_INACTIVE");
@@ -312,6 +386,7 @@ export const loginWithGoogle = async (idToken: string) => {
 export const handleGoogleCallback = async (
   code: string,
   redirectUri: string,
+  options?: GoogleAuthOptions,
 ) => {
   if (!code) {
     throw new AppError("Authorization code is required", 400, "MISSING_CODE");
@@ -345,7 +420,7 @@ export const handleGoogleCallback = async (
     );
   }
 
-  return loginWithGoogle(tokens.id_token);
+  return loginWithGoogle(tokens.id_token, options);
 };
 
 export const getGoogleAuthUrl = (options: {

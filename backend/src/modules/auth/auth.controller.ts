@@ -45,6 +45,7 @@ import {
   getGoogleAuthUrl,
   getGoogleAuthorizationUrl,
   resolveGoogleRedirectUri,
+  type GoogleAuthSuccessResult,
 } from "./google.service.js";
 import {
   createOAuthState,
@@ -337,13 +338,28 @@ export const googleLogin = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const result = await loginWithGoogle(req.body.idToken);
+  const result = await loginWithGoogle(req.body.idToken, {
+    intent: req.body.intent,
+    role: req.body.role,
+  });
 
-  setRefreshTokenCookie(res, result.refreshToken);
+  if ("created" in result && result.created) {
+    sendSuccess(
+      res,
+      "Account created successfully! Please login to continue.",
+      {
+        user: result.user,
+      },
+    );
+    return;
+  }
+
+  const successResult = result as GoogleAuthSuccessResult;
+  setRefreshTokenCookie(res, successResult.refreshToken);
 
   sendSuccess(res, "Google login successful", {
-    accessToken: result.accessToken,
-    user: result.user,
+    accessToken: successResult.accessToken,
+    user: successResult.user,
   });
 };
 
@@ -351,14 +367,16 @@ export const googleLogin = async (
  * Step 1 - the browser is sent to Google's consent screen. The state
  * value is stored in an httpOnly cookie so the callback can prove the
  * response belongs to this browser, and it carries the page the user
- * was trying to reach.
+ * was trying to reach, as well as the intent (signin vs signup) and role.
  */
 export const googleRedirect = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
   const redirectUri = resolveGoogleRedirectUri(req);
-  const state = createOAuthState(req.query.to);
+  const intent = req.query.intent || req.query.mode || req.query.flow;
+  const role = req.query.role;
+  const state = createOAuthState(req.query.to, intent, role);
 
   setOAuthStateCookie(res, state);
 
@@ -405,8 +423,7 @@ const redirectToFrontend = (
 /*
  * Step 2 - Google redirects the browser back here with ?code (plus
  * ?state and ?iss). The code is exchanged, the user is created or
- * linked, the same access + refresh session as password login is issued
- * and the browser is handed back to the frontend.
+ * authenticated, and the browser is redirected.
  */
 export const googleCallback = async (
   req: Request,
@@ -441,7 +458,11 @@ export const googleCallback = async (
   if (typeof code !== "string" || code.trim() === "") {
     // No code in the URL (e.g. the callback was opened directly):
     // restart the flow by sending the user to Google's consent screen.
-    const restartState = createOAuthState(req.query.to);
+    const restartState = createOAuthState(
+      req.query.to,
+      req.query.intent || req.query.mode || req.query.flow,
+      req.query.role,
+    );
 
     setOAuthStateCookie(res, restartState);
 
@@ -481,15 +502,29 @@ export const googleCallback = async (
     const result = await handleGoogleCallback(
       code,
       redirectUri,
+      {
+        intent: verifiedState.intent,
+        role: verifiedState.role,
+      },
     );
 
-    setRefreshTokenCookie(res, result.refreshToken);
+    // If account was created during sign up, redirect to login page directly without session
+    if ("created" in result && result.created) {
+      redirectToFrontend(res, "/login", {
+        signup: "success",
+        message: "Account created successfully! Please login to continue.",
+      });
+      return;
+    }
+
+    const successResult = result as GoogleAuthSuccessResult;
+    setRefreshTokenCookie(res, successResult.refreshToken);
 
     redirectToFrontend(
       res,
       FRONTEND_GOOGLE_CALLBACK_PATH,
       {
-        access_token: result.accessToken,
+        access_token: successResult.accessToken,
         ...(verifiedState.to
           ? { to: verifiedState.to }
           : {}),

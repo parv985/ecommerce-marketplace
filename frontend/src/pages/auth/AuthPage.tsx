@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate, useLocation, Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -53,6 +53,7 @@ export default function AuthPage() {
   const { setAuth, accountInactive } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname
 
   const [mode, setMode] = useState<'login' | 'register'>('login')
@@ -63,6 +64,20 @@ export default function AuthPage() {
   const [copiedSecret, setCopiedSecret] = useState(false)
   const [loginToken, setLoginToken] = useState('')
   const [twoFactorCode, setTwoFactorCode] = useState('')
+
+  useEffect(() => {
+    const error = searchParams.get('error')
+    const message = searchParams.get('message')
+    const signup = searchParams.get('signup')
+
+    if (error && message) {
+      toast.error(message)
+      navigate(location.pathname, { replace: true })
+    } else if (signup === 'success' || (message && !error)) {
+      toast.success(message || 'Account created successfully! Please login to continue.')
+      navigate(location.pathname, { replace: true })
+    }
+  }, [searchParams, navigate, location.pathname])
 
   // ── Login form ──
   const loginForm = useForm<LoginForm>({
@@ -220,10 +235,15 @@ export default function AuthPage() {
     }
   }
 
-  const handleGoogleLogin = () => {
-    // Full-page navigation to the backend, which redirects to Google's
-    // consent screen and back to /auth/google/callback with a session.
-    window.location.href = googleSignInUrl(from)
+  const handleGoogleSignIn = () => {
+    window.location.href = googleSignInUrl({ intent: 'signin', to: from })
+  }
+
+  const handleGoogleSignUp = () => {
+    window.location.href = googleSignInUrl({
+      intent: 'signup',
+      role: registerRole,
+    })
   }
 
   // ── 2FA view ──
@@ -580,7 +600,7 @@ export default function AuthPage() {
             </div>
 
             <button
-              onClick={handleGoogleLogin}
+              onClick={handleGoogleSignUp}
               className="w-full flex items-center justify-center gap-2 border border-[var(--border)] rounded-[var(--radius)] bg-white py-2.5 text-sm font-medium text-[var(--fg)] hover:bg-[var(--accent)] hover:border-[var(--border-strong)] transition-all"
             >
               <svg viewBox="0 0 24 24" className="w-5 h-5">
@@ -655,7 +675,7 @@ export default function AuthPage() {
           </div>
 
           <button
-            onClick={handleGoogleLogin}
+            onClick={handleGoogleSignIn}
             className="w-full flex items-center justify-center gap-2 border border-[var(--border)] rounded-[var(--radius)] bg-white py-2.5 text-sm font-medium text-[var(--fg)] hover:bg-[var(--accent)] hover:border-[var(--border-strong)] transition-all"
           >
             <svg viewBox="0 0 24 24" className="w-5 h-5">

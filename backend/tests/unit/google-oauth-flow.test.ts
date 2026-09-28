@@ -203,9 +203,38 @@ describe("Google OAuth flow wiring", () => {
     expect(cookieHeader(res, "oauth_state")).toContain("Path=/api/v1/auth");
   });
 
-  it("exchanges the code, creates the Google user and redirects to the frontend", async () => {
+  it("rejects Google sign in when user does not exist", async () => {
+    (User.findOne as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+      null,
+    );
+    stubGoogle();
+    const { state, stateCookie } = await startFlow("?intent=signin");
+
+    const res = await runCallback(
+      {
+        code: "auth-code",
+        state: state!,
+        iss: "https://accounts.google.com",
+      },
+      `oauth_state=${stateCookie}`,
+    );
+
+    expect(res.status).toBe(302);
+    const location = new URL(res.headers.location as string);
+    expect(location.pathname).toBe("/login");
+    expect(location.searchParams.get("error")).toBe("ACCOUNT_NOT_FOUND");
+    expect(location.searchParams.get("message")).toBe(
+      "❌ Account does not exist. Please sign up to continue.",
+    );
+    expect(User.create).not.toHaveBeenCalled();
+  });
+
+  it("exchanges the code, creates the Google user on sign up and redirects to login", async () => {
+    (User.findOne as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+      null,
+    );
     const { getToken, verifyIdToken } = stubGoogle();
-    const { redirectUri, state, stateCookie } = await startFlow();
+    const { redirectUri, state, stateCookie } = await startFlow("?intent=signup");
 
     const res = await runCallback(
       {
@@ -227,22 +256,12 @@ describe("Google OAuth flow wiring", () => {
 
     const location = new URL(res.headers.location as string);
     expect(location.origin).toBe(env.CLIENT_URL);
-    expect(location.pathname).toBe("/auth/google/callback");
+    expect(location.pathname).toBe("/login");
+    expect(location.searchParams.get("signup")).toBe("success");
 
-    // A real session: signed access token + persisted refresh token.
-    const accessToken = location.searchParams.get("access_token")!;
-    const payload = verifyAccessToken(accessToken);
-    expect(payload.type).toBe("access");
-    expect(payload.userId).toBe("user-id-1");
-    expect(payload.role).toBe("BUYER");
-
-    const refreshCookie = readCookie(res, "refreshToken");
-    expect(refreshCookie).toBeTruthy();
-
-    const stored = (createRefreshToken as unknown as ReturnType<typeof vi.fn>)
-      .mock.calls[0]![0] as { tokenHash: string };
-    expect(stored.tokenHash).toBeTruthy();
-    expect(stored.tokenHash).not.toBe(refreshCookie);
+    // No access token issued since user must login manually
+    expect(location.searchParams.get("access_token")).toBeNull();
+    expect(readCookie(res, "refreshToken")).toBeUndefined();
 
     expect(User.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -256,7 +275,63 @@ describe("Google OAuth flow wiring", () => {
     );
   });
 
-  it("links an existing email/password account instead of creating a second one", async () => {
+  it("creates a SELLER account when signing up with role=SELLER", async () => {
+    (User.findOne as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+      null,
+    );
+    stubGoogle();
+    const { state, stateCookie } = await startFlow("?intent=signup&role=SELLER");
+
+    const res = await runCallback(
+      {
+        code: "auth-code",
+        state: state!,
+        iss: "https://accounts.google.com",
+      },
+      `oauth_state=${stateCookie}`,
+    );
+
+    expect(res.status).toBe(302);
+    const location = new URL(res.headers.location as string);
+    expect(location.pathname).toBe("/login");
+    expect(location.searchParams.get("signup")).toBe("success");
+
+    expect(User.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: GOOGLE_PROFILE.email,
+        role: "SELLER",
+      }),
+    );
+  });
+
+  it("rejects Google sign up when account already exists", async () => {
+    const existing = fakeUserDoc({
+      email: GOOGLE_PROFILE.email,
+    });
+    (User.findOne as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+      existing,
+    );
+
+    stubGoogle();
+    const { state, stateCookie } = await startFlow("?intent=signup");
+
+    const res = await runCallback(
+      { code: "auth-code", state: state! },
+      `oauth_state=${stateCookie}`,
+    );
+
+    expect(res.status).toBe(302);
+    const location = new URL(res.headers.location as string);
+    expect(location.pathname).toBe("/login");
+    expect(location.searchParams.get("error")).toBe("ACCOUNT_ALREADY_EXISTS");
+    expect(location.searchParams.get("message")).toBe(
+      "❌ Account already exists. Please login to continue.",
+    );
+    expect(User.create).not.toHaveBeenCalled();
+    expect(readCookie(res, "refreshToken")).toBeUndefined();
+  });
+
+  it("completes Google sign in when user exists and issues session", async () => {
     const existing = fakeUserDoc({
       googleId: undefined,
       authProvider: "LOCAL",
@@ -266,8 +341,8 @@ describe("Google OAuth flow wiring", () => {
       existing,
     );
 
-    stubGoogle();
-    const { state, stateCookie } = await startFlow();
+    const { getToken, verifyIdToken } = stubGoogle();
+    const { redirectUri, state, stateCookie } = await startFlow("?intent=signin");
 
     const res = await runCallback(
       { code: "auth-code", state: state! },
@@ -275,15 +350,22 @@ describe("Google OAuth flow wiring", () => {
     );
 
     expect(res.status).toBe(302);
+    const location = new URL(res.headers.location as string);
+    expect(location.pathname).toBe("/auth/google/callback");
+    expect(location.searchParams.get("access_token")).toBeTruthy();
     expect(User.create).not.toHaveBeenCalled();
     expect(existing.save).toHaveBeenCalled();
     expect(existing.googleId).toBe(GOOGLE_PROFILE.sub);
     expect(existing.authProvider).toBe("GOOGLE");
   });
 
-  it("passes the requested return path through to the frontend", async () => {
+  it("passes the requested return path through to the frontend on sign in", async () => {
+    const existing = fakeUserDoc();
+    (User.findOne as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+      existing,
+    );
     stubGoogle();
-    const { state, stateCookie } = await startFlow("?to=/wishlist");
+    const { state, stateCookie } = await startFlow("?intent=signin&to=/wishlist");
 
     const res = await runCallback(
       { code: "auth-code", state: state! },
@@ -291,6 +373,7 @@ describe("Google OAuth flow wiring", () => {
     );
 
     const location = new URL(res.headers.location as string);
+    expect(location.pathname).toBe("/auth/google/callback");
     expect(location.searchParams.get("to")).toBe("/wishlist");
   });
 

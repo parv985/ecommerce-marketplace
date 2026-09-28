@@ -20,6 +20,8 @@ import { OAUTH_STATE_TTL_MS } from "../../constants/cookies.js";
 interface OAuthStatePayload {
   nonce: string;
   to?: string;
+  intent?: "signin" | "signup";
+  role?: "BUYER" | "SELLER";
   exp: number;
 }
 
@@ -52,7 +54,11 @@ const sanitizeReturnPath = (value: unknown): string | undefined => {
   return path;
 };
 
-export const createOAuthState = (to?: unknown): string => {
+export const createOAuthState = (
+  to?: unknown,
+  intent?: unknown,
+  role?: unknown,
+): string => {
   const returnTo = sanitizeReturnPath(to);
 
   const payload: OAuthStatePayload = {
@@ -64,13 +70,27 @@ export const createOAuthState = (to?: unknown): string => {
     payload.to = returnTo;
   }
 
+  if (intent === "signup" || intent === "signin") {
+    payload.intent = intent;
+  }
+
+  if (role === "BUYER" || role === "SELLER") {
+    payload.role = role;
+  }
+
   const body = encode(JSON.stringify(payload));
 
   return `${body}.${sign(body)}`;
 };
 
 export type OAuthStateResult =
-  { ok: true; to?: string } | { ok: false; reason: string };
+  | {
+      ok: true;
+      to?: string;
+      intent?: "signin" | "signup";
+      role?: "BUYER" | "SELLER";
+    }
+  | { ok: false; reason: string };
 
 const safeEqual = (a: string, b: string): boolean => {
   const bufA = encoder.encode(a);
@@ -122,6 +142,19 @@ export const verifyOAuthState = (
   }
 
   const to = sanitizeReturnPath(payload.to);
+  const intent =
+    payload.intent === "signup" || payload.intent === "signin"
+      ? payload.intent
+      : undefined;
+  const role =
+    payload.role === "BUYER" || payload.role === "SELLER"
+      ? payload.role
+      : undefined;
 
-  return to ? { ok: true, to } : { ok: true };
+  return {
+    ok: true,
+    ...(to ? { to } : {}),
+    ...(intent ? { intent } : {}),
+    ...(role ? { role } : {}),
+  };
 };

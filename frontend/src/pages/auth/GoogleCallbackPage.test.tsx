@@ -176,6 +176,18 @@ describe('GoogleCallbackPage', () => {
     await waitFor(() => expect(getAccessToken()).toBeNull())
     expect(useAuthStore.getState().isAuthenticated).toBe(false)
   })
+
+  it('navigates to login page on signup=success', async () => {
+    renderCallback(
+      '/auth/google/callback?signup=success&message=Account+created+successfully!+Please+login+to+continue.',
+    )
+
+    expect(
+      await screen.findByText('login page', {}, { timeout: 4000 }),
+    ).toBeInTheDocument()
+    expect(getMe).not.toHaveBeenCalled()
+    expect(getAccessToken()).toBeNull()
+  })
 })
 
 describe('App routing', () => {

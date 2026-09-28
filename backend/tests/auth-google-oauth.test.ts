@@ -144,9 +144,9 @@ describe("Google OAuth (authorization-code flow)", () => {
     expect(res.status).toBe(302);
   });
 
-  it("exchanges the code, creates the user and redirects to the frontend with a session", async () => {
+  it("exchanges the code, creates the user on sign up and redirects to login", async () => {
     const { getToken, verifyIdToken } = stubGoogle();
-    const { redirectUri, state, stateCookie } = await startFlow();
+    const { redirectUri, state, stateCookie } = await startFlow("?intent=signup");
 
     const res = await api
       .get("/api/v1/auth/google/callback")
@@ -167,18 +167,13 @@ describe("Google OAuth (authorization-code flow)", () => {
 
     const location = new URL(res.headers.location as string);
     expect(location.origin).toBe(env.CLIENT_URL);
-    expect(location.pathname).toBe("/auth/google/callback");
+    expect(location.pathname).toBe("/login");
+    expect(location.searchParams.get("signup")).toBe("success");
 
-    const accessToken = location.searchParams.get("access_token");
-    expect(accessToken).toBeTruthy();
-
-    // The issued token is a real session, signed by this backend.
-    const payload = verifyAccessToken(accessToken!);
-    expect(payload.type).toBe("access");
-
-    // Refresh cookie for silent renewal after the access token expires.
+    // No session issued on sign up: user is redirected to Login page
+    expect(location.searchParams.get("access_token")).toBeNull();
     const refreshCookie = readCookie(res, "refreshToken");
-    expect(refreshCookie).toBeTruthy();
+    expect(refreshCookie).toBeUndefined();
 
     const user = await User.findOne({
       email: GOOGLE_PROFILE.email,
@@ -190,11 +185,61 @@ describe("Google OAuth (authorization-code flow)", () => {
     expect(user!.role).toBe("BUYER");
     expect(user!.isEmailVerified).toBe(true);
     expect(user!.avatarUrl).toBe(GOOGLE_PROFILE.picture);
-    expect(payload.userId).toBe(user!._id.toString());
   });
 
-  it("produces a token the protected API accepts", async () => {
-    const { state, stateCookie } = await startFlow();
+  it("rejects Google sign in when account does not exist", async () => {
+    stubGoogle();
+    const { state, stateCookie } = await startFlow("?intent=signin");
+
+    const res = await api
+      .get("/api/v1/auth/google/callback")
+      .query({ code: "auth-code", state })
+      .set("Cookie", `oauth_state=${stateCookie}`);
+
+    expect(res.status).toBe(302);
+    const location = new URL(res.headers.location as string);
+    expect(location.pathname).toBe("/login");
+    expect(location.searchParams.get("error")).toBe("ACCOUNT_NOT_FOUND");
+    expect(location.searchParams.get("message")).toBe(
+      "❌ Account does not exist. Please sign up to continue.",
+    );
+
+    const user = await User.findOne({ email: GOOGLE_PROFILE.email });
+    expect(user).toBeNull();
+  });
+
+  it("rejects Google sign up when account already exists", async () => {
+    await api.post("/api/v1/auth/register").send({
+      name: "Existing User",
+      email: GOOGLE_PROFILE.email,
+      password: "Password123!",
+    });
+
+    stubGoogle();
+    const { state, stateCookie } = await startFlow("?intent=signup");
+
+    const res = await api
+      .get("/api/v1/auth/google/callback")
+      .query({ code: "auth-code", state })
+      .set("Cookie", `oauth_state=${stateCookie}`);
+
+    expect(res.status).toBe(302);
+    const location = new URL(res.headers.location as string);
+    expect(location.pathname).toBe("/login");
+    expect(location.searchParams.get("error")).toBe("ACCOUNT_ALREADY_EXISTS");
+    expect(location.searchParams.get("message")).toBe(
+      "❌ Account already exists. Please login to continue.",
+    );
+  });
+
+  it("produces a token the protected API accepts on sign in", async () => {
+    await api.post("/api/v1/auth/register").send({
+      name: "Existing Buyer",
+      email: GOOGLE_PROFILE.email,
+      password: "Password123!",
+    });
+
+    const { state, stateCookie } = await startFlow("?intent=signin");
     stubGoogle();
 
     const callback = await api
@@ -214,14 +259,14 @@ describe("Google OAuth (authorization-code flow)", () => {
     expect(me.body.data.email).toBe(GOOGLE_PROFILE.email);
   });
 
-  it("links Google to an existing email/password account instead of duplicating it", async () => {
+  it("links Google to an existing email/password account instead of duplicating it on sign in", async () => {
     await api.post("/api/v1/auth/register").send({
       name: "Existing Buyer",
       email: GOOGLE_PROFILE.email,
       password: "Password123!",
     });
 
-    const { state, stateCookie } = await startFlow();
+    const { state, stateCookie } = await startFlow("?intent=signin");
     stubGoogle();
 
     const res = await api
@@ -250,7 +295,13 @@ describe("Google OAuth (authorization-code flow)", () => {
   });
 
   it("keeps the return path from the state and hands it to the frontend", async () => {
-    const { state, stateCookie } = await startFlow("?to=/wishlist");
+    await api.post("/api/v1/auth/register").send({
+      name: "Existing Buyer",
+      email: GOOGLE_PROFILE.email,
+      password: "Password123!",
+    });
+
+    const { state, stateCookie } = await startFlow("?to=/wishlist&intent=signin");
     stubGoogle();
 
     const res = await api

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -24,6 +24,7 @@ export function LoginPage() {
   const { setAuth, accountInactive } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   const [loading, setLoading] = useState(false)
   const [show2FA, setShow2FA] = useState(false)
   const [twoFactorSetup, setTwoFactorSetup] = useState<{ secret: string; otpauthUrl: string; recoveryCodes: string[] } | null>(null)
@@ -32,6 +33,20 @@ export function LoginPage() {
   const [twoFactorCode, setTwoFactorCode] = useState('')
 
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/'
+
+  useEffect(() => {
+    const error = searchParams.get('error')
+    const message = searchParams.get('message')
+    const signup = searchParams.get('signup')
+
+    if (error && message) {
+      toast.error(message)
+      navigate(location.pathname, { replace: true })
+    } else if (signup === 'success' || (message && !error)) {
+      toast.success(message || 'Account created successfully! Please login to continue.')
+      navigate(location.pathname, { replace: true })
+    }
+  }, [searchParams, navigate, location.pathname])
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -113,7 +128,7 @@ export function LoginPage() {
   const handleGoogleLogin = () => {
     // Full-page navigation to the backend, which redirects to Google's
     // consent screen and back to /auth/google/callback with a session.
-    window.location.href = googleSignInUrl(from)
+    window.location.href = googleSignInUrl({ intent: 'signin', to: from })
   }
 
   /*

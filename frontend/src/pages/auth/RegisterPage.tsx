@@ -88,7 +88,12 @@ export function RegisterPage() {
           </div>
 
           <button
-            onClick={() => { window.location.href = googleSignInUrl() }}
+            onClick={() => {
+              window.location.href = googleSignInUrl({
+                intent: 'signup',
+                role: 'BUYER',
+              })
+            }}
             className="w-full flex items-center justify-center gap-2 border rounded-md py-2.5 text-sm font-medium hover:bg-[var(--accent)] transition-colors"
           >
             <svg viewBox="0 0 24 24" className="w-5 h-5">

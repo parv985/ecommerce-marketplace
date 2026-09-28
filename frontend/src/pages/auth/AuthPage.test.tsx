@@ -35,6 +35,17 @@ vi.mock('react-router-dom', async () => {
   }
 })
 
+const toastSuccess = vi.hoisted(() => vi.fn())
+const toastError = vi.hoisted(() => vi.fn())
+
+vi.mock('react-hot-toast', () => {
+  const toast = Object.assign(vi.fn(), {
+    success: toastSuccess,
+    error: toastError,
+  })
+  return { toast, default: toast }
+})
+
 vi.mock('@/services/auth.service', () => ({
   authApi: {
     login: vi.fn(),
@@ -316,5 +327,56 @@ describe('AuthPage two-factor step', () => {
     )
 
     expect(mockNavigate).toHaveBeenCalledWith('/admin/dashboard', { replace: true })
+  })
+})
+
+describe('AuthPage Google OAuth flows and notices', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('displays error toast when redirected to login with error and message query parameters', async () => {
+    renderPage([
+      {
+        pathname: '/login',
+        search: '?error=ACCOUNT_ALREADY_EXISTS&message=%E2%9D%8C+Account+already+exists.+Please+login+to+continue.',
+      },
+    ])
+
+    await waitFor(() => {
+      expect(toastError).toHaveBeenCalledWith(
+        '❌ Account already exists. Please login to continue.',
+      )
+    })
+  })
+
+  it('displays account does not exist error toast when redirected with ACCOUNT_NOT_FOUND', async () => {
+    renderPage([
+      {
+        pathname: '/login',
+        search: '?error=ACCOUNT_NOT_FOUND&message=%E2%9D%8C+Account+does+not+exist.+Please+sign+up+to+continue.',
+      },
+    ])
+
+    await waitFor(() => {
+      expect(toastError).toHaveBeenCalledWith(
+        '❌ Account does not exist. Please sign up to continue.',
+      )
+    })
+  })
+
+  it('displays success toast when redirected to login with signup=success', async () => {
+    renderPage([
+      {
+        pathname: '/login',
+        search: '?signup=success&message=Account+created+successfully!+Please+login+to+continue.',
+      },
+    ])
+
+    await waitFor(() => {
+      expect(toastSuccess).toHaveBeenCalledWith(
+        'Account created successfully! Please login to continue.',
+      )
+    })
   })
 })

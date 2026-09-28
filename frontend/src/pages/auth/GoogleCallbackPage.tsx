@@ -79,6 +79,16 @@ export default function GoogleCallbackPage() {
       }, 1800)
     }
 
+    if (searchParams.get('signup') === 'success') {
+      const msg =
+        message || 'Account created successfully! Please login to continue.'
+      toast.success(msg)
+      window.setTimeout(() => {
+        navigate('/login', { replace: true })
+      }, 1000)
+      return
+    }
+
     if (error) {
       backToLogin(message || 'Google sign-in failed. Please try again.')
       return
