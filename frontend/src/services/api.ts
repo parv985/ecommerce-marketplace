@@ -9,30 +9,25 @@ const api = axios.create({
 })
 
 let accessToken: string | null = null
-let isRefreshing = false
-let failedQueue: Array<{
-  resolve: (token: string) => void
-  reject: (err: unknown) => void
-}> = []
+let refreshPromise: Promise<string> | null = null
 
-function processQueue(error: unknown, token: string | null) {
-  failedQueue.forEach((prom) => {
-    if (error) prom.reject(error)
-    else prom.resolve(token!)
-  })
-  failedQueue = []
-}
-
-// Restore token from sessionStorage
+// Restore token from localStorage / sessionStorage
 try {
-  const stored = sessionStorage.getItem('access_token')
+  const stored = localStorage.getItem('access_token') || sessionStorage.getItem('access_token')
   if (stored) accessToken = stored
 } catch { /* ignore */ }
 
 export function setAccessToken(token: string | null) {
   accessToken = token
-  if (token) sessionStorage.setItem('access_token', token)
-  else sessionStorage.removeItem('access_token')
+  try {
+    if (token) {
+      localStorage.setItem('access_token', token)
+      sessionStorage.setItem('access_token', token)
+    } else {
+      localStorage.removeItem('access_token')
+      sessionStorage.removeItem('access_token')
+    }
+  } catch { /* ignore */ }
 }
 
 export function getAccessToken() {
@@ -56,6 +51,13 @@ let accountInactiveHandler: AccountInactiveHandler | null = null
 
 export function setAccountInactiveHandler(handler: AccountInactiveHandler) {
   accountInactiveHandler = handler
+}
+
+type SessionExpiredHandler = () => void
+let sessionExpiredHandler: SessionExpiredHandler | null = null
+
+export function setSessionExpiredHandler(handler: SessionExpiredHandler) {
+  sessionExpiredHandler = handler
 }
 
 export function isAccountInactiveError(error: unknown): boolean {
@@ -113,66 +115,84 @@ api.interceptors.response.use(
       return Promise.reject(error)
     }
 
-    // Skip token refresh for auth endpoints (login/register/2fa) — a 401 there
-    // means invalid credentials, not an expired token.
-    const skipRefresh = originalRequest.url?.includes('/auth/login') ||
-      originalRequest.url?.includes('/auth/register') ||
-      originalRequest.url?.includes('/auth/google') ||
-      originalRequest.url?.includes('/auth/2fa/verify')
+    // Skip token refresh for auth endpoints (login/register/2fa/refresh) —
+    // credentials failure or refresh failures must not trigger recursive refresh.
+    const skipRefresh =
+      originalRequest?.url?.includes('/auth/login') ||
+      originalRequest?.url?.includes('/auth/register') ||
+      originalRequest?.url?.includes('/auth/google') ||
+      originalRequest?.url?.includes('/auth/2fa/verify') ||
+      originalRequest?.url?.includes('/auth/refresh')
 
-    if (error.response?.status === 401 && !originalRequest._retry && !skipRefresh) {
-      // If there is no stored access token, the user is unauthenticated.
-      // Do not attempt refresh or force window redirect.
-      if (!accessToken && !sessionStorage.getItem('access_token')) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !skipRefresh) {
+      originalRequest._retry = true
+
+      // If there is no stored access token anywhere, the user was never authenticated.
+      const storedToken = localStorage.getItem('access_token') || sessionStorage.getItem('access_token')
+      if (!accessToken && !storedToken) {
         return Promise.reject(error)
       }
 
-      if (isRefreshing) {
-        return new Promise<string>((resolve, reject) => {
-          failedQueue.push({ resolve, reject })
-        }).then((token) => {
-          originalRequest.headers.Authorization = `Bearer ${token}`
-          return api(originalRequest)
-        })
+      // If a refresh is already in-flight from another concurrent 401, wait for the same promise
+      if (!refreshPromise) {
+        refreshPromise = (async () => {
+          try {
+            const { data } = await axios.post(
+              `${api.defaults.baseURL}/auth/refresh`,
+              {},
+              { withCredentials: true }
+            )
+            const newToken = data.data?.accessToken || data.accessToken
+            if (!newToken) {
+              throw new Error('No token in refresh response')
+            }
+            setAccessToken(newToken)
+            return newToken
+          } catch (refreshErr: any) {
+            const status = refreshErr.response?.status
+
+            if (isAccountInactiveError(refreshErr)) {
+              setAccessToken(null)
+              accountInactiveHandler?.()
+              if (Date.now() - lastInactiveToastAt > INACTIVE_TOAST_THROTTLE_MS) {
+                lastInactiveToastAt = Date.now()
+                toast.error('Your account is inactive')
+              }
+            } else if (status === 401) {
+              // Refresh token is genuinely invalid, expired, or revoked.
+              // Clear stored credentials and inform auth store.
+              setAccessToken(null)
+              try {
+                sessionStorage.removeItem('user')
+                localStorage.removeItem('user')
+              } catch { /* ignore */ }
+
+              sessionExpiredHandler?.()
+
+              // Only redirect if not already on an auth page and route requires auth
+              const path = window.location.pathname
+              if (!path.startsWith('/login') && !path.startsWith('/register') && !path.startsWith('/forgot-password') && !path.startsWith('/reset-password')) {
+                // If on a protected route (seller, admin, buyer-only checkout/account), redirect
+                if (path.startsWith('/seller') || path.startsWith('/admin') || path.startsWith('/checkout') || path.startsWith('/account') || path.startsWith('/orders') || path.startsWith('/returns')) {
+                  window.location.href = '/login'
+                }
+              }
+            }
+            // If the failure is a network error, 502/503/504 (server restarting on Render),
+            // or 429, DO NOT log the user out! Keep tokens intact so they can retry.
+            throw refreshErr
+          } finally {
+            refreshPromise = null
+          }
+        })()
       }
 
-      originalRequest._retry = true
-      isRefreshing = true
-
       try {
-        const { data } = await axios.post(
-          `${api.defaults.baseURL}/auth/refresh`,
-          {},
-          { withCredentials: true }
-        )
-        const newToken = data.data?.accessToken || data.accessToken
-        if (newToken) {
-          setAccessToken(newToken)
-          processQueue(null, newToken)
-          originalRequest.headers.Authorization = `Bearer ${newToken}`
-          return api(originalRequest)
-        }
-        throw new Error('No token in refresh response')
-      } catch (refreshError) {
-        processQueue(refreshError, null)
-        setAccessToken(null)
-
-        if (isAccountInactiveError(refreshError)) {
-          // The account was deactivated (e.g. token expired after a Super
-          // Admin deactivation). Mark the session inactive — the UI guards
-          // redirect to login reactively and the toast stays visible.
-          accountInactiveHandler?.()
-          if (Date.now() - lastInactiveToastAt > INACTIVE_TOAST_THROTTLE_MS) {
-            lastInactiveToastAt = Date.now()
-            toast.error('Your account is inactive')
-          }
-          return Promise.reject(refreshError)
-        }
-
-        window.location.href = '/login'
-        return Promise.reject(refreshError)
-      } finally {
-        isRefreshing = false
+        const token = await refreshPromise
+        originalRequest.headers.Authorization = `Bearer ${token}`
+        return api(originalRequest)
+      } catch (retryErr) {
+        return Promise.reject(retryErr)
       }
     }
     return Promise.reject(error)

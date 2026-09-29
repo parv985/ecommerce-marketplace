@@ -257,11 +257,14 @@ interface SellerOrderDraft {
   items: SellerOrderDraftItem[];
   itemsTotal: number;
   discountTotal: number;
+  discountPercentage?: number | null;
 }
 
 interface CheckoutCouponPlan {
   couponId: string;
   couponCode: string;
+  couponType?: string | null;
+  couponValue?: number | null;
   discountAmount: number;
   sellerId: string;
 }
@@ -421,10 +424,28 @@ const buildCheckoutPlan = async (
       0,
     );
 
+    let discountPercentage: number | null = null;
+    if (discountTotal > 0 && itemsTotal > 0) {
+      const discountedItem = items.find((i) => i.discountAmount > 0);
+      if (discountedItem) {
+        const appliedDisc = discountMap.get(
+          discountedItem.productId.toString(),
+        );
+        discountPercentage =
+          appliedDisc?.discountValue ??
+          Math.round((discountTotal / itemsTotal) * 100);
+      } else {
+        discountPercentage = Math.round(
+          (discountTotal / itemsTotal) * 100,
+        );
+      }
+    }
+
     orderDrafts.set(sellerId, {
       items,
       itemsTotal,
       discountTotal,
+      discountPercentage,
     });
   }
 
@@ -491,6 +512,8 @@ const buildCheckoutPlan = async (
     couponPlan = {
       couponId: evaluation.coupon._id.toString(),
       couponCode,
+      couponType: evaluation.coupon.type,
+      couponValue: evaluation.coupon.value,
       discountAmount: evaluation.discountAmount,
       sellerId: evaluation.sellerId,
     };
@@ -832,6 +855,7 @@ export const previewCheckoutFromCart = async (
       sellerId,
       itemsTotal: draft.itemsTotal,
       discountTotal: draft.discountTotal,
+      discountPercentage: draft.discountPercentage ?? null,
       couponDiscount,
       total: roundMoney(
         draft.itemsTotal -
@@ -841,15 +865,29 @@ export const previewCheckoutFromCart = async (
     };
   });
 
+  const overallDiscountTotal = orders.reduce(
+    (sum, order) => sum + order.discountTotal,
+    0,
+  );
+  const overallItemsTotal = orders.reduce(
+    (sum, order) => sum + order.itemsTotal,
+    0,
+  );
+  const orderWithDiscount = orders.find(
+    (o) => (o.discountTotal ?? 0) > 0,
+  );
+  const discountPercentage =
+    orderWithDiscount?.discountPercentage ??
+    (overallDiscountTotal > 0 && overallItemsTotal > 0
+      ? Math.round(
+          (overallDiscountTotal / overallItemsTotal) * 100,
+        )
+      : null);
+
   return {
-    itemsTotal: orders.reduce(
-      (sum, order) => sum + order.itemsTotal,
-      0,
-    ),
-    discountTotal: orders.reduce(
-      (sum, order) => sum + order.discountTotal,
-      0,
-    ),
+    itemsTotal: overallItemsTotal,
+    discountTotal: overallDiscountTotal,
+    discountPercentage,
     couponCode: couponPlan
       ? couponPlan.couponCode
       : null,
@@ -857,6 +895,8 @@ export const previewCheckoutFromCart = async (
       (sum, order) => sum + order.couponDiscount,
       0,
     ),
+    couponType: couponPlan?.couponType ?? null,
+    couponValue: couponPlan?.couponValue ?? null,
     total: orders.reduce(
       (sum, order) => sum + order.total,
       0,

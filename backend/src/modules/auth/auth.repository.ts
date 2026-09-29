@@ -78,8 +78,10 @@ export const createRefreshToken = async (data: {
 
 export const consumeRefreshToken = async (
   tokenHash: string,
+  gracePeriodMs = 30_000,
 ) => {
-  return RefreshToken.findOneAndUpdate(
+  // 1. Atomically consume an unrevoked token
+  const token = await RefreshToken.findOneAndUpdate(
     {
       tokenHash,
       revokedAt: null,
@@ -94,6 +96,21 @@ export const consumeRefreshToken = async (
       new: false,
     },
   ).exec();
+
+  if (token) return token;
+
+  // 2. Allow tokens recently revoked within the grace period (handles concurrent refresh calls)
+  const existing = await RefreshToken.findOne({ tokenHash }).exec();
+  if (
+    existing &&
+    existing.revokedAt &&
+    existing.expiresAt.getTime() > Date.now() &&
+    Date.now() - existing.revokedAt.getTime() <= gracePeriodMs
+  ) {
+    return existing;
+  }
+
+  return null;
 };
 export const revokeRefreshToken = async (
   tokenHash: string,

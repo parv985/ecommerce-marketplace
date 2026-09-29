@@ -21,30 +21,23 @@ export function MainLayout() {
   useAccountStatus()
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    const storedUser = useAuthStore.getState().user
+    if (!isAuthenticated && !storedUser) {
       setLoading(false)
       return
     }
 
-    // Verify token and fetch user data on mount
-    authApi.getMe()
+    // Verify token and fetch user data on mount (interceptor automatically refreshes if needed)
+    authApi
+      .getMe()
       .then((user) => {
         useAuthStore.getState().setUser(user)
       })
-      .catch(() => {
-        // Token invalid or expired, try refresh
-        authApi.refresh()
-          .then(async () => {
-            try {
-              const user = await authApi.getMe()
-              useAuthStore.getState().setUser(user)
-            } catch {
-              logout()
-            }
-          })
-          .catch(() => {
-            logout()
-          })
+      .catch((err) => {
+        // Interceptor already attempted refresh. If it returned 401, session is truly expired.
+        if (err?.response?.status === 401) {
+          logout()
+        }
       })
       .finally(() => {
         setLoading(false)

@@ -93,6 +93,35 @@ export const applyWebhookPaid = async (
   }
 };
 
+export const applyWebhookFailed = async (
+  id: string,
+  webhookEventId: string,
+  gatewayPaymentId: string,
+): Promise<IPayment | null> => {
+  try {
+    return await Payment.findOneAndUpdate(
+      {
+        _id: id,
+        status: { $ne: PaymentRecordStatus.PAID },
+      },
+      {
+        $set: {
+          webhookEventId,
+          status: PaymentRecordStatus.FAILED,
+          gatewayPaymentId,
+        },
+      },
+      { new: true },
+    ).exec();
+  } catch (error) {
+    if ((error as { code?: number })?.code === 11000) {
+      return null;
+    }
+
+    throw error;
+  }
+};
+
 export const markPaymentRefunded = async (
   id: string,
   refund: IRefund,

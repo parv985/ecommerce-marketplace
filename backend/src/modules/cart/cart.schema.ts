@@ -24,7 +24,7 @@ export const updateCartItemSchema = z
     quantity: z
       .number()
       .int("Quantity must be an integer")
-      .min(1, "Quantity must be at least 1")
+      .min(0, "Quantity cannot be negative")
       .max(999, "Quantity is too large"),
   })
   .strict();

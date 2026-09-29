@@ -35,6 +35,7 @@ import {
   verifyWebhookSignature,
 } from "./razorpay.service.js";
 import {
+  applyWebhookFailed,
   applyWebhookPaid,
   applyWebhookRefundProcessed,
   createPaymentRecord,
@@ -137,11 +138,19 @@ export const initiatePayment = async (
   );
 
   if (existing) {
+    if (existing.status === PaymentRecordStatus.PAID) {
+      throw new AppError(
+        "Payment for this order has already been completed",
+        400,
+        "PAYMENT_ALREADY_COMPLETED",
+      );
+    }
     return toPaymentResponse(existing);
   }
 
   if (
-    order.paymentStatus !== PaymentStatus.PENDING
+    order.paymentStatus !== PaymentStatus.PENDING &&
+    order.paymentStatus !== PaymentStatus.FAILED
   ) {
     throw new AppError(
       "This order cannot be paid in its current state",
@@ -422,6 +431,50 @@ export const processPaymentWebhook = async (
     await finalizeCouponUsageOnPaymentSuccess(
       payment.orderId.toString(),
     );
+
+    return { processed: true };
+  }
+
+  /*
+   * payment.failed: payment attempt failed or was cancelled at gateway.
+   * Mark the payment and order failed. Crucially, coupon usage is NOT
+   * finalized, so the coupon remains valid and available for retry.
+   */
+  if (event === "payment.failed") {
+    const eventId = `${event}:${entity.id}`;
+
+    const claimed = await applyWebhookFailed(
+      payment._id.toString(),
+      eventId,
+      entity.id as string,
+    );
+
+    if (!claimed) {
+      return { processed: false };
+    }
+
+    const order = await findOrderById(
+      payment.orderId.toString(),
+    );
+
+    if (
+      order &&
+      order.paymentStatus !== PaymentStatus.PAID
+    ) {
+      await updateOrderPaymentStatusById(
+        order._id.toString(),
+        PaymentStatus.FAILED,
+      );
+    }
+
+    await logAudit({
+      actorId: "webhook",
+      actorRole: "SYSTEM",
+      action: "PAYMENT_FAILED",
+      entityType: "ORDER",
+      entityId: payment.orderId.toString(),
+      metadata: { eventId, errorCode: entity.error_code },
+    });
 
     return { processed: true };
   }

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { UserSummary } from '@/types/api'
-import { setAccessToken, getAccessToken, setAccountInactiveHandler } from '@/services/api'
+import { setAccessToken, getAccessToken, setAccountInactiveHandler, setSessionExpiredHandler } from '@/services/api'
 import { authApi } from '@/services/auth.service'
 
 interface AuthState {
@@ -9,7 +9,7 @@ interface AuthState {
   isLoading: boolean
   /**
    * True when this browser session has learned (from the API) that the
-   * account is deactivated. Kept in sessionStorage so the login page can
+   * account is deactivated. Kept in storage so the login page can
    * explain why access is blocked. Cleared on the next successful login.
    */
   accountInactive: boolean
@@ -32,7 +32,7 @@ const INACTIVE_KEY = 'account_inactive'
 
 function loadStoredUser(): UserSummary | null {
   try {
-    const stored = sessionStorage.getItem(USER_KEY)
+    const stored = localStorage.getItem(USER_KEY) || sessionStorage.getItem(USER_KEY)
     return stored ? JSON.parse(stored) : null
   } catch {
     return null
@@ -41,7 +41,10 @@ function loadStoredUser(): UserSummary | null {
 
 function loadStoredInactiveFlag(): boolean {
   try {
-    return sessionStorage.getItem(INACTIVE_KEY) === 'true'
+    return (
+      localStorage.getItem(INACTIVE_KEY) === 'true' ||
+      sessionStorage.getItem(INACTIVE_KEY) === 'true'
+    )
   } catch {
     return false
   }
@@ -54,10 +57,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   accountInactive: loadStoredInactiveFlag(),
 
   setAuth: (user, token) => {
-    sessionStorage.setItem(USER_KEY, JSON.stringify(user))
-    // A fresh login means the account is active again — clear any stale
-    // "account inactive" notice from a previous session.
-    sessionStorage.removeItem(INACTIVE_KEY)
+    try {
+      localStorage.setItem(USER_KEY, JSON.stringify(user))
+      sessionStorage.setItem(USER_KEY, JSON.stringify(user))
+      localStorage.removeItem(INACTIVE_KEY)
+      sessionStorage.removeItem(INACTIVE_KEY)
+    } catch { /* ignore */ }
+
     setAccessToken(token)
     set({ user, isAuthenticated: true, isLoading: false, accountInactive: false })
 
@@ -73,7 +79,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   setUser: (user) => {
-    sessionStorage.setItem(USER_KEY, JSON.stringify(user))
+    try {
+      localStorage.setItem(USER_KEY, JSON.stringify(user))
+      sessionStorage.setItem(USER_KEY, JSON.stringify(user))
+    } catch { /* ignore */ }
     set({ user })
   },
 
@@ -81,7 +90,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set((state) => {
       if (!state.user) return state
       const user = { ...state.user, ...partial }
-      sessionStorage.setItem(USER_KEY, JSON.stringify(user))
+      try {
+        localStorage.setItem(USER_KEY, JSON.stringify(user))
+        sessionStorage.setItem(USER_KEY, JSON.stringify(user))
+      } catch { /* ignore */ }
       return { user }
     })
   },
@@ -89,17 +101,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setLoading: (loading) => set({ isLoading: loading }),
 
   markAccountInactive: () => {
-    sessionStorage.setItem(INACTIVE_KEY, 'true')
-    sessionStorage.removeItem(USER_KEY)
-    sessionStorage.removeItem('access_token')
+    try {
+      localStorage.setItem(INACTIVE_KEY, 'true')
+      sessionStorage.setItem(INACTIVE_KEY, 'true')
+      localStorage.removeItem(USER_KEY)
+      sessionStorage.removeItem(USER_KEY)
+    } catch { /* ignore */ }
     setAccessToken(null)
     set({ user: null, isAuthenticated: false, isLoading: false, accountInactive: true })
   },
 
   logout: () => {
-    sessionStorage.removeItem(USER_KEY)
-    sessionStorage.removeItem(INACTIVE_KEY)
-    sessionStorage.removeItem('access_token')
+    try {
+      localStorage.removeItem(USER_KEY)
+      sessionStorage.removeItem(USER_KEY)
+      localStorage.removeItem(INACTIVE_KEY)
+      sessionStorage.removeItem(INACTIVE_KEY)
+    } catch { /* ignore */ }
     setAccessToken(null)
     set({ user: null, isAuthenticated: false, isLoading: false, accountInactive: false })
   },
@@ -114,3 +132,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 setAccountInactiveHandler(() => {
   useAuthStore.getState().markAccountInactive()
 })
+
+setSessionExpiredHandler(() => {
+  useAuthStore.getState().logout()
+})
+
+// Cross-tab sync: sync auth state across browser tabs
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key === 'access_token') {
+      if (!event.newValue) {
+        useAuthStore.getState().logout()
+      } else {
+        setAccessToken(event.newValue)
+        const user = loadStoredUser()
+        useAuthStore.setState({ isAuthenticated: true, user })
+      }
+    } else if (event.key === USER_KEY) {
+      if (event.newValue) {
+        try {
+          useAuthStore.setState({ user: JSON.parse(event.newValue) })
+        } catch { /* ignore */ }
+      }
+    }
+  })
+}

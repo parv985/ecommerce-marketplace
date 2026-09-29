@@ -53,7 +53,13 @@ const authLimiter = rateLimit({
 
 if (env.NODE_ENV !== "test") {
   app.use("/api", apiLimiter);
-  app.use("/api/v1/auth", authLimiter);
+  app.use("/api/v1/auth", (req, res, next) => {
+    // Legitimate session refreshes must not be throttled by the brute-force limiter
+    if (req.path === "/refresh") {
+      return next();
+    }
+    return authLimiter(req, res, next);
+  });
 }
 
 app.use(

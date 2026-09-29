@@ -67,6 +67,7 @@ export interface CheckoutPreviewOrder {
   sellerId: string;
   itemsTotal: number;
   discountTotal: number;
+  discountPercentage?: number | null;
   couponDiscount: number;
   total: number;
 }
@@ -74,8 +75,11 @@ export interface CheckoutPreviewOrder {
 export interface CheckoutPreviewResponse {
   itemsTotal: number;
   discountTotal: number;
+  discountPercentage?: number | null;
   couponCode: string | null;
   couponDiscount: number;
+  couponType?: string | null;
+  couponValue?: number | null;
   total: number;
   orders: CheckoutPreviewOrder[];
 }

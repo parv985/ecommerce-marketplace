@@ -486,6 +486,13 @@ export function OrderDetailPage({ variant = 'buyer' }: OrderDetailPageProps) {
 
           {/* Actions */}
           <div className="space-y-2">
+            {isBuyerView && order.paymentMethod === 'ONLINE' && order.paymentStatus !== 'PAID' && order.status !== 'CANCELLED' && (
+              <Link to={`/orders/${order.id}/pay`} className="block">
+                <Button className="w-full">
+                  Complete Payment ({formatPrice(order.total)})
+                </Button>
+              </Link>
+            )}
             {canCancel && (
               <Button
                 variant="destructive"

@@ -18,34 +18,24 @@ export function AdminRootLayout() {
   useAccountStatus()
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    const storedUser = useAuthStore.getState().user
+    if (!isAuthenticated && !storedUser) {
       setLoading(false)
       return
     }
 
-    authApi.getMe()
+    authApi
+      .getMe()
       .then((user) => {
         useAuthStore.getState().setUser(user)
         if (user.role !== 'SUPER_ADMIN' && (user.role as string) !== 'ADMIN') {
           logout()
         }
       })
-      .catch(() => {
-        authApi.refresh()
-          .then(async () => {
-            try {
-              const user = await authApi.getMe()
-              useAuthStore.getState().setUser(user)
-              if (user.role !== 'SUPER_ADMIN' && (user.role as string) !== 'ADMIN') {
-                logout()
-              }
-            } catch {
-              logout()
-            }
-          })
-          .catch(() => {
-            logout()
-          })
+      .catch((err) => {
+        if (err?.response?.status === 401) {
+          logout()
+        }
       })
       .finally(() => {
         setLoading(false)

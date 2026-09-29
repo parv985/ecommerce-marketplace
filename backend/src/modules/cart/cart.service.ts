@@ -188,6 +188,10 @@ export const updateCartItemQuantity = async (
   const data: UpdateCartItemInput =
     updateCartItemSchema.parse(input);
 
+  if (data.quantity === 0) {
+    return removeItemFromCart(userId, productId);
+  }
+
   const product =
     await requireActiveProduct(
       productId,

@@ -386,7 +386,11 @@ export function CheckoutPage() {
                     <span className="font-bold tracking-wide">{appliedCoupon}</span>
                     {preview && preview.couponDiscount > 0 ? (
                       <span className="ml-2 text-xs text-emerald-600 font-medium">
-                        ({formatPrice(preview.couponDiscount)} off)
+                        ({formatPrice(preview.couponDiscount)} off
+                        {preview.couponType === 'PERCENTAGE' && preview.couponValue
+                          ? ` · ${preview.couponValue}%`
+                          : ''}
+                        )
                       </span>
                     ) : (
                       <span className="ml-2 text-xs text-emerald-600 font-medium">(applied)</span>
@@ -455,13 +459,21 @@ export function CheckoutPage() {
             </div>
             {preview && preview.discountTotal > 0 && (
               <div className="flex justify-between text-emerald-700 font-medium">
-                <span>Product Discounts</span>
+                <span>
+                  Product Discounts
+                  {preview.discountPercentage ? ` (${preview.discountPercentage}%)` : ''}
+                </span>
                 <span>-{formatPrice(preview.discountTotal)}</span>
               </div>
             )}
             {preview && preview.couponDiscount > 0 && (
               <div className="flex justify-between text-emerald-700 font-medium">
-                <span>Coupon ({preview.couponCode})</span>
+                <span>
+                  Coupon ({preview.couponCode})
+                  {preview.couponType === 'PERCENTAGE' && preview.couponValue
+                    ? ` (${preview.couponValue}%)`
+                    : ''}
+                </span>
                 <span>-{formatPrice(preview.couponDiscount)}</span>
               </div>
             )}

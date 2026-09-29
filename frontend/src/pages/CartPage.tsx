@@ -18,6 +18,10 @@ export function CartPage() {
     mutationFn: ({ productId, quantity }: { productId: string; quantity: number }) =>
       cartService.updateItem(productId, quantity),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['cart'] }),
+    onError: (err: any) => {
+      queryClient.invalidateQueries({ queryKey: ['cart'] })
+      toast.error(err?.response?.data?.message || 'Failed to update quantity')
+    },
   })
 
   const removeItem = useMutation({
@@ -25,6 +29,10 @@ export function CartPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cart'] })
       toast.success('Removed from cart')
+    },
+    onError: (err: any) => {
+      queryClient.invalidateQueries({ queryKey: ['cart'] })
+      toast.error(err?.response?.data?.message || 'Failed to remove item')
     },
   })
 
@@ -34,7 +42,19 @@ export function CartPage() {
       queryClient.invalidateQueries({ queryKey: ['cart'] })
       toast.success('Cart cleared')
     },
+    onError: (err: any) => {
+      queryClient.invalidateQueries({ queryKey: ['cart'] })
+      toast.error(err?.response?.data?.message || 'Failed to clear cart')
+    },
   })
+
+  const handleDecreaseQuantity = (productId: string, currentQuantity: number) => {
+    if (currentQuantity > 1) {
+      updateQty.mutate({ productId, quantity: currentQuantity - 1 })
+    } else {
+      removeItem.mutate(productId)
+    }
+  }
 
   if (isLoading) {
     return (
@@ -84,11 +104,30 @@ export function CartPage() {
                 <p className="text-sm font-bold text-[var(--fg)] mt-1">{formatPrice(product.price)}</p>
                 <div className="flex items-center justify-between mt-3">
                   <div className="flex items-center border border-[var(--border)] rounded-[var(--radius)] bg-white overflow-hidden">
-                    <button onClick={() => updateQty.mutate({ productId: item.productId, quantity: Math.max(1, item.quantity - 1) })} className="p-1.5 hover:bg-[var(--accent)] text-[var(--fg)] transition-colors"><Minus size={13} /></button>
+                    <button
+                      onClick={() => handleDecreaseQuantity(item.productId, item.quantity)}
+                      disabled={updateQty.isPending || removeItem.isPending}
+                      className="p-1.5 hover:bg-[var(--accent)] text-[var(--fg)] transition-colors disabled:opacity-50"
+                      title={item.quantity === 1 ? 'Remove item' : 'Decrease quantity'}
+                    >
+                      <Minus size={13} />
+                    </button>
                     <span className="px-2.5 text-xs font-semibold min-w-[28px] text-center text-[var(--fg)]">{item.quantity}</span>
-                    <button onClick={() => updateQty.mutate({ productId: item.productId, quantity: Math.min(product.stock, item.quantity + 1) })} className="p-1.5 hover:bg-[var(--accent)] text-[var(--fg)] transition-colors"><Plus size={13} /></button>
+                    <button
+                      onClick={() => updateQty.mutate({ productId: item.productId, quantity: Math.min(product.stock, item.quantity + 1) })}
+                      disabled={updateQty.isPending || removeItem.isPending}
+                      className="p-1.5 hover:bg-[var(--accent)] text-[var(--fg)] transition-colors disabled:opacity-50"
+                      title="Increase quantity"
+                    >
+                      <Plus size={13} />
+                    </button>
                   </div>
-                  <button onClick={() => removeItem.mutate(item.productId)} className="text-[var(--muted)] hover:text-red-700 transition-colors p-1" title="Remove item">
+                  <button
+                    onClick={() => removeItem.mutate(item.productId)}
+                    disabled={removeItem.isPending}
+                    className="text-[var(--muted)] hover:text-red-700 transition-colors p-1 disabled:opacity-50"
+                    title="Remove item"
+                  >
                     <Trash2 size={16} />
                   </button>
                 </div>
