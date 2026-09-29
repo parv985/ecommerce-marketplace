@@ -1,10 +1,7 @@
-import { getGeminiClient, isGeminiConfigured } from "../gemini.client.js";
-
 const EMBEDDING_DIMENSION = 128;
 
 /**
  * Deterministic local vectorizer generating a normalized unit vector.
- * Used when Gemini API key is not configured, rate-limited, or in offline mode.
  * Captures token frequency, word stems, and character 3-grams for semantic matching.
  */
 export const generateLocalEmbedding = (text: string): number[] => {
@@ -56,28 +53,11 @@ export const generateLocalEmbedding = (text: string): number[] => {
 };
 
 /**
- * Generates an embedding vector for a single text using Gemini or deterministic fallback.
+ * Generates an embedding vector for a single text using deterministic local vectorizer.
  */
 export const embedText = async (text: string): Promise<number[]> => {
   if (!text || text.trim().length === 0) {
     return new Array(EMBEDDING_DIMENSION).fill(0);
-  }
-
-  if (isGeminiConfigured()) {
-    try {
-      const ai = getGeminiClient();
-      const response: any = await ai.models.embedContent({
-        model: "text-embedding-004",
-        contents: text.trim(),
-      });
-
-      if (response && response.embedding && Array.isArray(response.embedding.values)) {
-        return response.embedding.values;
-      }
-    } catch (err) {
-      // Fallback seamlessly to local vectorizer if Gemini embedding is unavailable
-      // console.warn("[WARN] Gemini embedContent failed, using local embedding vectorizer:", err);
-    }
   }
 
   return generateLocalEmbedding(text);

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { rateLimit } from "express-rate-limit";
 
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { authenticate } from "../auth/auth.middleware.js";
@@ -11,6 +12,18 @@ import {
 
 const router = Router();
 
+const aiChatLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many AI assistant requests. Please wait a few moments before trying again.",
+    code: "RATE_LIMITED",
+  },
+});
+
 /**
  * @openapi
  * /api/v1/ai/search:
@@ -18,7 +31,7 @@ const router = Router();
  *     tags:
  *       - AI
  *     summary: Natural-language AI product search
- *     description: Uses Google Gemini to understand natural language shopping queries (e.g. "running shoes under ₹3000", "black shirt below 1500") and searches MongoDB for matching catalog products.
+ *     description: Uses AI (Groq / semantic parser) to understand natural language shopping queries (e.g. "running shoes under ₹3000", "black shirt below 1500") and searches MongoDB for matching catalog products.
  *     requestBody:
  *       required: true
  *       content:
@@ -99,6 +112,7 @@ router.post(
   "/chat",
   authenticate,
   authorize(UserRole.BUYER),
+  aiChatLimiter,
   asyncHandler(aiChatController),
 );
 

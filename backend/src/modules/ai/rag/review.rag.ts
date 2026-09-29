@@ -1,6 +1,6 @@
 import type { RAGChunk, RAGSearchResult } from "../ai.types.js";
 import { vectorStore } from "./vector.store.js";
-import { generateGeminiText, isGeminiConfigured } from "../gemini.client.js";
+import { generateGroqText, isGroqConfigured } from "../groq.client.js";
 
 /**
  * In-memory cache for generated AI review summaries with fingerprint tracking.
@@ -108,7 +108,7 @@ export const queryProductReviewsRAG = async (
 };
 
 /**
- * Generates or retrieves cached AI Review Summary using RAG and Gemini.
+ * Generates or retrieves cached AI Review Summary using RAG and Groq.
  */
 export const getOrGenerateAIReviewSummary = async (
   productName: string,
@@ -160,8 +160,8 @@ export const getOrGenerateAIReviewSummary = async (
     }
   }
 
-  // 3. Gemini Generation
-  if (isGeminiConfigured()) {
+  // 3. Groq Generation
+  if (isGroqConfigured()) {
     const prompt = `
 You are the AI review summarizer for NexCart, an e-commerce platform.
 Analyze the following customer reviews retrieved from the database for "${productName}":
@@ -184,7 +184,7 @@ CRITICAL INSTRUCTIONS:
 `.trim();
 
     try {
-      const summary = await generateGeminiText({
+      const summary = await generateGroqText({
         prompt,
         systemInstruction:
           "You are an objective e-commerce review summarizer. Generate concise 1-2 sentence summaries capturing common praise and common criticisms from actual buyer reviews.",
@@ -205,7 +205,7 @@ CRITICAL INSTRUCTIONS:
         return cleanSummary;
       }
     } catch (err) {
-      console.warn(`[WARN] Gemini review summary failed for ${productName}:`, err);
+      console.warn(`[WARN] Groq review summary failed for ${productName}:`, err);
     }
   }
 

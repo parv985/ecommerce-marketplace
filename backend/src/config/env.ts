@@ -154,9 +154,9 @@ const envSchema = z.object({
   /* Redis (optional) */
   REDIS_URL: z.string().optional(),
 
-  /* Google Gemini API (optional at schema level for graceful offline/fallback) */
-  GEMINI_API_KEY: z.string().optional(),
-  GEMINI_MODEL: z.string().default("gemini-2.5-flash"),
+  /* Groq AI API (optional at schema level for graceful offline/fallback) */
+  GROQ_API_KEY: z.string().optional(),
+  GROQ_MODEL: z.string().default("llama-3.3-70b-versatile"),
 });
 export const env = envSchema.parse(normalizeEmptyEnv(process.env));
 

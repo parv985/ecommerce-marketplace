@@ -6,11 +6,11 @@ import { Review } from "../../models/Review.js";
 import { ProductStatus } from "../../constants/productStatus.js";
 import { OrderStatus, PaymentMethod } from "../../constants/orderStatus.js";
 import {
-  generateGeminiJson,
-  generateGeminiText,
-  generateGeminiWithTools,
-  isGeminiConfigured,
-} from "./gemini.client.js";
+  generateGroqJson,
+  generateGroqText,
+  generateGroqWithTools,
+  isGroqConfigured,
+} from "./groq.client.js";
 import type { ProductResponse } from "../products/product.types.js";
 import type {
   AIChatMessage,
@@ -20,7 +20,7 @@ import type {
   AISearchResult,
   ToolCallRequest,
 } from "./ai.types.js";
-import { GEMINI_TOOL_DECLARATIONS } from "./tools/tool.definitions.js";
+import { GROQ_TOOL_DEFINITIONS } from "./tools/tool.definitions.js";
 import { executeToolCall } from "./tools/tool.executor.js";
 import type { ToolContext } from "./tools/tool.handlers.js";
 import { vectorStore } from "./rag/vector.store.js";
@@ -116,9 +116,9 @@ export const enrichProductsWithReviewsAndSummary = async (
 };
 
 /**
- * Extracts search criteria using Gemini from natural-language shopping queries.
+ * Extracts search criteria using Groq from natural-language shopping queries.
  */
-export const extractSearchCriteriaWithGemini = async (
+export const extractSearchCriteriaWithGroq = async (
   query: string,
   categories: ICategory[],
 ): Promise<AISearchCriteria> => {
@@ -144,7 +144,7 @@ Return a valid JSON object matching this schema:
 }
 `.trim();
 
-  return generateGeminiJson<AISearchCriteria>({
+  return generateGroqJson<AISearchCriteria>({
     prompt,
     systemInstruction:
       "You are an e-commerce semantic search parser. Extract structured shopping parameters accurately into JSON.",
@@ -153,7 +153,7 @@ Return a valid JSON object matching this schema:
 };
 
 /**
- * Fallback parser used when Gemini API key is not yet set or in offline mode.
+ * Fallback parser used when Groq API key is not yet set or in offline mode.
  */
 const fallbackCriteriaExtractor = (query: string): AISearchCriteria => {
   const clean = query.trim().toLowerCase();
@@ -202,7 +202,7 @@ const fallbackCriteriaExtractor = (query: string): AISearchCriteria => {
 };
 
 /**
- * Performs natural-language semantic product search via Gemini AI + MongoDB.
+ * Performs natural-language semantic product search via Groq AI + MongoDB.
  */
 export const searchProductsWithAI = async (
   query: string,
@@ -236,9 +236,9 @@ export const searchProductsWithAI = async (
   });
 
   let criteria: AISearchCriteria;
-  if (isGeminiConfigured()) {
+  if (isGroqConfigured()) {
     try {
-      criteria = await extractSearchCriteriaWithGemini(cleanQuery, activeCategories as ICategory[]);
+      criteria = await extractSearchCriteriaWithGroq(cleanQuery, activeCategories as ICategory[]);
     } catch (aiError) {
       criteria = fallbackCriteriaExtractor(cleanQuery);
     }
@@ -324,7 +324,7 @@ export const searchProductsWithAI = async (
 };
 
 /**
- * Grounded Conversational AI Assistant using RAG + Gemini Function Calling + MongoDB.
+ * Grounded Conversational AI Assistant using RAG + Groq Function Calling + MongoDB.
  */
 export const chatWithShoppingAssistant = async (params: {
   userId: string;
@@ -367,10 +367,10 @@ export const chatWithShoppingAssistant = async (params: {
   if (
     greetingWords.includes(lowerMessage.replace(/[!.,?]+$/g, "")) ||
     (/^(hi|hey|hello|yo|sup|greetings)\b/i.test(lowerMessage) &&
-      cleanMessage.length < 15 &&
       !lowerMessage.includes("order") &&
       !lowerMessage.includes("buy") &&
       !lowerMessage.includes("search") &&
+      !lowerMessage.includes("product") &&
       !lowerMessage.includes("find"))
   ) {
     return {
@@ -391,7 +391,7 @@ export const chatWithShoppingAssistant = async (params: {
 
   // General off-topic query check (e.g. write essay, code in python, who is the president, weather in paris)
   const isClearlyOffTopic =
-    /\b(write (an essay|code|python|poem|song|story)|who is the (president|prime minister)|weather in|capital of|solve this equation|translate to french)\b/i.test(
+    /\b(write (an? )?(essay|code|python|poem|song|story)|who is the (president|prime minister)|weather in|capital of|solve this equation|translate to [a-z]+)\b/i.test(
       lowerMessage,
     );
   if (isClearlyOffTopic) {
@@ -411,9 +411,9 @@ export const chatWithShoppingAssistant = async (params: {
   const executedTools: string[] = [];
 
   // =========================================================================
-  // PATH A: GEMINI FUNCTION CALLING (When Gemini is configured)
+  // PATH A: GROQ FUNCTION CALLING (When Groq is configured)
   // =========================================================================
-  if (isGeminiConfigured()) {
+  if (isGroqConfigured()) {
     try {
       // 1. Prepare contents with multi-turn history
       const formattedContents: any[] = [];
@@ -422,30 +422,30 @@ export const chatWithShoppingAssistant = async (params: {
       const recentHistory = history.slice(-6);
       for (const h of recentHistory) {
         formattedContents.push({
-          role: h.role === "assistant" ? "model" : "user",
-          parts: [{ text: h.content }],
+          role: h.role === "assistant" ? "assistant" : "user",
+          content: h.content,
         });
       }
 
       // Add current user prompt
       formattedContents.push({
         role: "user",
-        parts: [{ text: cleanMessage }],
+        content: cleanMessage,
       });
 
-      // 2. Call Gemini with tools
-      const geminiResponse = await generateGeminiWithTools({
+      // 2. Call Groq with tools
+      const groqResponse = await generateGroqWithTools({
         contents: formattedContents,
         systemInstruction: NEXCART_ASSISTANT_SYSTEM_INSTRUCTION,
-        tools: [{ functionDeclarations: GEMINI_TOOL_DECLARATIONS }],
+        tools: GROQ_TOOL_DEFINITIONS,
         temperature: 0.15,
       });
 
-      // 3. If Gemini decided to call one or more functions
-      if (geminiResponse.functionCalls && geminiResponse.functionCalls.length > 0) {
+      // 3. If Groq decided to call one or more functions
+      if (groqResponse.functionCalls && groqResponse.functionCalls.length > 0) {
         const toolExecutionResults: Array<{ name: string; result: any }> = [];
 
-        for (const fc of geminiResponse.functionCalls) {
+        for (const fc of groqResponse.functionCalls) {
           executedTools.push(fc.name);
           const executed = await executeToolCall(
             { name: fc.name, args: fc.args || {} },
@@ -476,7 +476,7 @@ INSTRUCTIONS FOR FINAL ANSWER:
 6. Return only the final assistant response text.
 `.trim();
 
-        const finalReply = await generateGeminiText({
+        const finalReply = await generateGroqText({
           prompt: synthesisPrompt,
           systemInstruction: NEXCART_ASSISTANT_SYSTEM_INSTRUCTION,
           temperature: 0.2,
@@ -491,23 +491,23 @@ INSTRUCTIONS FOR FINAL ANSWER:
         };
       }
 
-      // If Gemini directly produced a response without tools (e.g. conversational answer)
-      if (geminiResponse.text && geminiResponse.text.trim().length > 0) {
+      // If Groq directly produced a response without tools (e.g. conversational answer)
+      if (groqResponse.text && groqResponse.text.trim().length > 0) {
         return {
-          message: geminiResponse.text.trim(),
+          message: groqResponse.text.trim(),
           intent: "CONVERSATIONAL",
           products: toolContext.matchedProducts.length > 0 ? toolContext.matchedProducts.slice(0, 5) : undefined,
           orders: toolContext.matchedOrders.length > 0 ? toolContext.matchedOrders.slice(0, 5) : undefined,
         };
       }
-    } catch (geminiErr) {
-      console.warn("[WARN] Gemini function calling encountered error, switching to grounded tool dispatcher:", geminiErr);
+    } catch (groqErr) {
+      console.warn("[WARN] Groq function calling encountered error, switching to grounded tool dispatcher:", groqErr);
     }
   }
 
   // =========================================================================
   // PATH B: DETERMINISTIC GROUNDED TOOL DISPATCHER (Resilient Fallback)
-  // Ensures RAG + MongoDB grounded execution even if Gemini is offline/rate-limited
+  // Ensures RAG + MongoDB grounded execution even if Groq is offline/rate-limited
   // =========================================================================
 
   // Check 1: Review RAG Query (e.g. "What do customers dislike about this product?")

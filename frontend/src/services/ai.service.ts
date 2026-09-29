@@ -8,7 +8,7 @@ import type {
 
 export const aiService = {
   /**
-   * Performs natural-language semantic product search via Gemini AI + MongoDB.
+   * Performs natural-language semantic product search via Groq AI + MongoDB.
    * e.g. "Show me comfortable running shoes under ₹3,000"
    */
   searchProducts: (query: string, limit?: number) => {

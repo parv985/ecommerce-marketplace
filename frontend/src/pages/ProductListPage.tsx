@@ -42,7 +42,7 @@ export function ProductListPage() {
     setAiInput(aiQuery)
   }, [aiQuery])
 
-  // AI Natural-Language Search query via Gemini
+  // AI Natural-Language Search query via Groq
   const {
     data: aiData,
     isLoading: isAiLoading,
@@ -232,7 +232,7 @@ export function ProductListPage() {
             <div className="p-8 border border-amber-200 bg-amber-50/40 rounded-[var(--radius-lg)] text-center space-y-3">
               <Loader2 size={28} className="animate-spin text-amber-600 mx-auto" />
               <p className="font-semibold text-sm text-[var(--fg)]">
-                Gemini AI is analyzing &ldquo;{aiQuery}&rdquo;...
+                NexCart AI is analyzing &ldquo;{aiQuery}&rdquo;...
               </p>
               <p className="text-xs text-[var(--muted)] max-w-md mx-auto">
                 Extracting specifications, budget constraints, and querying real catalog products from our database...

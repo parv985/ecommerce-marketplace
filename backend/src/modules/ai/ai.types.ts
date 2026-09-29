@@ -63,7 +63,7 @@ export interface RAGSearchResult {
 }
 
 /**
- * Representation of a tool call request from Gemini or internal dispatcher.
+ * Representation of a tool call request from Groq or internal dispatcher.
  */
 export interface ToolCallRequest {
   name: string;

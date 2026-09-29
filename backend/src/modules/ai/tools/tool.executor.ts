@@ -13,7 +13,7 @@ import {
 } from "./tool.handlers.js";
 
 /**
- * Executes a function call requested by Gemini or the intent router.
+ * Executes a function call requested by Groq or the intent router.
  * Dispatches safely with context (authenticated userId, matched items accumulator).
  */
 export const executeToolCall = async (

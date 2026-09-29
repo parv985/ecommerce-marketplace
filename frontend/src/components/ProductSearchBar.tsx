@@ -14,7 +14,7 @@ import type { Product } from '@/types/api'
  * live suggestions while the user types. Selecting a suggestion goes
  * straight to that product's detail page; pressing Enter without picking
  * a suggestion opens the full results page. Also offers natural-language
- * AI search powered by Gemini.
+ * AI search powered by Groq.
  */
 const DEBOUNCE_MS = 300
 const MIN_QUERY_LENGTH = 2
@@ -109,7 +109,7 @@ export function ProductSearchBar({ onNavigate, className }: ProductSearchBarProp
     navigate(`/products?search=${encodeURIComponent(term)}`)
   }
 
-  /* Natural-language AI search via Gemini */
+  /* Natural-language AI search via Groq */
   const goToAISearch = (customQuery?: string) => {
     const term = (customQuery ?? query).trim()
     if (!term) {
@@ -184,7 +184,7 @@ export function ProductSearchBar({ onNavigate, className }: ProductSearchBarProp
           <button
             type="button"
             onClick={() => goToAISearch()}
-            title="Natural-Language AI Search (Gemini)"
+            title="Natural-Language AI Search"
             aria-label="Search with AI"
             className="p-1 text-amber-600 hover:text-amber-700 hover:bg-amber-100/60 rounded transition-colors"
           >
@@ -260,7 +260,7 @@ export function ProductSearchBar({ onNavigate, className }: ProductSearchBarProp
                 <span className="truncate">Ask AI: &ldquo;{query.trim()}&rdquo;</span>
               </span>
               <span className="shrink-0 text-[10px] font-bold text-amber-700 bg-white/90 border border-amber-200 px-1.5 py-0.5 rounded-[var(--radius-sm)]">
-                Gemini
+                AI
               </span>
             </button>
           )}

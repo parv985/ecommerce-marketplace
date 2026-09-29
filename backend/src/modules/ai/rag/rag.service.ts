@@ -36,7 +36,7 @@ export class RAGService {
   }
 
   /**
-   * Formats retrieved RAG chunks into a clear text context block for Gemini grounding.
+   * Formats retrieved RAG chunks into a clear text context block for Groq grounding.
    */
   public static formatRAGContext(results: RAGSearchResult[]): string {
     if (results.length === 0) {
