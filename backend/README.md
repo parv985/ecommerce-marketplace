@@ -128,7 +128,7 @@ If `GOOGLE_REDIRECT_URI` is unset, the callback URL is derived from the incoming
 | Returns     | Buyer requests within 7 days of delivery; `PENDING → APPROVED → COMPLETED | REJECTED | CANCELLED`; stock restored on completion; partial unique index blocks duplicate requests |
 | Payments    | Cash-on-delivery (marked paid by seller/admin after delivery) **plus** an online gateway. Razorpay is the provider with a deterministic MOCK mode when no credentials are configured. Payment orders are created server-side, verified by HMAC signature, and webhooks are signature-checked + idempotent (unique event claim). Refunds are full-amount, idempotent, and issued automatically on cancellation of a paid online order |
 | Reviews     | One review per user per product, only after a delivered order; ownership enforced on update/delete; average rating aggregated server-side |
-| Notifications | In-app + email notifications for orders, payments, returns, seller decisions, settlements and admin broadcasts; per-recipient preference model (`/notifications/preferences`); email is fire-and-forget with bounded retries |
+| Notifications | In-app notifications with read/unread state for orders, payments, returns, seller decisions, settlements, admin broadcasts and **seller-sent custom messages**; **every buyer in-app notification is also emailed** to their registered address (real inbox or YOPmail) via the existing Nodemailer SMTP config — fire-and-forget with bounded retries and per-notification `emailStatus` tracking, so a failed email never loses the in-app record; per-recipient preference model (`/notifications/preferences`); event-driven notifications carry a `dedupeKey` so re-fired events can never produce duplicate notifications or duplicate emails |
 | Analytics   | Seller dashboard, sales series, top products, customers and revenue statistics — all MongoDB aggregations scoped to the authenticated seller |
 | Settlements | Configurable platform commission (default 10%, admin-adjustable, snapshotted per settlement so history is never recalculated). Admin generates monthly settlements (unique per seller+period — idempotent) and walks `PENDING → PROCESSING → PAID | FAILED | CANCELLED`; sellers view their own settlements |
 | Admin       | User activation/deactivation, seller approval/rejection, product moderation, order overview, settlement dashboard, commission settings, notification broadcasts, **filterable audit log viewer** — `SUPER_ADMIN` only |
@@ -215,7 +215,7 @@ bash tests/e2e-discounts.sh       # discounts + automatic checkout pricing
 bash tests/e2e-coupons.sh         # coupons + usage limits + cancellation release
 bash tests/e2e-returns.sh         # return lifecycle + stock restore
 bash tests/e2e-analytics.sh       # dashboard, sales series, customers, revenue
-bash tests/e2e-notifications.sh   # in-app notifications + admin broadcast
+bash tests/e2e-notifications.sh   # in-app notifications + email mirror + seller sends + admin broadcast
 bash tests/e2e-payments.sh        # online payment initiate/verify/webhook/refund (mock gateway)
 bash tests/e2e-twofa.sh           # TOTP 2FA setup, two-step login, recovery codes
 bash tests/e2e-settlements.sh     # commission settings + monthly settlement lifecycle
@@ -247,7 +247,7 @@ bash tests/e2e-settlements.sh     # commission settings + monthly settlement lif
 | Coupons | 5 | Coupon management |
 | Reviews | 4 | Product reviews |
 | Returns | 5 | Return requests |
-| Notifications | 6 | In-app notifications |
+| Notifications | 7 | In-app notifications, preferences, seller sends |
 | Analytics | 6 | Seller analytics |
 | Admin | 17 | Admin management |
 | System | 1 | Health check |

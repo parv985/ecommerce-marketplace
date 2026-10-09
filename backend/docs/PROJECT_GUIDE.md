@@ -275,7 +275,7 @@ The failure path is symmetric: any `AppError` thrown in layers 3–6 is caught b
 | Redis | Optional product-catalog cache (60 s TTL, invalidated on writes) | §13.4 |
 | Background jobs | Synchronous inline "queue" stub; Bull declared but unused | §16.3 |
 | Email/notifications | Nodemailer (Ethereal dev / SMTP prod) + in-app Notification model with per-user preferences | §16 |
-| Testing | 21 backend integration suites (215 cases) + 3 frontend component suites (25 cases) + 15 E2E shell scripts + Postman collection | §21 |
+| Testing | 23 backend integration suites (incl. notification email delivery + seller notifications) + unit suites + 15 E2E shell scripts + Postman collection | §21 |
 | API docs | Swagger UI at `/api-docs/` (JSDoc-generated) + Postman collection in `docs/` | §18 |
 
 
@@ -874,7 +874,7 @@ The frontend knows the role from the stored `user` object and uses it for (a) ro
 | `Review` | One per user per product | `productId`, `userId`, `orderId`, `rating` (1–5), `comment`; unique `(productId,userId)` |
 | `ReturnRequest` | Return lifecycle + refund ledger | `orderId`, `userId`, `sellerId`, `reason`, `status` (PENDING→APPROVED→COMPLETED \| REJECTED \| CANCELLED), `approvedAt`/`decidedBy`/`decidedRole`, `stockRestoredAt`, `refund {amount,status,method,gatewayRefundId,paymentId,reason,requestedAt,completedAt}`; partial unique index on active `orderId` |
 | `InventoryTransaction` | Stock audit trail | `productId`, `sellerId`, `type` (DECREMENT/INCREMENT/ADJUST), `quantity`, `previousStock`, `newStock`, `reason`, `referenceId/Type` |
-| `Notification` | In-app notifications | `userId`, `type`, `title`, `message`, `entityType/Id`, `channel`, `isRead` |
+| `Notification` | In-app notifications | `recipientId`, `type`, `title`, `message`, `entityType/Id`, `isRead`, `dedupeKey` (unique, partial - event idempotency), `emailStatus`/`emailSentAt` (email mirror bookkeeping) |
 | `NotificationPreference` | Per-user delivery prefs | `userId` (unique), toggles per category (order/payment/promotional) for in-app + email |
 | `Address` | Saved shipping addresses | `userId`, `label`, recipient, phone, address lines, city/state/pincode |
 | `RefreshToken` | Rotating session tokens | `userId`, `tokenHash` (SHA-256), `expiresAt` |
@@ -1069,7 +1069,8 @@ Every significant action (login, register, order create/cancel/status, payment i
 | Addresses | `AccountPage`, `CheckoutPage` | `users` addresses | ✅ Complete |
 | Avatar upload/delete | `ProfileAvatar`, `AccountPage`, `AdminProfilePage` | `users` avatar + Cloudinary | ✅ Complete |
 | In-app notifications + preferences | `NotificationsPage` | `notifications` module | ✅ Complete |
-| Email notifications | — | Nodemailer (Ethereal/SMTP) | ✅ Complete (Ethereal in dev) |
+| Email notifications (buyer in-app mirror) | — | Nodemailer (Ethereal/SMTP, real inboxes + YOPmail) | ✅ Complete (Ethereal in dev) |
+| Seller custom notifications (one buyer / all buyers) | `SellerCustomersPage` (Notify / Broadcast) | `POST /sellers/notifications` | ✅ Complete |
 | Admin broadcast | `AdminNotificationsPage` | `POST /admin/notifications` | ✅ Complete |
 | Inventory management | `SellerInventoryPage` | `inventory` module + transactions | ✅ Complete |
 | Seller analytics | `SellerAnalyticsPage`, `SellerDashboardPage` (Recharts) | `analytics` module (aggregations) | ✅ Complete |
@@ -1105,7 +1106,7 @@ Online payment gateway (India). See the full flow in §15. Two modes: **RAZORPAY
 
 ### 13.6 Nodemailer / SMTP
 
-`services/email.service.ts` creates one shared transport: **real SMTP** when `SMTP_HOST` is set (TLS strict in production), otherwise an **Ethereal test account** (dev) whose preview URL is logged. `sendNotificationEmail` retries twice (500 ms, 1 s backoff) — duplicates are considered harmless. Email is only sent when the recipient's preference allows, and never in test mode.
+`services/email.service.ts` creates one shared transport: **real SMTP** when `SMTP_HOST` is set (TLS strict in production), otherwise an **Ethereal test account** (dev) whose preview URL is logged. `sendNotificationEmail` retries twice (500 ms, 1 s backoff) — duplicates are considered harmless. Every buyer in-app notification is mirrored to the registered address (any deliverable mailbox, including YOPmail); the per-category email preferences act as opt-outs (all enabled by default). The transport is a logged no-op in the test environment.
 
 ### 13.7 Google OAuth
 
@@ -1211,16 +1212,23 @@ When `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` are empty, the gateway abstraction 
 
 ### 16.1 In-app notifications
 
-- `Notification` documents per user, with `type` (order confirmed/shipped/delivered/cancelled, payment received/refunded, seller approved/rejected, return status, settlement, admin message, …), `entityType/Id` deep-link context, and `isRead`.
+- `Notification` documents per user, with `type` (order confirmed/shipped/delivered/cancelled, payment received/refunded, seller approved/rejected, return status, settlement, **seller message**, admin message, …), `entityType/Id` deep-link context, `isRead`, and delivery bookkeeping (`emailStatus` `NOT_REQUIRED/PENDING/SENT/FAILED`, `emailSentAt`).
 - API: list (unread filter), unread count, mark read / mark all read, **preferences** (per category: in-app on/off, email on/off).
-- Delivery rules (`notification.service.ts`): in-app is created unless the recipient disabled the channel; **emails are sent only when the recipient's preference allows the category, and never in test mode**.
+- Delivery rules (`notification.service.ts`):
+  - In-app is created unless the recipient disabled the channel.
+  - **Buyer email mirror: every in-app notification created for a BUYER is also emailed to their registered address** (real inbox or YOPmail), even when the buyer is offline. For non-buyers the explicit channel decides (EMAIL / BOTH email; IN_APP does not).
+  - Email category preferences (order / payment / promotional - all on by default) are honoured as opt-outs; the mirror uses the category the event belongs to.
+  - The in-app record is persisted **before** any email attempt and email delivery is fire-and-forget with bounded retries - a failed email never breaks the business flow and never removes the in-app notification (its `emailStatus` records `FAILED`).
+  - Event-driven notifications carry a **`dedupeKey`** (`order:<id>:status:<status>`, `return:<id>:approved-refund`, …) backed by a unique partial index: re-fired events (double-clicked seller action, webhook replay, retry after a timeout) produce **no second notification and no second email**.
 - The notification call is **fire-and-forget** — a failed notification never fails the business operation that triggered it.
+- **Seller sends** (`POST /sellers/notifications`, SELLER role only): a custom notification to one specific buyer (`buyerId`) or a broadcast to every registered buyer (`audience: "ALL_BUYERS"`), delivered like any other notification (in-app + email mirror) and written to the audit log (`SELLER_NOTIFICATION_SENT` / `SELLER_NOTIFICATION_BROADCAST`). The seller panel's Customers page exposes both flows.
 - Admin **broadcast** (`POST /admin/notifications`) targets `SELLERS` / `USERS` audiences or explicit recipient ids and reports how many were delivered.
 
 ### 16.2 Email
 
-- Triggered by the same events as in-app (order, payment, promotional categories), via `sendNotificationEmail` (Nodemailer; Ethereal preview URL in dev, real SMTP in production; 2 retries with backoff).
-- Password-reset emails use the same transport.
+- Triggered by the same events as in-app (order, payment, promotional categories), via `sendNotificationEmail` (Nodemailer; Ethereal preview URL in dev, real SMTP in production; 2 retries with backoff). Recipient addresses are never restricted by domain - any real inbox and disposable test inboxes such as **YOPmail** (`buyer123@yopmail.com`, read at https://yopmail.com) work; real delivery to them requires the `SMTP_*` variables to point at a real relay.
+- Password-reset emails use the same transport. In the test environment the transport is a logged no-op (tests mock `email.service.js` to assert deliveries).
+- Each notification records the outcome of its email copy (`emailStatus` / `emailSentAt`) for observability.
 
 ### 16.3 Background jobs — current state (important)
 
@@ -1374,9 +1382,13 @@ Both follow the same pattern (seller-scoped CRUD): `POST /` create · `GET /` li
 | PATCH | `/:id/status` | seller/admin | Approve/reject/complete (seller ownership verified) |
 | POST | `/:id/cancel` | buyer | Cancel while PENDING |
 
-### 18.12 Notifications — `/notifications` (6)
+### 18.12 Notifications — `/notifications` (6) + seller send under `/sellers` (1)
 
-`GET /` list · `GET /unread-count` · `PATCH /:id/read` · `PATCH /read-all` · `GET /preferences` · `PATCH /preferences` — all for the authenticated user.
+`GET /` list · `GET /unread-count` · `PATCH /:id/read` · `PATCH /read-all` · `GET /preferences` · `PATCH /preferences` — all for the authenticated user. Every in-app notification created for a buyer is mirrored to their registered email address (see §16).
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| POST | `/sellers/notifications` | seller | Send a custom notification to one buyer (`buyerId`) or broadcast to all registered buyers (`audience: "ALL_BUYERS"`) — in-app + email, audit-logged |
 
 ### 18.13 Analytics & seller settlement — `/sellers` (7, composed with the sellers router)
 
@@ -1564,7 +1576,7 @@ npm run dev                 # Vite → http://localhost:3000 (proxies /api → :
 - **What:** 21 suites / **215 test cases** in `tests/*.test.ts`. They drive the **real Express app over HTTP** (supertest) — full middleware stack, real services, real Mongoose models — covering success *and* failure paths.
 - **Database isolation:** `tests/setup.ts` rewrites `MONGODB_URI` to a dedicated `ecommerce_marketplace_test` database; collections are cleared between tests (the DB is never dropped). If `MONGODB_URI` is absent, `tests/global-setup.ts` starts an **in-memory MongoDB** (`mongodb-memory-server`) for the whole run — the suite works on a fresh checkout with zero services.
 - **Config:** `fileParallelism: false` (one shared test DB, cleared per test), 30 s timeouts; rate limiters and email are disabled in test mode; 2FA enforcement is skipped in test mode.
-- **Coverage by suite:** auth (register/login/refresh rotation/logout/401s), twofa (setup/verify/recovery codes), account-status (deactivation enforcement), sellers (approval gate, immutable GSTIN), products (CRUD, ownership/IDOR, validation, image upload), cart/orders (multi-seller checkout, stock guards, oversell, cancellations, transitions), payments (initiate/verify/webhook/refund, mock gateway), discounts & coupon **pricing math** (separate `*-pricing.test.ts` suites), returns, reviews, notifications, analytics, settlements, admin (users/sellers/products/orders), **audit** (service) and **audit-logs** (endpoint filters/sorting/pagination — 46 cases), cloudinary upload, swagger spec sanity.
+- **Coverage by suite:** auth (register/login/refresh rotation/logout/401s), twofa (setup/verify/recovery codes), account-status (deactivation enforcement), sellers (approval gate, immutable GSTIN), products (CRUD, ownership/IDOR, validation, image upload), cart/orders (multi-seller checkout, stock guards, oversell, cancellations, transitions), payments (initiate/verify/webhook/refund, mock gateway), discounts & coupon **pricing math** (separate `*-pricing.test.ts` suites), returns, reviews, notifications (event delivery, read/unread, preferences, admin broadcast), **seller notifications** (target/broadcast, role gating, validation, audit) and **notification email delivery** (buyer mirror incl. YOPmail addresses, failure resilience, dedupeKey duplicate prevention, opt-outs), analytics, settlements, admin (users/sellers/products/orders), **audit** (service) and **audit-logs** (endpoint filters/sorting/pagination — 46 cases), cloudinary upload, swagger spec sanity.
 - **Run:**
 
 ```bash

@@ -1,15 +1,19 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { sellerService } from '@/services/seller.service'
 import { orderService } from '@/services/order.service'
+import { notificationService } from '@/services/notification.service'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { Pagination } from '@/components/ui/Pagination'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Dialog } from '@/components/ui/Dialog'
+import { Input } from '@/components/ui/Input'
+import { TextArea } from '@/components/ui/TextArea'
 import { Skeleton } from '@/components/ui/Skeleton'
 import type { CustomerInfo, Order } from '@/types/api'
-import { Search } from 'lucide-react'
+import { Search, Send } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 
 const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error' | 'secondary' | 'brand'> = {
   PENDING: 'warning', CONFIRMED: 'secondary', SHIPPED: 'secondary', DELIVERED: 'success', CANCELLED: 'error', RETURNED: 'brand',
@@ -111,10 +115,97 @@ function CustomerOrdersDialog({
   )
 }
 
+/**
+ * Compose dialog for seller-sent notifications. Targets either one
+ * buyer (customerId set) or every registered buyer (broadcast). The
+ * message is delivered in-app to the buyer's Notifications section and
+ * mirrored to their registered email address.
+ */
+function SendNotificationDialog({
+  target,
+  onClose,
+}: {
+  /** The customer to notify, or 'ALL' to broadcast to every buyer. */
+  target: CustomerInfo | 'ALL' | null
+  onClose: () => void
+}) {
+  const [title, setTitle] = useState('')
+  const [message, setMessage] = useState('')
+  const queryClient = useQueryClient()
+
+  const send = useMutation({
+    mutationFn: () =>
+      notificationService.sendAsSeller({
+        title: title.trim(),
+        message: message.trim(),
+        ...(target && target !== 'ALL'
+          ? { buyerId: target.customerId }
+          : { audience: 'ALL_BUYERS' as const }),
+      }),
+    onSuccess: (res) => {
+      const count = res.data?.deliveredTo ?? 0
+      toast.success(`Notification sent to ${count} ${count === 1 ? 'buyer' : 'buyers'}`)
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      setTitle('')
+      setMessage('')
+      onClose()
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to send notification'),
+  })
+
+  const targetLabel =
+    target === 'ALL'
+      ? 'All registered buyers'
+      : target
+        ? `${target.name} (${target.email})`
+        : null
+
+  return (
+    <Dialog
+      open={!!target}
+      onClose={onClose}
+      title={target === 'ALL' ? 'Broadcast to all buyers' : 'Notify buyer'}
+      className="max-w-lg"
+    >
+      {targetLabel && (
+        <p className="text-xs text-[var(--muted)] mb-4 -mt-1">To: {targetLabel}</p>
+      )}
+      <div className="space-y-4">
+        <Input
+          label="Title"
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          placeholder="Notification title"
+        />
+        <TextArea
+          label="Message"
+          value={message}
+          onChange={e => setMessage(e.target.value)}
+          placeholder="Write a short message for the buyer..."
+          rows={4}
+        />
+        <p className="text-xs text-[var(--muted)]">
+          Buyers see this in their Notifications section and receive a copy by email, even when offline.
+        </p>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            onClick={() => send.mutate()}
+            disabled={send.isPending || title.trim().length < 3 || message.trim().length < 5}
+          >
+            <Send size={14} className="mr-1" />{send.isPending ? 'Sending...' : 'Send'}
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  )
+}
+
 export function SellerCustomersPage() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<CustomerInfo | null>(null)
+  const [notifyTarget, setNotifyTarget] = useState<CustomerInfo | 'ALL' | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['customers', page, search],
@@ -123,10 +214,15 @@ export function SellerCustomersPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Customers</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Customers</h1>
+        <Button variant="outline" size="sm" onClick={() => setNotifyTarget('ALL')}>
+          <Send size={14} className="mr-1" /> Broadcast notification
+        </Button>
+      </div>
       <div className="relative mb-4">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted)]" />
-        <input type="text" placeholder="Search by name or email..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
+        <input type="text" placeholder="Search by name or email..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
           className="w-full pl-9 pr-4 py-2 border rounded-md text-sm" />
       </div>
       <div className="border rounded-lg overflow-hidden">
@@ -155,9 +251,14 @@ export function SellerCustomersPage() {
                     <td className="p-3">{c.orderCount}</td>
                     <td className="p-3 font-medium">{formatPrice(c.totalSpent)}</td>
                     <td className="p-3">
-                      <Button size="sm" variant="outline" onClick={() => setSelected(c)}>
-                        View
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" variant="outline" onClick={() => setSelected(c)}>
+                          View
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setNotifyTarget(c)}>
+                          <Send size={13} className="mr-1" /> Notify
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -172,6 +273,10 @@ export function SellerCustomersPage() {
         customer={selected}
         open={!!selected}
         onClose={() => setSelected(null)}
+      />
+      <SendNotificationDialog
+        target={notifyTarget}
+        onClose={() => setNotifyTarget(null)}
       />
     </div>
   )

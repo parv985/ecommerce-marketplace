@@ -17,7 +17,6 @@ import {
   createApprovedSeller,
   createProduct,
   disconnect,
-  login,
   registerUser,
 } from "./helpers.js";
 
@@ -225,28 +224,18 @@ describe("Notifications", () => {
   });
 
   it("notifies the seller when approved", async () => {
-    // Register a seller (PENDING), then approve via admin.
-    const email = `nseller${Date.now()}@test.com`;
-    const { registerSeller } = await import(
-      "./helpers.js"
-    );
-    await registerSeller(email);
-    const { token } = await login(email);
-
-    const admin = await adminLogin();
-    const sellers = await api
-      .get("/api/v1/admin/sellers?status=PENDING")
-      .set("Authorization", `Bearer ${admin}`);
-    const profileId = sellers.body.data.items[0].id;
-
-    await api
-      .patch(`/api/v1/admin/sellers/${profileId}/status`)
-      .set("Authorization", `Bearer ${admin}`)
-      .send({ status: "APPROVED" });
+    /*
+     * createApprovedSeller registers (PENDING), approves via the
+     * admin API and mints the seller's token - sellers must complete
+     * 2FA setup on first login, so a plain login() cannot be used
+     * here. The approval itself is what must produce the
+     * SELLER_APPROVED notification.
+     */
+    const seller = await createApprovedSeller();
 
     const notifs = await api
       .get("/api/v1/notifications")
-      .set("Authorization", `Bearer ${token}`);
+      .set("Authorization", `Bearer ${seller.token}`);
     expect(notifs.body.data.total).toBe(1);
     expect(notifs.body.data.items[0].type).toBe(
       "SELLER_APPROVED",

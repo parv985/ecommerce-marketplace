@@ -1,4 +1,5 @@
 import type { NotificationType } from "../../constants/notificationTypes.js";
+import type { NotificationEmailStatus } from "../../models/Notification.js";
 
 export interface NotificationResponse {
   id: string;
@@ -8,6 +9,7 @@ export interface NotificationResponse {
   entityType: string | null;
   entityId: string | null;
   isRead: boolean;
+  emailStatus: NotificationEmailStatus;
   createdAt: Date;
 }
 

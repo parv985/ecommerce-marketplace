@@ -1,5 +1,6 @@
 import {
   Notification,
+  NotificationEmailStatus,
   type INotification,
 } from "../../models/Notification.js";
 import {
@@ -11,6 +12,54 @@ export const createNotification = async (
   data: Record<string, unknown>,
 ): Promise<INotification> => {
   return Notification.create(data);
+};
+
+/*
+ * Duplicate-safe insert used by the event pipeline: when the payload
+ * carries a dedupeKey, a racing insert of the same key loses on the
+ * unique index (E11000) and is reported as `null` so the caller can
+ * skip the email - the first insert already owns that event.
+ */
+export const createNotificationIfNew = async (
+  data: Record<string, unknown>,
+): Promise<INotification | null> => {
+  try {
+    return await Notification.create(data);
+  } catch (error) {
+    const isDuplicateKey =
+      typeof error === "object" &&
+      error !== null &&
+      (error as { code?: number }).code === 11000;
+
+    if (isDuplicateKey) {
+      return null;
+    }
+
+    throw error;
+  }
+};
+
+export const findNotificationByDedupeKey = async (
+  dedupeKey: string,
+): Promise<INotification | null> => {
+  return Notification.findOne({ dedupeKey }).exec();
+};
+
+export const markEmailStatus = async (
+  id: string,
+  status: NotificationEmailStatus,
+): Promise<void> => {
+  await Notification.updateOne(
+    { _id: id },
+    {
+      $set: {
+        emailStatus: status,
+        ...(status === NotificationEmailStatus.SENT
+          ? { emailSentAt: new Date() }
+          : {}),
+      },
+    },
+  ).exec();
 };
 
 export const listNotificationsForUser = async (

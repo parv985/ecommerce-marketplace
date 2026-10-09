@@ -79,6 +79,25 @@ BROADCAST=$(curl -s -X POST "$BASE/admin/notifications" -H "Authorization: Beare
 check "broadcast delivered >= 1" "True" "$(echo "$BROADCAST" | python -c "import sys,json;print(int(json.load(sys.stdin)['data']['deliveredTo']) >= 1)")"
 check "seller received admin message" "ADMIN_MESSAGE" "$(curl -s "$BASE/notifications" -H "Authorization: Bearer $SELLER_TOKEN" | json 'd["data"]["items"][0]["type"]')"
 
+# --- seller custom notifications (in-app + email mirror) ---
+BUYER_ID=$(curl -s "$BASE/users/me" -H "Authorization: Bearer $BUYER_TOKEN" | json 'd["data"]["id"]')
+curl -s -X PATCH "$BASE/notifications/read-all" -H "Authorization: Bearer $BUYER_TOKEN" > /dev/null
+
+SEND1=$(curl -s -X POST "$BASE/sellers/notifications" -H "Authorization: Bearer $SELLER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"title\":\"Back in stock\",\"message\":\"The widget you asked about is back in stock.\",\"buyerId\":\"$BUYER_ID\"}")
+check "seller message success" "True" "$(echo "$SEND1" | python -c "import sys,json;print(json.load(sys.stdin)['success'])")"
+check "seller message delivered to 1" "1" "$(echo "$SEND1" | json 'd["data"]["deliveredTo"]')"
+check "buyer sees SELLER_MESSAGE" "SELLER_MESSAGE" "$(curl -s "$BASE/notifications" -H "Authorization: Bearer $BUYER_TOKEN" | json 'd["data"]["items"][0]["type"]')"
+
+SENDB=$(curl -s -X POST "$BASE/sellers/notifications" -H "Authorization: Bearer $SELLER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Festive sale","message":"Everything in our store is 20% off this week.","audience":"ALL_BUYERS"}')
+check "seller broadcast delivered >= 1" "True" "$(echo "$SENDB" | python -c "import sys,json;print(int(json.load(sys.stdin)['data']['deliveredTo']) >= 1)")"
+check "seller send needs a target" "400" "$(status -X POST "$BASE/sellers/notifications" -H "Authorization: Bearer $SELLER_TOKEN" -H "Content-Type: application/json" -d '{"title":"Valid title","message":"Valid message body."}')"
+check "buyer cannot send seller messages" "403" "$(status -X POST "$BASE/sellers/notifications" -H "Authorization: Bearer $BUYER_TOKEN" -H "Content-Type: application/json" -d "{\"title\":\"Spoof\",\"message\":\"Fake seller message here.\",\"buyerId\":\"$BUYER_ID\"}")"
+check "unknown buyer target 404" "404" "$(status -X POST "$BASE/sellers/notifications" -H "Authorization: Bearer $SELLER_TOKEN" -H "Content-Type: application/json" -d '{"title":"Hello there","message":"This buyer does not exist.","buyerId":"0123456789abcdef01234567"}')"
+
 # authorization
 check "seller cannot broadcast 403" "403" "$(status -X POST "$BASE/admin/notifications" -H "Authorization: Bearer $SELLER_TOKEN" -H "Content-Type: application/json" -d '{"title":"Fake","message":"Trying to impersonate admin","audience":"SELLERS"}')"
 check "unauthenticated notifications 401" "401" "$(status "$BASE/notifications")"
