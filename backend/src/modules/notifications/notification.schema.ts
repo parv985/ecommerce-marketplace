@@ -8,7 +8,6 @@ const objectId = z
     /^[0-9a-fA-F]{24}$/,
     "Invalid ObjectId",
   );
-
 export const listNotificationsQuerySchema = z
   .object({
     unread: z
@@ -90,9 +89,56 @@ export const adminBroadcastSchema = z
     }
   });
 
+/*
+ * Seller-sent custom notification: either one specific buyer
+ * (buyerId) or every registered buyer (audience: "ALL_BUYERS") -
+ * exactly one of the two, mirroring the admin broadcast contract.
+ */
+export const sellerNotificationSchema = z
+  .object({
+    title: z
+      .string()
+      .trim()
+      .min(3, "Title must be at least 3 characters")
+      .max(200, "Title cannot exceed 200 characters"),
+    message: z
+      .string()
+      .trim()
+      .min(5, "Message must be at least 5 characters")
+      .max(2000, "Message cannot exceed 2000 characters"),
+    channel: z
+      .nativeEnum(NotificationChannel)
+      .optional()
+      .default(NotificationChannel.BOTH),
+    buyerId: objectId.optional(),
+    audience: z.enum(["ALL_BUYERS"]).optional(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.buyerId && value.audience) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["buyerId"],
+        message:
+          "Provide either buyerId or audience, not both",
+      });
+    }
+
+    if (!value.buyerId && !value.audience) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["audience"],
+        message:
+          "Either buyerId or audience is required",
+      });
+    }
+  });
+
 export type ListNotificationsQuery =
   z.infer<typeof listNotificationsQuerySchema>;
 export type UpdatePreferencesInput =
   z.infer<typeof updatePreferencesSchema>;
 export type AdminBroadcastInput =
   z.infer<typeof adminBroadcastSchema>;
+export type SellerNotificationInput =
+  z.infer<typeof sellerNotificationSchema>;

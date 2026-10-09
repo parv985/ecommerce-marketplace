@@ -545,6 +545,12 @@ export interface Notification {
   message: string
   type: string
   isRead: boolean
+  /**
+   * Delivery status of the email copy of this notification. Buyer in-app
+   * notifications are always mirrored to the registered email address;
+   * NOT_REQUIRED means no email was due (channel/preference rules).
+   */
+  emailStatus?: 'NOT_REQUIRED' | 'PENDING' | 'SENT' | 'FAILED'
   createdAt: string
 }
 
@@ -553,6 +559,17 @@ export interface NotificationPreferences {
   emailPaymentUpdates: boolean
   emailPromotional: boolean
   inApp: boolean
+}
+
+/** Seller-sent custom notification (POST /sellers/notifications). */
+export interface SellerNotificationInput {
+  title: string
+  message: string
+  /** Deliver to one specific buyer (mutually exclusive with audience). */
+  buyerId?: string
+  /** Broadcast to every registered buyer (mutually exclusive with buyerId). */
+  audience?: 'ALL_BUYERS'
+  channel?: 'IN_APP' | 'EMAIL' | 'BOTH'
 }
 
 // Analytics

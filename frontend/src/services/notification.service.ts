@@ -1,5 +1,5 @@
 import api from './api'
-import type { ApiResponse, PaginatedResponse, Notification, NotificationPreferences } from '@/types/api'
+import type { ApiResponse, PaginatedResponse, Notification, NotificationPreferences, SellerNotificationInput } from '@/types/api'
 
 export const notificationService = {
   list: (params?: { unread?: string; page?: number; limit?: number }) =>
@@ -19,4 +19,12 @@ export const notificationService = {
 
   updatePreferences: (data: Partial<NotificationPreferences>) =>
     api.patch<ApiResponse<NotificationPreferences>>('/notifications/preferences', data).then(r => r.data),
+
+  /**
+   * Seller-sent custom notification: to one specific buyer (buyerId) or
+   * broadcast to all registered buyers (audience: 'ALL_BUYERS').
+   * Delivered in-app and mirrored to the buyer's registered email.
+   */
+  sendAsSeller: (data: SellerNotificationInput) =>
+    api.post<ApiResponse<{ deliveredTo: number }>>('/sellers/notifications', data).then(r => r.data),
 }

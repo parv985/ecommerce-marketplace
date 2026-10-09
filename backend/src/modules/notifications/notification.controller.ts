@@ -8,10 +8,14 @@ import {
   listNotifications,
   markAllRead,
   markRead,
+  sendSellerNotification,
   updatePreferencesForUser,
 } from "./notification.service.js";
 import { AppError } from "../../errors/AppError.js";
-import { adminBroadcastSchema } from "./notification.schema.js";
+import {
+  adminBroadcastSchema,
+  sellerNotificationSchema,
+} from "./notification.schema.js";
 
 export const listNotificationsController = async (
   req: Request,
@@ -133,6 +137,43 @@ export const broadcastAdminMessageController = async (
   sendSuccess(
     res,
     "Notification broadcast sent",
+    data,
+    201,
+  );
+};
+
+/*
+ * Seller-sent custom notification to one buyer or all buyers. The
+ * route is guarded by the SELLER role middleware; the payload is
+ * validated with the seller notification schema and delivery is
+ * delegated to the shared notification service (in-app + email
+ * mirror), which also writes the audit log entry.
+ */
+export const sendSellerNotificationController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  if (!req.user) {
+    throw new AppError(
+      "Authentication required",
+      401,
+      "AUTHENTICATION_REQUIRED",
+    );
+  }
+
+  const parsed = sellerNotificationSchema.parse(req.body);
+
+  const data = await sendSellerNotification(req.user, {
+    title: parsed.title,
+    message: parsed.message,
+    channel: parsed.channel,
+    buyerId: parsed.buyerId,
+    audience: parsed.audience,
+  });
+
+  sendSuccess(
+    res,
+    "Notification sent successfully",
     data,
     201,
   );

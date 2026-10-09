@@ -1,19 +1,23 @@
 import { Router } from "express";
 
 import { validate } from "../../middlewares/validation.middleware.js";
+import { authorize } from "../../middlewares/role.middleware.js";
 import { authenticate } from "../auth/auth.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
+import { UserRole } from "../../constants/roles.js";
 import {
   getPreferencesController,
   listNotificationsController,
   markAllReadController,
   markReadController,
+  sendSellerNotificationController,
   unreadCountController,
   updatePreferencesController,
 } from "./notification.controller.js";
 import {
   listNotificationsQuerySchema,
   notificationIdParamsSchema,
+  sellerNotificationSchema,
   updatePreferencesSchema,
 } from "./notification.schema.js";
 
@@ -259,6 +263,76 @@ router.patch(
   "/:id/read",
   validate(notificationIdParamsSchema, "params"),
   asyncHandler(markReadController),
+);
+
+/*
+ * ---------------------------------------------------------------------
+ * Seller-sent custom notifications
+ * ---------------------------------------------------------------------
+ *
+ * Mounted under /api/v1/sellers (see routes/index.ts) so the URL
+ * mirrors the admin broadcast endpoint: POST /api/v1/admin/notifications
+ * for super admins, POST /api/v1/sellers/notifications for sellers.
+ * Guarded by authentication + the SELLER role; buyers and admins get
+ * a 403.
+ */
+export const sellerNotificationRouter = Router();
+
+sellerNotificationRouter.use(
+  authenticate,
+  authorize(UserRole.SELLER),
+);
+
+/**
+ * @openapi
+ * /api/v1/sellers/notifications:
+ *   post:
+ *     tags:
+ *       - Notifications
+ *     summary: Send a custom notification to buyers (seller)
+ *     description: |
+ *       Lets an authenticated seller send a custom notification either to one specific buyer (`buyerId`) or broadcast it to every registered buyer (`audience: "ALL_BUYERS"`). Exactly one of the two targets must be provided.
+ *
+ *       Each message is delivered like any other notification: persisted in the buyer's in-app Notifications section (with read/unread tracking) and mirrored to their registered email address (real inbox or YOPmail), so buyers receive it even when offline. Email failures never drop the in-app notification. Every send is written to the audit log.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: "#/components/schemas/SellerNotificationInput"
+ *     responses:
+ *       201:
+ *         description: Notification sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     deliveredTo:
+ *                       type: integer
+ *                       description: Number of buyers the notification was delivered to
+ *       400:
+ *         description: Validation error (buyerId XOR audience required; title 3-200 chars; message 5-2000 chars)
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Requires SELLER role
+ *       404:
+ *         description: Buyer not found (unknown, non-buyer, or deactivated account)
+ */
+sellerNotificationRouter.post(
+  "/notifications",
+  validate(sellerNotificationSchema),
+  asyncHandler(sendSellerNotificationController),
 );
 
 export default router;

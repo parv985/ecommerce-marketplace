@@ -7,6 +7,17 @@ type Transporter = nodemailer.Transporter;
 let transporterPromise: Transporter | undefined;
 
 /*
+ * Email delivery supports any real inbox (Gmail, Outlook, corporate
+ * mail, ...) and disposable test inboxes such as YOPmail
+ * (e.g. buyer123@yopmail.com - readable at https://yopmail.com):
+ * recipient addresses are never restricted by domain. To exercise
+ * real delivery against YOPmail, configure a real SMTP relay via the
+ * SMTP_* environment variables (development otherwise falls back to
+ * Ethereal, whose messages are only previewable via the logged URL
+ * and are never actually delivered to an external inbox).
+ */
+
+/*
  * SMTP configuration: uses real SMTP when SMTP_HOST is set,
  * otherwise falls back to Ethereal test accounts for development.
  */
@@ -16,6 +27,14 @@ const isSmtpConfigured = (): boolean => {
     
   );
 };
+
+/*
+ * The integration test suite must never touch a real (or Ethereal)
+ * SMTP server: tests mock this module when they assert on email
+ * behavior. Unmocked calls are logged no-ops in the test environment.
+ */
+const isDeliveryDisabled = (): boolean =>
+  process.env.NODE_ENV === "test";
 
 const createRealTransporter = (): Transporter => {
   console.log("[EMAIL] Creating real SMTP transporter...");
@@ -86,6 +105,15 @@ export const sendPasswordResetEmail = async (
   email: string,
   resetUrl: string,
 ): Promise<void> => {
+  if (isDeliveryDisabled()) {
+    console.log(
+      "[EMAIL] Test environment - password reset email skipped:",
+      email,
+    );
+
+    return;
+  }
+
   try {
     const transporter = await getTransporter();
 
@@ -152,16 +180,32 @@ const sendWithRetry = async (
 
 /*
  * Generic transactional / notification email. Used by the
- * notification service for order, payment and administrative
+ * notification service for order, payment, seller and administrative
  * notifications. Ethereal test accounts in development; the preview
- * URL is logged so emails can be inspected locally. Retried twice
- * with backoff on transient failures.
+ * URL is logged so emails can be inspected locally. Real SMTP (and
+ * therefore delivery to any real inbox or YOPmail) when SMTP_HOST is
+ * configured. Retried twice with backoff on transient failures.
+ *
+ * Callers persist the in-app notification BEFORE calling this and
+ * treat delivery as fire-and-forget - a failed email must never break
+ * the business flow that triggered it.
  */
 export const sendNotificationEmail = async (
   email: string,
   subject: string,
   text: string,
 ): Promise<void> => {
+  if (isDeliveryDisabled()) {
+    console.log(
+      "[EMAIL] Test environment - notification email skipped:",
+      subject,
+      "->",
+      email,
+    );
+
+    return;
+  }
+
   await sendWithRetry(async () => {
     const transporter = await getTransporter();
 

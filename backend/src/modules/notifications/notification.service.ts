@@ -16,13 +16,18 @@ import {
 import { sendNotificationEmail } from "../../services/email.service.js";
 import { logAudit } from "../../services/audit.service.js";
 import {
+  NotificationEmailStatus,
+} from "../../models/Notification.js";
+import {
   countUnreadForUser,
   createDefaultPreference,
-  createNotification,
+  createNotificationIfNew,
+  findNotificationByDedupeKey,
   findNotificationByIdAndUser,
   findPreferenceByUserId,
   listNotificationsForUser,
   markAllNotificationsRead,
+  markEmailStatus,
   markNotificationRead,
   updatePreferenceByUserId,
 } from "./notification.repository.js";
@@ -41,10 +46,19 @@ import type {
  * Notification delivery rules (documented in Swagger):
  * - In-app notifications are created unless the recipient disabled
  *   the in-app channel.
- * - Emails are only sent when the recipient's preferences enable the
- *   relevant category (order / payment / promotional), never in the
- *   test environment, and are fire-and-forget: a failed email must
- *   never break the business flow that triggered it.
+ * - Every in-app notification created for a BUYER is also emailed to
+ *   their registered address (real inbox or YOPmail - any deliverable
+ *   mailbox), so buyers always receive the same content they see in
+ *   the app even when they are offline. For non-buyers the explicit
+ *   channel decides (EMAIL / BOTH send email; IN_APP does not).
+ * - Emails are sent when the recipient's preferences enable the
+ *   relevant category (order / payment / promotional - all enabled by
+ *   default), and are fire-and-forget: a failed email must never break
+ *   the business flow that triggered it, and never removes the in-app
+ *   notification.
+ * - Event-driven notifications carry a dedupeKey; re-fired events are
+ *   ignored entirely, so no duplicate notification and no duplicate
+ *   email can be produced.
  */
 
 type EmailCategory =
@@ -61,6 +75,13 @@ export interface NotifyInput {
   entityId?: string | null;
   channel?: NotificationChannel;
   emailCategory?: EmailCategory;
+  /*
+   * Idempotency key ("order:<id>:status:SHIPPED", ...). Optional: pass
+   * one for event-driven notifications so re-delivery of the same
+   * event is a no-op; leave it off for intentional user-to-user
+   * messages (seller/admin sends), where repeats are legitimate.
+   */
+  dedupeKey?: string;
 }
 
 const toNotificationResponse = (
@@ -72,6 +93,7 @@ const toNotificationResponse = (
     entityType?: string | null;
     entityId?: { toString(): string } | null;
     isRead: boolean;
+    emailStatus?: NotificationEmailStatus;
     createdAt: Date;
   },
 ): NotificationResponse => {
@@ -85,6 +107,9 @@ const toNotificationResponse = (
       ? notification.entityId.toString()
       : null,
     isRead: notification.isRead,
+    emailStatus:
+      notification.emailStatus ??
+      NotificationEmailStatus.NOT_REQUIRED,
     createdAt: notification.createdAt,
   };
 };
@@ -107,10 +132,6 @@ const shouldSendEmail = (
   category: EmailCategory | undefined,
   preferences: Awaited<ReturnType<typeof getPreferences>>,
 ): boolean => {
-  if (process.env.NODE_ENV === "test") {
-    return false;
-  }
-
   switch (category) {
     case "order":
       return preferences.emailOrderUpdates;
@@ -124,20 +145,128 @@ const shouldSendEmail = (
 };
 
 /*
+ * Email delivery for one persisted notification. Fire-and-forget so a
+ * slow or dead SMTP relay can never block or fail the business flow
+ * that produced the notification: the in-app record is already stored
+ * before this runs. The outcome (SENT / FAILED) is recorded on the
+ * notification for observability; transient failures are retried
+ * inside sendNotificationEmail.
+ */
+const deliverEmailCopy = (
+  notificationId: string | null,
+  email: string,
+  title: string,
+  message: string,
+): void => {
+  void (async () => {
+    try {
+      await sendNotificationEmail(
+        email,
+        title,
+        `${message}\n\n- E-Commerce Marketplace`,
+      );
+
+      if (notificationId) {
+        await markEmailStatus(
+          notificationId,
+          NotificationEmailStatus.SENT,
+        );
+      }
+    } catch (error) {
+      console.error(
+        "[NOTIFICATION] Email delivery failed:",
+        error,
+      );
+
+      if (notificationId) {
+        try {
+          await markEmailStatus(
+            notificationId,
+            NotificationEmailStatus.FAILED,
+          );
+        } catch (statusError) {
+          console.error(
+            "[NOTIFICATION] Could not record email failure:",
+            statusError,
+          );
+        }
+      }
+    }
+  })();
+};
+
+/*
  * Core delivery primitive used by every event helper below.
+ *
+ * Guarantees:
+ * - The in-app notification is persisted before any email attempt, so
+ *   email failures never lose it.
+ * - A buyer's in-app notification is always mirrored to their
+ *   registered email address (subject to their category opt-out).
+ * - When a dedupeKey already exists, the whole delivery is skipped:
+ *   no duplicate notification and no duplicate email.
  */
 export const notifyUser = async (
   input: NotifyInput,
 ): Promise<void> => {
+  /* Duplicate-email / duplicate-notification prevention. */
+  if (input.dedupeKey) {
+    const existing = await findNotificationByDedupeKey(
+      input.dedupeKey,
+    );
+
+    if (existing) {
+      return;
+    }
+  }
+
   const channel = input.channel ?? NotificationChannel.IN_APP;
+
+  const user = await User.findById(input.recipientId)
+    .select("email role")
+    .exec();
+
+  if (!user) {
+    console.error(
+      "[NOTIFICATION] Recipient not found:",
+      input.recipientId,
+    );
+
+    return;
+  }
+
   const preferences = await getPreferences(input.recipientId);
 
-  if (
+  const wantsInApp =
     (channel === NotificationChannel.IN_APP ||
       channel === NotificationChannel.BOTH) &&
-    preferences.inApp
-  ) {
-    await createNotification({
+    preferences.inApp;
+
+  const categoryAllowed = shouldSendEmail(
+    input.emailCategory,
+    preferences,
+  );
+
+  /*
+   * Email rules:
+   * - Explicit EMAIL / BOTH channels email (as requested by the
+   *   caller), subject to the recipient's category preference.
+   * - An IN_APP delivery for a BUYER is mirrored to email as well -
+   *   every notification shown in a buyer's in-app list must also
+   *   reach their registered inbox, even when they are offline.
+   */
+  const wantsEmail = categoryAllowed
+    ? channel === NotificationChannel.EMAIL ||
+      channel === NotificationChannel.BOTH ||
+      (wantsInApp && user.role === UserRole.BUYER)
+    : false;
+
+  if (!wantsInApp && !wantsEmail) {
+    return;
+  }
+
+  if (wantsInApp) {
+    const notification = await createNotificationIfNew({
       recipientId: input.recipientId,
       type: input.type,
       title: input.title,
@@ -145,37 +274,47 @@ export const notifyUser = async (
       entityType: input.entityType ?? null,
       entityId: input.entityId ?? null,
       isRead: false,
+      ...(input.dedupeKey
+        ? { dedupeKey: input.dedupeKey }
+        : {}),
+      emailStatus: wantsEmail
+        ? NotificationEmailStatus.PENDING
+        : NotificationEmailStatus.NOT_REQUIRED,
     });
+
+    /*
+     * Lost the unique-index race against a concurrent copy of the
+     * same event: the winner owns the notification AND the email.
+     */
+    if (!notification) {
+      return;
+    }
+
+    if (wantsEmail) {
+      deliverEmailCopy(
+        notification._id.toString(),
+        user.email,
+        input.title,
+        input.message,
+      );
+    }
+
+    return;
   }
 
-  if (
-    channel === NotificationChannel.EMAIL ||
-    channel === NotificationChannel.BOTH
-  ) {
-    if (!shouldSendEmail(input.emailCategory, preferences)) {
-      return;
-    }
-
-    const user = await User.findById(
-      input.recipientId,
-    )
-      .select("email")
-      .exec();
-
-    if (!user) {
-      return;
-    }
-
-    sendNotificationEmail(
+  /*
+   * Email-only delivery (channel EMAIL, or in-app disabled by the
+   * recipient): no in-app record is created, so the email is sent
+   * directly. Dedupe of email-only sends is intentionally left to the
+   * caller - these are explicit, user-initiated sends.
+   */
+  if (wantsEmail) {
+    deliverEmailCopy(
+      null,
       user.email,
       input.title,
-      `${input.message}\n\n- E-Commerce Marketplace`,
-    ).catch((error) => {
-      console.error(
-        "[NOTIFICATION] Email delivery failed:",
-        error,
-      );
-    });
+      input.message,
+    );
   }
 };
 
@@ -229,6 +368,8 @@ export const notifyOrderStatusChange = async (
       entityType: "ORDER",
       entityId: order._id.toString(),
       channel: NotificationChannel.IN_APP,
+      emailCategory: "order",
+      dedupeKey: `order:${order._id.toString()}:status:${status}`,
     });
   } catch (error) {
     console.error(
@@ -254,6 +395,7 @@ export const notifyPaymentReceived = async (
       entityId: order._id.toString(),
       channel: NotificationChannel.IN_APP,
       emailCategory: "payment",
+      dedupeKey: `order:${order._id.toString()}:payment-received`,
     });
   } catch (error) {
     console.error(
@@ -279,6 +421,7 @@ export const notifyPaymentRefunded = async (
       entityId: order._id.toString(),
       channel: NotificationChannel.IN_APP,
       emailCategory: "payment",
+      dedupeKey: `order:${order._id.toString()}:payment-refunded`,
     });
   } catch (error) {
     console.error(
@@ -313,6 +456,7 @@ export const notifySellerDecision = async (
       entityId: seller._id.toString(),
       channel: NotificationChannel.IN_APP,
       emailCategory: "order",
+      dedupeKey: `seller:${seller._id.toString()}:decision:${status}`,
     });
   } catch (error) {
     console.error(
@@ -353,6 +497,8 @@ export const notifyReturnStatusChange = async (
       entityType: "RETURN",
       entityId: returnRequest._id.toString(),
       channel: NotificationChannel.IN_APP,
+      emailCategory: "order",
+      dedupeKey: `return:${returnRequest._id.toString()}:status:${status}`,
     });
   } catch (error) {
     console.error(
@@ -412,6 +558,7 @@ export const notifyReturnApprovedWithRefund = async (
       entityId: returnRequest._id.toString(),
       channel: NotificationChannel.BOTH,
       emailCategory: "payment",
+      dedupeKey: `return:${returnRequest._id.toString()}:approved-refund`,
     });
   } catch (error) {
     console.error(
@@ -477,6 +624,7 @@ export const notifySellerReturnRefund = async (
       entityId: returnRequest._id.toString(),
       channel: NotificationChannel.IN_APP,
       emailCategory: "payment",
+      dedupeKey: `return:${returnRequest._id.toString()}:seller-refund`,
     });
   } catch (error) {
     console.error(
@@ -652,6 +800,96 @@ export const broadcastAdminMessage = async (
       channel: input.channel,
       recipientCount: recipients.length,
       audience: input.audience ?? null,
+    },
+  });
+
+  return { deliveredTo: recipients.length };
+};
+
+/*
+ * ---------------------------------------------------------------------
+ * Seller-sent custom notifications
+ * ---------------------------------------------------------------------
+ *
+ * An authenticated seller can message one specific buyer or broadcast
+ * to every registered buyer. Each message is delivered like any other
+ * notification: persisted in the buyer's in-app feed (read/unread
+ * tracked as usual) and mirrored to their registered email address,
+ * so it reaches buyers who are offline. The send is audit-logged.
+ */
+export const sendSellerNotification = async (
+  seller: { id: string; role: string },
+  input: {
+    title: string;
+    message: string;
+    channel: NotificationChannel;
+    buyerId?: string | undefined;
+    audience?: "ALL_BUYERS" | undefined;
+  },
+): Promise<{ deliveredTo: number }> => {
+  let recipients: Array<{ _id: { toString(): string } }>;
+
+  if (input.buyerId) {
+    /*
+     * Point-to-point: the target must be a registered, active BUYER.
+     * Sellers cannot message other sellers or admins, and unknown /
+     * deactivated accounts are rejected up front.
+     */
+    const buyer = await User.findOne({
+      _id: input.buyerId,
+      role: UserRole.BUYER,
+      isActive: true,
+    })
+      .select("_id")
+      .exec();
+
+    if (!buyer) {
+      throw new AppError(
+        "Buyer not found",
+        404,
+        "BUYER_NOT_FOUND",
+      );
+    }
+
+    recipients = [
+      buyer as unknown as { _id: { toString(): string } },
+    ];
+  } else {
+    recipients = (await User.find({
+      role: UserRole.BUYER,
+      isActive: true,
+    })
+      .select("_id")
+      .exec()) as unknown as Array<{
+      _id: { toString(): string };
+    }>;
+  }
+
+  for (const recipient of recipients) {
+    await notifyUser({
+      recipientId: recipient._id.toString(),
+      type: NotificationType.SELLER_MESSAGE,
+      title: input.title,
+      message: input.message,
+      entityType: "SELLER",
+      entityId: seller.id,
+      channel: input.channel,
+      emailCategory: "promotional",
+    });
+  }
+
+  await logAudit({
+    actorId: seller.id,
+    actorRole: seller.role,
+    action: input.buyerId
+      ? "SELLER_NOTIFICATION_SENT"
+      : "SELLER_NOTIFICATION_BROADCAST",
+    entityType: "NOTIFICATION",
+    metadata: {
+      title: input.title,
+      channel: input.channel,
+      recipientCount: recipients.length,
+      target: input.buyerId ?? "ALL_BUYERS",
     },
   });
 

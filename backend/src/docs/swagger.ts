@@ -1188,9 +1188,62 @@ const options: swaggerJSDoc.Options = {
             entityType: { type: "string", nullable: true },
             entityId: { type: "string", nullable: true },
             isRead: { type: "boolean" },
+            emailStatus: {
+              type: "string",
+              enum: [
+                "NOT_REQUIRED",
+                "PENDING",
+                "SENT",
+                "FAILED",
+              ],
+              description:
+                "Delivery status of the email copy of this notification. Buyer in-app notifications are always mirrored to the registered email address; NOT_REQUIRED means no email was due (channel/preference rules).",
+            },
             createdAt: {
               type: "string",
               format: "date-time",
+            },
+          },
+        },
+
+        SellerNotificationInput: {
+          type: "object",
+          required: ["title", "message"],
+          description:
+            "Seller-sent custom notification. Target exactly one of buyerId (a specific buyer) or audience ALL_BUYERS (every registered buyer).",
+          properties: {
+            title: {
+              type: "string",
+              minLength: 3,
+              maxLength: 200,
+              example: "Order update from Trendy Store",
+            },
+            message: {
+              type: "string",
+              minLength: 5,
+              maxLength: 2000,
+              example:
+                "Hi! The item you asked about is back in stock.",
+            },
+            channel: {
+              type: "string",
+              enum: ["IN_APP", "EMAIL", "BOTH"],
+              default: "BOTH",
+              description:
+                "Delivery channel. Buyer in-app notifications are mirrored to email regardless of channel, so buyers always receive a copy in their registered inbox.",
+            },
+            buyerId: {
+              type: "string",
+              nullable: true,
+              description:
+                "ObjectId of one buyer to notify (mutually exclusive with audience).",
+            },
+            audience: {
+              type: "string",
+              enum: ["ALL_BUYERS"],
+              nullable: true,
+              description:
+                "Broadcast to all registered buyers (mutually exclusive with buyerId).",
             },
           },
         },

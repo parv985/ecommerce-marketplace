@@ -14,7 +14,9 @@ import couponRoutes from "../modules/coupons/coupon.routes.js";
 import returnRoutes from "../modules/returns/return.routes.js";
 import analyticsRoutes from "../modules/analytics/analytics.routes.js";
 import settlementRoutes from "../modules/settlements/settlement.routes.js";
-import notificationRoutes from "../modules/notifications/notification.routes.js";
+import notificationRoutes, {
+  sellerNotificationRouter,
+} from "../modules/notifications/notification.routes.js";
 import paymentRoutes from "../modules/payments/payment.routes.js";
 import adminRoutes from "../modules/admin/admin.routes.js";
 import wishlistRoutes from "../modules/wishlist/wishlist.routes.js";
@@ -123,6 +125,16 @@ router.use(
 router.use(
   "/sellers",
   settlementRoutes,
+);
+
+/*
+ * Seller-sent custom notifications (POST /sellers/notifications) -
+ * same prefix as the seller dashboard APIs, same pattern as the
+ * admin broadcast under /admin/notifications.
+ */
+router.use(
+  "/sellers",
+  sellerNotificationRouter,
 );
 
 router.use(
