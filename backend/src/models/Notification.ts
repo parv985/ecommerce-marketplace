@@ -6,17 +6,32 @@ import { NotificationType } from "../constants/notificationTypes.js";
  * Delivery status of the email copy of this notification. In-app
  * notifications are always persisted first; the email is a mirror of
  * the same record, so its delivery state lives here:
- * - NOT_REQUIRED: no email was due (channel/preference/recipient rules).
- * - PENDING:      email dispatch started (or about to start).
- * - SENT:         handed to the SMTP transport successfully.
- * - FAILED:       every attempt failed - the in-app record survives.
+ * - NOT_REQUIRED:    no email was due (channel/preference/recipient rules).
+ * - PENDING:         email dispatch started (or about to start). Doubles as
+ *                    the "in flight" claim a retry takes before resending.
+ * - SENT:            handed to the SMTP transport successfully.
+ * - FAILED:          every attempt failed - the in-app record survives and
+ *                    the notification stays eligible for an email retry.
+ * - INVALID_ADDRESS: the recipient has no deliverable address on file, so no
+ *                    attempt was made. Terminal: retrying cannot fix a
+ *                    missing/invalid address, it only wastes transport quota.
  */
 export enum NotificationEmailStatus {
   NOT_REQUIRED = "NOT_REQUIRED",
   PENDING = "PENDING",
   SENT = "SENT",
   FAILED = "FAILED",
+  INVALID_ADDRESS = "INVALID_ADDRESS",
 }
+
+/*
+ * How many email dispatch rounds one notification may go through before
+ * the retry endpoint stops offering it. Each round already contains the
+ * transport-level retries of sendNotificationEmail, so ten rounds is far
+ * more than a healthy relay needs while still bounding a misconfigured
+ * SMTP setup from retrying the same record forever.
+ */
+export const MAX_EMAIL_DISPATCH_ROUNDS = 10;
 
 export interface INotification {
   _id: Types.ObjectId;
@@ -36,6 +51,15 @@ export interface INotification {
   dedupeKey?: string;
   emailStatus: NotificationEmailStatus;
   emailSentAt?: Date | null;
+  /*
+   * Email observability, written by the delivery worker only. `emailAttempts`
+   * counts dispatch rounds (a round = one sendNotificationEmail call with its
+   * internal retries) and doubles as the retry budget guard; `emailError`
+   * keeps the last failure reason (truncated, never the SMTP credentials) so
+   * an operator can tell a relay outage from a bad address.
+   */
+  emailAttempts: number;
+  emailError?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -101,6 +125,24 @@ const notificationSchema = new Schema<INotification>(
       type: Date,
       default: null,
     },
+
+    emailAttempts: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    /*
+     * Last email failure reason (truncated). Deliberately free-form and
+     * never surfaced through the public notification payload: it is an
+     * operator-facing log, not user content.
+     */
+    emailError: {
+      type: String,
+      default: null,
+      trim: true,
+      maxlength: 500,
+    },
   },
   {
     timestamps: true,
@@ -112,6 +154,20 @@ notificationSchema.index({
   isRead: 1,
   createdAt: -1,
 });
+
+/*
+ * Scan used by the email retry path (failed deliveries, oldest first).
+ * Partial so the vast majority of documents (SENT / NOT_REQUIRED) never
+ * enter the index.
+ */
+notificationSchema.index(
+  { emailStatus: 1, createdAt: 1 },
+  {
+    partialFilterExpression: {
+      emailStatus: NotificationEmailStatus.FAILED,
+    },
+  },
+);
 
 /*
  * Duplicate-email prevention: a dedupeKey identifies one business

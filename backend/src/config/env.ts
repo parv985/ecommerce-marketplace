@@ -143,9 +143,16 @@ const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().min(1, "CLOUDINARY_API_KEY is required"),
   CLOUDINARY_API_SECRET: z.string().min(1, "CLOUDINARY_API_SECRET is required"),
 
-  /* SMTP Email Configuration */
+  /*
+   * SMTP Email Configuration. Every notification email goes through this
+   * relay, so it is the single place to switch between a real provider
+   * (Gmail: smtp.gmail.com:465 with SMTP_SECURE=true and an app password,
+   * or :587 with SMTP_SECURE=false) and a test inbox. Port 587 is the
+   * default because it is what Gmail, Outlook and most transactional
+   * providers accept with STARTTLS.
+   */
   SMTP_HOST: z.string().optional(),
-  SMTP_PORT: z.coerce.number().int().optional(),
+  SMTP_PORT: z.coerce.number().int().optional().default(587),
   SMTP_SECURE: z.string().optional().default("false"),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),

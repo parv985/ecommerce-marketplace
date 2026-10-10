@@ -1069,8 +1069,9 @@ Every significant action (login, register, order create/cancel/status, payment i
 | Addresses | `AccountPage`, `CheckoutPage` | `users` addresses | ✅ Complete |
 | Avatar upload/delete | `ProfileAvatar`, `AccountPage`, `AdminProfilePage` | `users` avatar + Cloudinary | ✅ Complete |
 | In-app notifications + preferences | `NotificationsPage` | `notifications` module | ✅ Complete |
-| Email notifications (buyer in-app mirror) | — | Nodemailer (Ethereal/SMTP, real inboxes + YOPmail) | ✅ Complete (Ethereal in dev) |
-| Seller custom notifications (one buyer / all buyers) | `SellerCustomersPage` (Notify / Broadcast) | `POST /sellers/notifications` | ✅ Complete |
+| Email notifications (buyer in-app mirror) | `NotificationsPage` (per-item delivery note) | Nodemailer (Ethereal/SMTP, real inboxes + YOPmail) | ✅ Complete (Ethereal in dev) |
+| Seller notifications (pick one / several / all buyers) | `SellerCustomersPage` → Broadcast notification (`BuyerMultiSelect`) | `POST /sellers/notifications` (`buyerIds`) | ✅ Complete |
+| Failed email retry pass | `AdminNotificationsPage` | `POST /admin/notifications/retry-emails` | ✅ Complete |
 | Admin broadcast | `AdminNotificationsPage` | `POST /admin/notifications` | ✅ Complete |
 | Inventory management | `SellerInventoryPage` | `inventory` module + transactions | ✅ Complete |
 | Seller analytics | `SellerAnalyticsPage`, `SellerDashboardPage` (Recharts) | `analytics` module (aggregations) | ✅ Complete |
@@ -1212,7 +1213,7 @@ When `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` are empty, the gateway abstraction 
 
 ### 16.1 In-app notifications
 
-- `Notification` documents per user, with `type` (order confirmed/shipped/delivered/cancelled, payment received/refunded, seller approved/rejected, return status, settlement, **seller message**, admin message, …), `entityType/Id` deep-link context, `isRead`, and delivery bookkeeping (`emailStatus` `NOT_REQUIRED/PENDING/SENT/FAILED`, `emailSentAt`).
+- `Notification` documents per user, with `type` (order confirmed/shipped/delivered/cancelled, payment received/refunded, seller approved/rejected, return status, settlement, **seller message**, admin message, …), `entityType/Id` deep-link context, `isRead`, and delivery bookkeeping (`emailStatus` `NOT_REQUIRED/PENDING/SENT/FAILED/INVALID_ADDRESS`, `emailSentAt`, `emailAttempts`, `emailError`).
 - API: list (unread filter), unread count, mark read / mark all read, **preferences** (per category: in-app on/off, email on/off).
 - Delivery rules (`notification.service.ts`):
   - In-app is created unless the recipient disabled the channel.
@@ -1221,14 +1222,18 @@ When `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` are empty, the gateway abstraction 
   - The in-app record is persisted **before** any email attempt and email delivery is fire-and-forget with bounded retries - a failed email never breaks the business flow and never removes the in-app notification (its `emailStatus` records `FAILED`).
   - Event-driven notifications carry a **`dedupeKey`** (`order:<id>:status:<status>`, `return:<id>:approved-refund`, …) backed by a unique partial index: re-fired events (double-clicked seller action, webhook replay, retry after a timeout) produce **no second notification and no second email**.
 - The notification call is **fire-and-forget** — a failed notification never fails the business operation that triggered it.
-- **Seller sends** (`POST /sellers/notifications`, SELLER role only): a custom notification to one specific buyer (`buyerId`) or a broadcast to every registered buyer (`audience: "ALL_BUYERS"`), delivered like any other notification (in-app + email mirror) and written to the audit log (`SELLER_NOTIFICATION_SENT` / `SELLER_NOTIFICATION_BROADCAST`). The seller panel's Customers page exposes both flows.
+- **Seller sends** (`POST /sellers/notifications`, SELLER role only): a custom notification whose target is exactly one of `buyerIds` (the buyers ticked in the Customers → Broadcast notification multi-select - one, several, or all of them, max 500), `buyerId` (legacy single buyer) or `audience: "ALL_BUYERS"` (every registered buyer). Every id is re-resolved against `role: BUYER, isActive: true`, so a seller can never reach another seller, an admin or a deactivated account; ids that do not resolve come back in `notFoundBuyerIds` instead of aborting the send (404 `BUYER_NOT_FOUND` only when *none* resolve). Delivered like any other notification (in-app + email mirror) and audit-logged (`SELLER_NOTIFICATION_SENT` for one recipient, `SELLER_NOTIFICATION_BROADCAST` otherwise). The response reports per-recipient reality (`deliveredTo`, `duplicates`, `emailsQueued`, `emailsInvalidAddress`, `suppressed`), so the UI never claims a clean send that was not one.
+- **Idempotent sends:** pass a client-generated `requestId` (one per compose-dialog submission) and each recipient's notification is keyed `seller-message:<sellerId>:<requestId>:<buyerId>`. Repeating the request then creates **no second notification and no second email** (the endpoint answers 200 with `duplicates` instead of 201) - but if a buyer's email copy had `FAILED`, that one email is replayed. This is what makes the frontend "Try again" button safe.
+- **Failed email repair** (`POST /admin/notifications/retry-emails`, SUPER_ADMIN, optional `{ limit }` ≤ 100): replays the email copy of notifications stuck at `emailStatus: FAILED`, oldest first. Each record is claimed atomically (`FAILED -> PENDING` via `findOneAndUpdate`), so overlapping runs cannot send the same email twice; `emailAttempts` counts rounds and retires a record after 10; a recipient with no deliverable address becomes `INVALID_ADDRESS`, which no future round picks up. It never writes a notification, so retrying an email can never duplicate the in-app copy or the unread badge. Audit-logged as `NOTIFICATION_EMAIL_RETRY`.
 - Admin **broadcast** (`POST /admin/notifications`) targets `SELLERS` / `USERS` audiences or explicit recipient ids and reports how many were delivered.
 
 ### 16.2 Email
 
 - Triggered by the same events as in-app (order, payment, promotional categories), via `sendNotificationEmail` (Nodemailer; Ethereal preview URL in dev, real SMTP in production; 2 retries with backoff). Recipient addresses are never restricted by domain - any real inbox and disposable test inboxes such as **YOPmail** (`buyer123@yopmail.com`, read at https://yopmail.com) work; real delivery to them requires the `SMTP_*` variables to point at a real relay.
 - Password-reset emails use the same transport. In the test environment the transport is a logged no-op (tests mock `email.service.js` to assert deliveries).
-- Each notification records the outcome of its email copy (`emailStatus` / `emailSentAt`) for observability.
+- Each notification records the outcome of its email copy (`emailStatus` / `emailSentAt` / `emailAttempts` / `emailError`) for observability; the last two are operator-facing and are not part of the public notification payload.
+- The recipient address is read from the user document only (`User.findById(recipientId).select("email")`) - callers can never steer an email elsewhere - and is validated by `isValidEmailAddress` before the transport is touched (structurally valid, single recipient, no header injection). A recipient without a deliverable address is recorded as `INVALID_ADDRESS` instead of a silent no-op, and a relay that accepts the message but refuses the recipient (`info.rejected`) is reported as a failure rather than `SENT`.
+- SMTP is configured entirely by backend env (`SMTP_HOST/PORT/USER/PASS/FROM`, port defaulting to 587; `smtp.gmail.com` + `SMTP_SECURE=true` + port 465 + an app password is the usual Gmail setup). The frontend never sees any of it: there is no `VITE_*` email variable and no API accepts an address to send to.
 
 ### 16.3 Background jobs — current state (important)
 
@@ -1382,13 +1387,13 @@ Both follow the same pattern (seller-scoped CRUD): `POST /` create · `GET /` li
 | PATCH | `/:id/status` | seller/admin | Approve/reject/complete (seller ownership verified) |
 | POST | `/:id/cancel` | buyer | Cancel while PENDING |
 
-### 18.12 Notifications — `/notifications` (6) + seller send under `/sellers` (1)
+### 18.12 Notifications — `/notifications` (6) + seller send under `/sellers` (1) + admin retry under `/admin` (1)
 
 `GET /` list · `GET /unread-count` · `PATCH /:id/read` · `PATCH /read-all` · `GET /preferences` · `PATCH /preferences` — all for the authenticated user. Every in-app notification created for a buyer is mirrored to their registered email address (see §16).
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| POST | `/sellers/notifications` | seller | Send a custom notification to one buyer (`buyerId`) or broadcast to all registered buyers (`audience: "ALL_BUYERS"`) — in-app + email, audit-logged |
+| POST | `/sellers/notifications` | seller | Send a custom notification to the selected buyers (`buyerIds`, 1-500 ids), one buyer (`buyerId`) or every registered buyer (`audience: "ALL_BUYERS"`) — in-app + email mirror, audit-logged; optional `requestId` makes the send idempotent |
 
 ### 18.13 Analytics & seller settlement — `/sellers` (7, composed with the sellers router)
 
@@ -1410,7 +1415,7 @@ Both follow the same pattern (seller-scoped CRUD): `POST /` create · `GET /` li
 
 `GET /` · `POST /items` · `GET /items/:productId` (check) · `DELETE /items/:productId` · `DELETE /` (clear).
 
-### 18.16 Admin — `/admin` (19, all SUPER_ADMIN)
+### 18.16 Admin — `/admin` (20, all SUPER_ADMIN)
 
 | Method | Path | Purpose |
 |--------|------|---------|
@@ -1423,6 +1428,7 @@ Both follow the same pattern (seller-scoped CRUD): `POST /` create · `GET /` li
 | GET | `/orders` | List all orders (status filter) |
 | GET | `/audit-logs` | Filterable audit ledger |
 | POST | `/notifications` | Broadcast (audience or recipient ids) |
+| POST | `/notifications/retry-emails` | Replay notification emails whose delivery failed (`{ limit }` ≤ 100) |
 | GET | `/settlements` | List settlements |
 | POST | `/settlements/generate` | Generate for `{ month }` |
 | GET | `/settlements/:id` | Settlement detail |

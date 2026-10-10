@@ -90,9 +90,16 @@ export const adminBroadcastSchema = z
   });
 
 /*
- * Seller-sent custom notification: either one specific buyer
- * (buyerId) or every registered buyer (audience: "ALL_BUYERS") -
- * exactly one of the two, mirroring the admin broadcast contract.
+ * Seller-sent custom notification. The target is exactly one of:
+ * - `buyerIds`: the buyers picked in the Seller Customers broadcast
+ *   multi-select (one, several, or every buyer the seller lists).
+ * - `buyerId`: a single buyer, kept as the legacy/point-to-point form.
+ * - `audience: "ALL_BUYERS"`: every registered buyer in the marketplace.
+ *
+ * `requestId` is an optional client-generated idempotency token. The
+ * frontend stamps one per compose-dialog submission, so re-sending the
+ * same broadcast after a timeout or a double click resolves to the
+ * already-delivered notifications instead of messaging every buyer twice.
  */
 export const sellerNotificationSchema = z
   .object({
@@ -111,28 +118,66 @@ export const sellerNotificationSchema = z
       .optional()
       .default(NotificationChannel.BOTH),
     buyerId: objectId.optional(),
+    buyerIds: z
+      .array(objectId)
+      .min(1, "Select at least one buyer")
+      /*
+       * Same ceiling as the admin broadcast, and it keeps a single
+       * request's fan-out (and its SMTP load) bounded.
+       */
+      .max(500, "At most 500 buyers per notification")
+      .optional(),
     audience: z.enum(["ALL_BUYERS"]).optional(),
+    requestId: z
+      .string()
+      .trim()
+      .min(8, "requestId is too short")
+      .max(64, "requestId is too long")
+      .optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
-    if (value.buyerId && value.audience) {
+    const targets = [
+      value.buyerId !== undefined,
+      value.buyerIds !== undefined,
+      value.audience !== undefined,
+    ].filter(Boolean).length;
+
+    if (targets > 1) {
       ctx.addIssue({
         code: "custom",
-        path: ["buyerId"],
+        path: ["buyerIds"],
         message:
-          "Provide either buyerId or audience, not both",
+          "Provide exactly one target: buyerIds, buyerId or audience",
       });
     }
 
-    if (!value.buyerId && !value.audience) {
+    if (targets === 0) {
       ctx.addIssue({
         code: "custom",
-        path: ["audience"],
+        path: ["buyerIds"],
         message:
-          "Either buyerId or audience is required",
+          "Select at least one buyer (or set audience to ALL_BUYERS)",
       });
     }
   });
+
+/*
+ * Manual retry of the email copies that failed for already-persisted
+ * notifications (admin only). The limit bounds one request's work; the
+ * remaining backlog is picked up by the next call.
+ */
+export const retryFailedEmailsSchema = z
+  .object({
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(100)
+      .optional()
+      .default(25),
+  })
+  .strict();
 
 export type ListNotificationsQuery =
   z.infer<typeof listNotificationsQuerySchema>;
@@ -142,3 +187,5 @@ export type AdminBroadcastInput =
   z.infer<typeof adminBroadcastSchema>;
 export type SellerNotificationInput =
   z.infer<typeof sellerNotificationSchema>;
+export type RetryFailedEmailsInput =
+  z.infer<typeof retryFailedEmailsSchema>;

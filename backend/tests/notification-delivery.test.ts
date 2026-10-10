@@ -48,6 +48,7 @@ import {
   notifyUser,
 } from "../src/modules/notifications/notification.service.js";
 import {
+  adminLogin,
   api,
   clearDb,
   connect,
@@ -274,6 +275,232 @@ describe("Notification email delivery", () => {
         expect.stringContaining("ready to ship"),
       );
     });
+  });
+
+  it("emails the selected buyers of a broadcast and nobody else", async () => {
+    const seller = await createApprovedSeller();
+    const picked = [
+      await registerBuyerWithYopmail(),
+      await registerBuyerWithYopmail(),
+    ];
+    const notPicked = await registerBuyerWithYopmail();
+
+    const res = await api
+      .post("/api/v1/sellers/notifications")
+      .set("Authorization", `Bearer ${seller.token}`)
+      .send({
+        title: "Selected buyers only",
+        message: "Private sale for the customers on our list.",
+        buyerIds: picked.map((buyer) => buyer.id),
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.data.deliveredTo).toBe(2);
+
+    for (const buyer of picked) {
+      await vi.waitFor(() => {
+        expect(sendNotificationEmailMock).toHaveBeenCalledWith(
+          buyer.email,
+          "Selected buyers only",
+          expect.stringContaining("Private sale"),
+        );
+      });
+    }
+
+    expect(
+      await Notification.countDocuments({
+        recipientId: notPicked.id,
+      }).exec(),
+    ).toBe(0);
+    expect(
+      sendNotificationEmailMock.mock.calls.some(
+        ([to]) => to === notPicked.email,
+      ),
+    ).toBe(false);
+  });
+
+  it("skips the email copy for a buyer with an unusable address, keeping the in-app one", async () => {
+    const seller = await createApprovedSeller();
+    const buyer = await registerBuyerWithYopmail();
+
+    /* Simulate a profile whose stored address is not deliverable. */
+    const { User } = await import("../src/models/User.js");
+    await User.updateOne(
+      { _id: buyer.id },
+      { $set: { email: "not-an-address" } },
+    );
+
+    const res = await api
+      .post("/api/v1/sellers/notifications")
+      .set("Authorization", `Bearer ${seller.token}`)
+      .send({
+        title: "Broken profile",
+        message: "This buyer cannot receive mail right now.",
+        buyerIds: [buyer.id],
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.deliveredTo).toBe(1);
+    expect(res.body.data.emailsQueued).toBe(0);
+    expect(res.body.data.emailsInvalidAddress).toBe(1);
+
+    /* Still in the bell, exactly once. */
+    const list = await api
+      .get("/api/v1/notifications")
+      .set("Authorization", `Bearer ${buyer.token}`);
+    expect(list.body.data.total).toBe(1);
+    expect(list.body.data.items[0].emailStatus).toBe(
+      "INVALID_ADDRESS",
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(sendNotificationEmailMock).not.toHaveBeenCalledWith(
+      "not-an-address",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("resends a failed email copy without duplicating the notification", async () => {
+    const admin = await adminLogin();
+    const buyer = await registerBuyerWithYopmail();
+
+    /* The relay is down while the order event fires. */
+    sendNotificationEmailMock.mockRejectedValueOnce(
+      new Error("SMTP connection refused"),
+    );
+
+    await notifyOrderStatusChange(
+      fakeOrder(buyer.id),
+      OrderStatus.SHIPPED,
+    );
+
+    await vi.waitFor(async () => {
+      const stored = await Notification.findOne({
+        recipientId: buyer.id,
+      }).lean();
+      expect(stored!.emailStatus).toBe("FAILED");
+    });
+
+    sendNotificationEmailMock.mockReset();
+    sendNotificationEmailMock.mockResolvedValue(undefined);
+
+    /* Buyers cannot trigger the retry pass - it is an operator action. */
+    const denied = await api
+      .post("/api/v1/admin/notifications/retry-emails")
+      .set("Authorization", `Bearer ${buyer.token}`)
+      .send({});
+    expect(denied.status).toBe(403);
+
+    const retry = await api
+      .post("/api/v1/admin/notifications/retry-emails")
+      .set("Authorization", `Bearer ${admin}`)
+      .send({ limit: 10 });
+
+    expect(retry.status).toBe(200);
+    expect(retry.body.data.attempted).toBe(1);
+    expect(retry.body.data.sent).toBe(1);
+    expect(retry.body.data.pending).toBe(0);
+
+    expect(sendNotificationEmailMock).toHaveBeenCalledWith(
+      buyer.email,
+      "Order shipped",
+      expect.stringContaining("has been shipped"),
+    );
+
+    /* The in-app notification was repaired in place, never duplicated. */
+    expect(
+      await Notification.countDocuments({
+        recipientId: buyer.id,
+      }).exec(),
+    ).toBe(1);
+
+    const stored = await Notification.findOne({
+      recipientId: buyer.id,
+    }).lean();
+    expect(stored!.emailStatus).toBe("SENT");
+    expect(stored!.emailAttempts).toBe(2);
+    expect(stored!.emailSentAt).toBeInstanceOf(Date);
+
+    /* Nothing is left to retry, so a second pass is a no-op. */
+    const second = await api
+      .post("/api/v1/admin/notifications/retry-emails")
+      .set("Authorization", `Bearer ${admin}`)
+      .send({});
+    expect(second.status).toBe(200);
+    expect(second.body.data.attempted).toBe(0);
+    expect(sendNotificationEmailMock).toHaveBeenCalledTimes(1);
+
+    const audit = await (
+      await import("../src/models/AuditLog.js")
+    ).AuditLog.countDocuments({
+      action: "NOTIFICATION_EMAIL_RETRY",
+    }).exec();
+    expect(audit).toBe(2);
+  });
+
+  it("replays only the failed email when the same broadcast is retried", async () => {
+    const seller = await createApprovedSeller();
+    const buyer = await registerBuyerWithYopmail();
+    const requestId = `retry-${Date.now()}`;
+
+    const body = {
+      title: "Delivery window",
+      message: "Your order ships tomorrow morning.",
+      buyerIds: [buyer.id],
+      requestId,
+    };
+
+    sendNotificationEmailMock.mockRejectedValueOnce(
+      new Error("SMTP timeout"),
+    );
+
+    const first = await api
+      .post("/api/v1/sellers/notifications")
+      .set("Authorization", `Bearer ${seller.token}`)
+      .send(body);
+    expect(first.status).toBe(201);
+
+    await vi.waitFor(async () => {
+      const stored = await Notification.findOne({
+        recipientId: buyer.id,
+      }).lean();
+      expect(stored!.emailStatus).toBe("FAILED");
+    });
+
+    sendNotificationEmailMock.mockReset();
+    sendNotificationEmailMock.mockResolvedValue(undefined);
+
+    /* The seller retries the compose: the buyer must not be notified twice,
+       but the email that never arrived has to go out. */
+    const replay = await api
+      .post("/api/v1/sellers/notifications")
+      .set("Authorization", `Bearer ${seller.token}`)
+      .send(body);
+    expect(replay.status).toBe(200);
+    expect(replay.body.data.deliveredTo).toBe(0);
+    expect(replay.body.data.duplicates).toBe(1);
+
+    expect(
+      await Notification.countDocuments({
+        recipientId: buyer.id,
+      }).exec(),
+    ).toBe(1);
+
+    await vi.waitFor(() => {
+      expect(sendNotificationEmailMock).toHaveBeenCalledWith(
+        buyer.email,
+        "Delivery window",
+        expect.stringContaining("ships tomorrow morning"),
+      );
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(sendNotificationEmailMock).toHaveBeenCalledTimes(1);
+
+    const list = await api
+      .get("/api/v1/notifications")
+      .set("Authorization", `Bearer ${buyer.token}`);
+    expect(list.body.data.total).toBe(1);
   });
 
   it("supports explicit email-only delivery without an in-app record", async () => {

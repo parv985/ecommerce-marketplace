@@ -56,6 +56,27 @@ export function AdminNotificationsPage() {
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error sending notification'),
   })
 
+  const retryEmails = useMutation({
+    mutationFn: () => adminService.retryNotificationEmails(),
+    onSuccess: result => {
+      if (!result || result.attempted === 0) {
+        toast('No failed notification emails to retry')
+        return
+      }
+
+      if (result.failed > 0) {
+        toast.error(
+          `${result.sent} emailed, ${result.failed} still failing (${result.pending} left in the backlog)`,
+        )
+        return
+      }
+
+      toast.success(`${result.sent} failed email${result.sent === 1 ? '' : 's'} resent`)
+    },
+    onError: (e: any) =>
+      toast.error(e?.response?.data?.message || 'Could not retry the failed emails'),
+  })
+
   const loadingRecipients = buyersQuery.isLoading || sellersQuery.isLoading
 
   const selectedLabel = recipient === 'ALL_SELLERS'
@@ -128,6 +149,38 @@ export function AdminNotificationsPage() {
         >
           {broadcast.isPending ? 'Sending…' : 'Send Notification'}
         </Button>
+      </div>
+
+      {/*
+        In-app notifications are the source of truth; when the email mirror
+        of one of them fails (relay outage, timeout) the record is kept and
+        stays eligible for this pass. Retrying never re-creates a
+        notification, so nobody gets a second message or a second unread
+        badge — only the email that never arrived is resent.
+      */}
+      <div className="mt-8 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg-subtle)] p-4">
+        <h2 className="text-sm font-semibold">Failed email deliveries</h2>
+        <p className="mt-1 text-xs text-[var(--muted)]">
+          Replays the email copy of notifications whose delivery failed, oldest first, using each
+          recipient's registered address. Safe to run more than once.
+        </p>
+        <div className="mt-3 flex items-center gap-3">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={retryEmails.isPending}
+            onClick={() => retryEmails.mutate()}
+          >
+            {retryEmails.isPending ? 'Retrying…' : 'Retry failed emails'}
+          </Button>
+          {retryEmails.data && (
+            <span className="text-xs text-[var(--muted)]">
+              {retryEmails.data.attempted === 0
+                ? 'Nothing to retry.'
+                : `${retryEmails.data.sent} sent · ${retryEmails.data.failed} failed · ${retryEmails.data.skipped} skipped · ${retryEmails.data.pending} left`}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   )

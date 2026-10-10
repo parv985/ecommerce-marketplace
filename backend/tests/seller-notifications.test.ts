@@ -234,6 +234,225 @@ describe("Seller notifications", () => {
     expect(notifs.body.data.total).toBe(0);
   });
 
+  it("notifies exactly the selected buyers from the broadcast multi-select", async () => {
+    const seller = await createApprovedSeller();
+    const picked = [await registerBuyer("pick1"), await registerBuyer("pick2")];
+    const ignored = await registerBuyer("ignored");
+
+    const res = await send(seller.token, {
+      title: "Loyalty preview",
+      message: "Tomorrow: 15% off for our best repeat buyers.",
+      buyerIds: picked.map((buyer) => buyer.id),
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.deliveredTo).toBe(2);
+    expect(res.body.data.notFoundBuyerIds).toEqual([]);
+    /* One email copy queued per selected buyer. */
+    expect(res.body.data.emailsQueued).toBe(2);
+
+    for (const buyer of picked) {
+      const notifs = await api
+        .get("/api/v1/notifications")
+        .set("Authorization", `Bearer ${buyer.token}`);
+      expect(notifs.body.data.total).toBe(1);
+      expect(notifs.body.data.items[0].title).toBe("Loyalty preview");
+      /* In-app and email are written together, so the copy is expected. */
+      expect(notifs.body.data.items[0].emailStatus).not.toBe(
+        "NOT_REQUIRED",
+      );
+    }
+
+    const skipped = await api
+      .get("/api/v1/notifications")
+      .set("Authorization", `Bearer ${ignored.token}`);
+    expect(skipped.body.data.total).toBe(0);
+
+    const audit = await AuditLog.countDocuments({
+      action: "SELLER_NOTIFICATION_BROADCAST",
+    }).exec();
+    expect(audit).toBe(1);
+  });
+
+  it("reports buyers the seller selected but cannot be reached", async () => {
+    const seller = await createApprovedSeller();
+    const buyer = await registerBuyer("mixed1");
+    const otherSeller = await createApprovedSeller();
+    const { User } = await import("../src/models/User.js");
+    const sellerUserId = (
+      await User.findOne({ email: otherSeller.email })
+    )!._id.toString();
+
+    const res = await send(seller.token, {
+      title: "Clearance notice",
+      message: "Clearance starts Friday for selected customers.",
+      buyerIds: [buyer.id, sellerUserId, "0123456789abcdef01234567"],
+    });
+
+    /* The valid target still gets the message - one bad id is not fatal. */
+    expect(res.status).toBe(201);
+    expect(res.body.data.deliveredTo).toBe(1);
+    expect(res.body.data.notFoundBuyerIds).toHaveLength(2);
+
+    const notifs = await api
+      .get("/api/v1/notifications")
+      .set("Authorization", `Bearer ${buyer.token}`);
+    expect(notifs.body.data.total).toBe(1);
+
+    /* The other seller received nothing from this seller. */
+    const asSeller = await api
+      .get("/api/v1/notifications")
+      .set("Authorization", `Bearer ${otherSeller.token}`);
+    expect(
+      asSeller.body.data.items.filter(
+        (n: { type: string }) => n.type === "SELLER_MESSAGE",
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("de-duplicates ids and rejects a selection with no valid buyer", async () => {
+    const seller = await createApprovedSeller();
+    const buyer = await registerBuyer("dedupe1");
+
+    const twice = await send(seller.token, {
+      title: "Duplicate ids",
+      message: "The same buyer ticked twice is notified once.",
+      buyerIds: [buyer.id, buyer.id],
+    });
+    expect(twice.status).toBe(201);
+    expect(twice.body.data.requested).toBe(1);
+
+    const notifs = await api
+      .get("/api/v1/notifications")
+      .set("Authorization", `Bearer ${buyer.token}`);
+    expect(notifs.body.data.total).toBe(1);
+
+    const unknownOnly = await send(seller.token, {
+      title: "Nobody there",
+      message: "This selection contains no real buyer at all.",
+      buyerIds: ["0123456789abcdef01234567"],
+    });
+    expect(unknownOnly.status).toBe(404);
+    expect(unknownOnly.body.code).toBe("BUYER_NOT_FOUND");
+  });
+
+  it("validates the buyer selection payload", async () => {
+    const seller = await createApprovedSeller();
+    const buyer = await registerBuyer("valid1");
+
+    const emptySelection = await send(seller.token, {
+      title: "Empty list",
+      message: "No buyer was selected at all.",
+      buyerIds: [],
+    });
+    expect(emptySelection.status).toBe(400);
+
+    const malformedId = await send(seller.token, {
+      title: "Bad id",
+      message: "This is not an ObjectId at all.",
+      buyerIds: ["12345"],
+    });
+    expect(malformedId.status).toBe(400);
+
+    const twoTargets = await send(seller.token, {
+      title: "Too many targets",
+      message: "buyerIds and audience cannot be combined.",
+      buyerIds: [buyer.id],
+      audience: "ALL_BUYERS",
+    });
+    expect(twoTargets.status).toBe(400);
+
+    const tooMany = await send(seller.token, {
+      title: "Oversized",
+      message: "More ids than one request may carry.",
+      buyerIds: Array.from(
+        { length: 501 },
+        (_, index) => `64a00000000000000000${index.toString(16).padStart(4, "0")}`,
+      ),
+    });
+    expect(tooMany.status).toBe(400);
+  });
+
+  it("treats a repeated requestId as the same send instead of notifying twice", async () => {
+    const seller = await createApprovedSeller();
+    const buyer = await registerBuyer("idempotent1");
+    const requestId = `req-${Date.now()}`;
+
+    const body = {
+      title: "One-off reminder",
+      message: "Your pre-order invoice is ready to pay.",
+      buyerIds: [buyer.id],
+      requestId,
+    };
+
+    const first = await send(seller.token, body);
+    expect(first.status).toBe(201);
+    expect(first.body.data.deliveredTo).toBe(1);
+
+    /* The seller pressed "Try again" after a lost response. */
+    const replay = await send(seller.token, body);
+    expect(replay.status).toBe(200);
+    expect(replay.body.data.deliveredTo).toBe(0);
+    expect(replay.body.data.duplicates).toBe(1);
+
+    const notifs = await api
+      .get("/api/v1/notifications")
+      .set("Authorization", `Bearer ${buyer.token}`);
+    expect(notifs.body.data.total).toBe(1);
+
+    const unread = await api
+      .get("/api/v1/notifications/unread-count")
+      .set("Authorization", `Bearer ${buyer.token}`);
+    expect(unread.body.data.unread).toBe(1);
+
+    /* A different requestId is a new, legitimate send. */
+    const next = await send(seller.token, {
+      ...body,
+      requestId: `${requestId}-b`,
+    });
+    expect(next.status).toBe(201);
+
+    const afterNext = await api
+      .get("/api/v1/notifications")
+      .set("Authorization", `Bearer ${buyer.token}`);
+    expect(afterNext.body.data.total).toBe(2);
+  });
+
+  it("marks read/unread for broadcast messages like any other notification", async () => {
+    const seller = await createApprovedSeller();
+    const buyer = await registerBuyer("readstate1");
+
+    await send(seller.token, {
+      title: "Store relocation",
+      message: "We ship from a new warehouse next week.",
+      buyerIds: [buyer.id],
+    });
+
+    const before = await api
+      .get("/api/v1/notifications")
+      .set("Authorization", `Bearer ${buyer.token}`);
+    const id = before.body.data.items[0].id as string;
+    expect(before.body.data.items[0].isRead).toBe(false);
+
+    const read = await api
+      .patch(`/api/v1/notifications/${id}/read`)
+      .set("Authorization", `Bearer ${buyer.token}`);
+    expect(read.status).toBe(200);
+    expect(read.body.data.isRead).toBe(true);
+
+    const unread = await api
+      .get("/api/v1/notifications/unread-count")
+      .set("Authorization", `Bearer ${buyer.token}`);
+    expect(unread.body.data.unread).toBe(0);
+
+    /* Only that buyer's own record could be marked - no cross-user writes. */
+    const otherBuyer = await registerBuyer("readstate2");
+    const foreign = await api
+      .patch(`/api/v1/notifications/${id}/read`)
+      .set("Authorization", `Bearer ${otherBuyer.token}`);
+    expect(foreign.status).toBe(404);
+  });
+
   it("keeps the seller notification admin-free and buyer-scoped on listing", async () => {
     /*
      * Regression guard for role separation: a seller message is a

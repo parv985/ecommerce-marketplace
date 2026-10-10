@@ -1195,9 +1195,10 @@ const options: swaggerJSDoc.Options = {
                 "PENDING",
                 "SENT",
                 "FAILED",
+                "INVALID_ADDRESS",
               ],
               description:
-                "Delivery status of the email copy of this notification. Buyer in-app notifications are always mirrored to the registered email address; NOT_REQUIRED means no email was due (channel/preference rules).",
+                "Delivery status of the email copy of this notification. Buyer in-app notifications are always mirrored to the registered email address; NOT_REQUIRED means no email was due (channel/preference rules), PENDING means a round is in flight (and doubles as the claim a retry takes), FAILED means every attempt failed and the copy is eligible for the admin retry pass, INVALID_ADDRESS means the recipient profile has no deliverable address so nothing was attempted.",
             },
             createdAt: {
               type: "string",
@@ -1210,7 +1211,7 @@ const options: swaggerJSDoc.Options = {
           type: "object",
           required: ["title", "message"],
           description:
-            "Seller-sent custom notification. Target exactly one of buyerId (a specific buyer) or audience ALL_BUYERS (every registered buyer).",
+            "Seller-sent custom notification. Target exactly one of buyerIds (the buyers selected in the Seller Customers broadcast multi-select), buyerId (a single buyer, legacy form) or audience ALL_BUYERS (every registered buyer). Optionally carry a requestId so a repeated submission is idempotent.",
           properties: {
             title: {
               type: "string",
@@ -1236,14 +1237,75 @@ const options: swaggerJSDoc.Options = {
               type: "string",
               nullable: true,
               description:
-                "ObjectId of one buyer to notify (mutually exclusive with audience).",
+                "ObjectId of one buyer to notify (legacy single-target form; mutually exclusive with buyerIds and audience).",
+            },
+            buyerIds: {
+              type: "array",
+              nullable: true,
+              minItems: 1,
+              maxItems: 500,
+              items: { type: "string" },
+              description:
+                "ObjectIds of the buyers selected in the Seller Customers broadcast multi-select - one, several, or every buyer the seller lists. Mutually exclusive with buyerId and audience. Ids that are not active BUYER accounts are reported in notFoundBuyerIds instead of aborting the send.",
             },
             audience: {
               type: "string",
               enum: ["ALL_BUYERS"],
               nullable: true,
               description:
-                "Broadcast to all registered buyers (mutually exclusive with buyerId).",
+                "Broadcast to all registered buyers (mutually exclusive with buyerIds and buyerId).",
+            },
+            requestId: {
+              type: "string",
+              nullable: true,
+              minLength: 8,
+              maxLength: 64,
+              description:
+                "Optional client-generated idempotency token (one per compose-dialog submission). Repeating a request with the same requestId creates no second notification and sends no second email; it only retries an email copy whose previous delivery failed.",
+              example: "b1f0d6e2-4b2f-4c4c-9e0a-3f1c2d5a7b88",
+            },
+          },
+        },
+
+        SellerNotificationResult: {
+          type: "object",
+          description:
+            "What a seller notification actually did, per recipient. The counts come from the delivery layer, so they reflect real in-app writes rather than the size of the request.",
+          properties: {
+            deliveredTo: {
+              type: "integer",
+              description:
+                "New in-app notifications created (each one also queued an email copy where the buyer has a deliverable address)",
+            },
+            duplicates: {
+              type: "integer",
+              description:
+                "Buyers skipped because this exact requestId had already delivered the message to them",
+            },
+            emailsQueued: {
+              type: "integer",
+              description:
+                "Email copies handed to the configured provider; the final outcome is recorded on each notification as emailStatus",
+            },
+            emailsInvalidAddress: {
+              type: "integer",
+              description:
+                "Buyers with no deliverable email address on their profile, so no email was attempted",
+            },
+            suppressed: {
+              type: "integer",
+              description:
+                "Buyers whose notification preferences disabled every channel for this category",
+            },
+            requested: {
+              type: "integer",
+              description: "Buyer ids the seller asked for, after de-duplication",
+            },
+            notFoundBuyerIds: {
+              type: "array",
+              items: { type: "string" },
+              description:
+                "Requested ids that are not active BUYER accounts and were therefore not notified",
             },
           },
         },

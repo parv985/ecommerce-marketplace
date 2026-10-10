@@ -10,6 +10,7 @@ import type {
   AuditLog,
   AuditLogQuery,
   AdminDashboardResponse,
+  EmailRetryResult,
 } from '@/types/api'
 
 export const adminService = {
@@ -97,4 +98,17 @@ export const adminService = {
     recipientIds?: string[]
     audience?: 'SELLERS' | 'USERS'
   }) => api.post<ApiResponse<{ deliveredTo: number }>>('/admin/notifications', data).then(r => r.data),
+
+  /**
+   * Replays the email copy of notifications whose delivery failed. The
+   * backend claims each record atomically and never re-creates the in-app
+   * notification, so this is safe to press more than once; the recipient is
+   * always read from the user's registered address.
+   */
+  retryNotificationEmails: (limit?: number) =>
+    api
+      .post<ApiResponse<EmailRetryResult>>('/admin/notifications/retry-emails', {
+        ...(limit ? { limit } : {}),
+      })
+      .then(r => r.data.data),
 }
