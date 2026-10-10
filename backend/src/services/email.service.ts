@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 
 import { env } from "../config/env.js";
+import { AppError } from "../errors/AppError.js";
 
 type Transporter = nodemailer.Transporter;
 
@@ -18,14 +19,66 @@ let transporterPromise: Transporter | undefined;
  */
 
 /*
+ * Pragmatic address check used before anything is handed to SMTP.
+ * Deliberately permissive: it rejects structurally broken input
+ * (missing "@", spaces, a domain without a dot, injected header/
+ * recipient lists) and accepts every real mailbox, including the
+ * disposable test inboxes used for manual verification. Final
+ * deliverability is the relay's decision, and a rejection there is
+ * reported back through the notification's emailStatus.
+ */
+const EMAIL_SHAPE = /^[^\s@,;<>()[\]\\]+@[^\s@,;<>()[\]\\.]+(\.[^\s@,;<>()[\]\\.]+)+$/;
+
+export const isValidEmailAddress = (
+  value: unknown,
+): value is string => {
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  const candidate = value.trim();
+
+  return (
+    candidate.length > 0 &&
+    candidate.length <= 320 &&
+    EMAIL_SHAPE.test(candidate)
+  );
+};
+
+/*
+ * Minimal escaping so a notification body (seller-authored text) can
+ * never inject markup into the HTML alternative part.
+ */
+const escapeHtml = (value: string): string =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
+const toHtml = (text: string): string =>
+  `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;color:#191816">` +
+  text
+    .split(/\r?\n/)
+    .map(
+      (line) =>
+        `<p style="margin:0 0 12px">${escapeHtml(line) || "&nbsp;"}</p>`,
+    )
+    .join("") +
+  `</div>`;
+
+
+/*
  * SMTP configuration: uses real SMTP when SMTP_HOST is set,
  * otherwise falls back to Ethereal test accounts for development.
  */
 const isSmtpConfigured = (): boolean => {
-  return Boolean(
-    process.env.SMTP_HOST && process.env.SMTP_PORT,
-    
-  );
+  /*
+   * Read the validated config rather than process.env: SMTP_PORT has a
+   * default, so "a host is set" is the whole signal that a real relay was
+   * configured (and the port came from the fallback).
+   */
+  return Boolean(env.SMTP_HOST && env.SMTP_PORT);
 };
 
 /*
@@ -55,6 +108,20 @@ const createRealTransporter = (): Transporter => {
 
 const createTestTransporter = async (): Promise<Transporter> => {
   console.log("[EMAIL] Creating Ethereal test account...");
+
+  /*
+   * Ethereal swallows messages: they are only readable through the logged
+   * preview URL and never reach a real inbox. That is the right default
+   * for local development and a serious trap in production, where buyers
+   * would silently stop receiving their notification emails.
+   */
+  if (env.NODE_ENV === "production") {
+    console.warn(
+      "[EMAIL] SMTP_HOST is not configured in production: notification "
+      + "emails will NOT be delivered. Set SMTP_HOST/SMTP_PORT/SMTP_USER/"
+      + "SMTP_PASS to the real provider (e.g. smtp.gmail.com:465).",
+    );
+  }
 
   const testAccount = await nodemailer.createTestAccount();
 
@@ -93,12 +160,46 @@ const logDelivery = (
 ): void => {
   console.log("[EMAIL] Sent:", subject, "->", email);
 
+  /*
+   * The provider message id is the only handle that lets a support
+   * request be traced in the relay's own logs, so it is logged
+   * alongside the recipient (never the credentials).
+   */
+  if (info?.messageId) {
+    console.log("[EMAIL] Provider message id:", info.messageId);
+  }
+
   const previewUrl =
     nodemailer.getTestMessageUrl(info);
 
   if (previewUrl) {
     console.log(`[EMAIL] Preview URL:\n${previewUrl}`);
   }
+};
+
+/*
+ * Some relays answer 250 for the DATA phase and only then refuse the
+ * single recipient - nodemailer reports that in `info.rejected`
+ * without throwing. Treat it as a failure so the notification's
+ * emailStatus reflects reality instead of a false SENT.
+ */
+const assertAccepted = (
+  info: nodemailer.SentMessageInfo,
+  email: string,
+): void => {
+  const rejected = Array.isArray(info?.rejected)
+    ? info.rejected
+    : [];
+
+  if (rejected.length === 0) {
+    return;
+  }
+
+  throw new AppError(
+    `Email recipient rejected by the mail relay: ${rejected.join(", ")}`,
+    502,
+    "EMAIL_RECIPIENT_REJECTED",
+  );
 };
 
 export const sendPasswordResetEmail = async (
@@ -195,27 +296,68 @@ export const sendNotificationEmail = async (
   subject: string,
   text: string,
 ): Promise<void> => {
+  /*
+   * Validated here as the last line of defence: every caller resolves
+   * the address from the recipient's registered account, so an invalid
+   * value means the stored profile is unusable. Throwing (instead of
+   * silently dropping) is what lets the notification record mark the
+   * copy INVALID_ADDRESS / FAILED rather than pretending it went out.
+   */
+  if (!isValidEmailAddress(email)) {
+    console.warn(
+      "[EMAIL] Refusing to send - recipient address is not deliverable:",
+      subject,
+    );
+
+    throw new AppError(
+      "The recipient does not have a valid email address",
+      400,
+      "INVALID_EMAIL_ADDRESS",
+    );
+  }
+
+  const recipient = email.trim();
+
   if (isDeliveryDisabled()) {
     console.log(
       "[EMAIL] Test environment - notification email skipped:",
       subject,
       "->",
-      email,
+      recipient,
     );
 
     return;
   }
 
+  /*
+   * The footer points back at the in-app list, which is the same content:
+   * the email is a mirror of the notification, not a second message.
+   */
+  const body = [
+    text,
+    "",
+    "- E-Commerce Marketplace",
+    env.CLIENT_URL
+      ? `View all your notifications: ${env.CLIENT_URL.replace(/\/+$/, "")}/notifications`
+      : undefined,
+  ]
+    .filter((line): line is string => line !== undefined)
+    .join("\n");
+
   await sendWithRetry(async () => {
     const transporter = await getTransporter();
 
     const info = await transporter.sendMail({
-      from: env.SMTP_FROM || '"E-Commerce Marketplace" <no-reply@example.com>',
-      to: email,
+      from:
+        env.SMTP_FROM || '"E-Commerce Marketplace" <no-reply@example.com>',
+      to: recipient,
       subject,
-      text,
+      text: body,
+      html: toHtml(body),
     });
 
-    logDelivery(email, subject, info);
+    assertAccepted(info, recipient);
+
+    logDelivery(recipient, subject, info);
   });
 };

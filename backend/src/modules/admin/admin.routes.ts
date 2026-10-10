@@ -6,7 +6,10 @@ import { requireTwoFactorSetup } from "../../middlewares/twoFactor.middleware.js
 import { authenticate } from "../auth/auth.middleware.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { UserRole } from "../../constants/roles.js";
-import { broadcastAdminMessageController } from "../notifications/notification.controller.js";
+import {
+  broadcastAdminMessageController,
+  retryFailedEmailsController,
+} from "../notifications/notification.controller.js";
 import { adminBroadcastSchema } from "../notifications/notification.schema.js";
 import {
   cancelSettlementController,
@@ -727,6 +730,79 @@ router.post(
   "/notifications",
   validate(adminBroadcastSchema),
   asyncHandler(broadcastAdminMessageController),
+);
+
+/**
+ * @openapi
+ * /api/v1/admin/notifications/retry-emails:
+ *   post:
+ *     tags:
+ *       - Notifications
+ *     summary: Resend notification emails that failed to deliver
+ *     description: |
+ *       Replays the email copy of notifications whose delivery failed (`emailStatus: FAILED`), oldest first, up to `limit` records. The in-app notifications are never re-created and recipients are read from their own registered addresses, so this repairs the inbox side of a delivery without touching what buyers see in the app.
+ *
+ *       Safe to call repeatedly: each record is claimed atomically (FAILED -> PENDING) before it is sent, so two overlapping runs can never send the same email twice, and a record that keeps failing is retired once it hits the dispatch budget (10 rounds). The run is audit-logged.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               limit:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 100
+ *                 default: 25
+ *                 description: Maximum number of failed emails to retry in this run
+ *     responses:
+ *       200:
+ *         description: Retry pass finished
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     attempted:
+ *                       type: integer
+ *                       description: Records this run tried to resend
+ *                     sent:
+ *                       type: integer
+ *                       description: Emails handed to the provider successfully
+ *                     failed:
+ *                       type: integer
+ *                       description: Emails that failed again and stay eligible for a later run
+ *                     skipped:
+ *                       type: integer
+ *                       description: Records claimed by another run or with no deliverable address
+ *                     pending:
+ *                       type: integer
+ *                       description: Failed emails still left in the backlog
+ *       400:
+ *         description: Validation error (limit must be between 1 and 100)
+ *       401:
+ *         description: Not authenticated
+ *       403:
+ *         description: Requires SUPER_ADMIN role
+ */
+/*
+ * No body-validate middleware here: the whole payload is optional (an
+ * empty request retries the default batch), so the controller parses
+ * `req.body ?? {}` itself and a bad limit still answers 400.
+ */
+router.post(
+  "/notifications/retry-emails",
+  asyncHandler(retryFailedEmailsController),
 );
 
 /**

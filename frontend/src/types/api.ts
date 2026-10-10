@@ -548,9 +548,12 @@ export interface Notification {
   /**
    * Delivery status of the email copy of this notification. Buyer in-app
    * notifications are always mirrored to the registered email address;
-   * NOT_REQUIRED means no email was due (channel/preference rules).
+   * NOT_REQUIRED means no email was due (channel/preference rules),
+   * PENDING means a round is in flight, FAILED means the inbox copy never
+   * arrived (the in-app one is still here) and INVALID_ADDRESS that the
+   * profile has no deliverable address so nothing was attempted.
    */
-  emailStatus?: 'NOT_REQUIRED' | 'PENDING' | 'SENT' | 'FAILED'
+  emailStatus?: 'NOT_REQUIRED' | 'PENDING' | 'SENT' | 'FAILED' | 'INVALID_ADDRESS'
   createdAt: string
 }
 
@@ -561,15 +564,59 @@ export interface NotificationPreferences {
   inApp: boolean
 }
 
-/** Seller-sent custom notification (POST /sellers/notifications). */
+/**
+ * Seller-sent custom notification (POST /sellers/notifications).
+ *
+ * Exactly one target must be provided:
+ * - `buyerIds` — the buyers ticked in the Seller Customers broadcast
+ *   multi-select (one, several, or every buyer the seller lists).
+ * - `buyerId` — a single buyer (legacy point-to-point form).
+ * - `audience: 'ALL_BUYERS'` — every registered buyer in the marketplace.
+ */
 export interface SellerNotificationInput {
   title: string
   message: string
-  /** Deliver to one specific buyer (mutually exclusive with audience). */
+  /** Deliver to a selection of specific buyers. */
+  buyerIds?: string[]
+  /** Deliver to one specific buyer (mutually exclusive with the other targets). */
   buyerId?: string
-  /** Broadcast to every registered buyer (mutually exclusive with buyerId). */
+  /** Broadcast to every registered buyer (mutually exclusive with the other targets). */
   audience?: 'ALL_BUYERS'
   channel?: 'IN_APP' | 'EMAIL' | 'BOTH'
+  /**
+   * Idempotency token, one per dialog submission. Re-sending the same
+   * request (double click, retry after a timeout) then creates no second
+   * notification and sends no second email — it only replays an email
+   * whose previous delivery failed.
+   */
+  requestId?: string
+}
+
+/** What a seller send actually did, per recipient. */
+export interface SellerNotificationResult {
+  /** New in-app notifications created (each also queued an email copy). */
+  deliveredTo: number
+  /** Buyers skipped because this requestId had already reached them. */
+  duplicates: number
+  /** Email copies handed to the configured provider. */
+  emailsQueued: number
+  /** Buyers with no deliverable address on file, so no email was attempted. */
+  emailsInvalidAddress: number
+  /** Buyers whose preferences disabled every channel for this category. */
+  suppressed: number
+  /** Requested buyer ids after de-duplication. */
+  requested: number
+  /** Requested ids that are not active BUYER accounts. */
+  notFoundBuyerIds: string[]
+}
+
+/** Outcome of an admin email retry pass. */
+export interface EmailRetryResult {
+  attempted: number
+  sent: number
+  failed: number
+  skipped: number
+  pending: number
 }
 
 // Analytics

@@ -536,6 +536,135 @@
           }
         },
         {
+          "name": "List my settlements",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/sellers/settlements",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sellers",
+                "settlements"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": ""
+                },
+                {
+                  "key": "month",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": ""
+                },
+                {
+                  "key": "limit",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Returns a paginated list of the authenticated seller's settlements with optional status and month filters."
+          }
+        },
+        {
+          "name": "Create a Razorpay payment order for a settlement",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/sellers/settlements/:id/payment-order",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sellers",
+                "settlements",
+                ":id",
+                "payment-order"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Creates a Razorpay order for the settlement commission amount. Idempotent - returns existing order if already created. The seller can then use this to open the Razorpay checkout."
+          }
+        },
+        {
+          "name": "Verify a settlement payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/sellers/settlements/:id/verify-payment",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sellers",
+                "settlements",
+                ":id",
+                "verify-payment"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Verifies the Razorpay payment signature and marks the settlement as paid. Idempotent - returns current state if already paid."
+          }
+        },
+        {
           "name": "Get approved seller count",
           "request": {
             "method": "GET",
@@ -1235,7 +1364,12 @@
                 "products",
                 "my"
               ],
-              "query": []
+              "query": [
+                {
+                  "key": "search",
+                  "value": ""
+                }
+              ]
             },
             "auth": {
               "type": "bearer",
@@ -1247,7 +1381,7 @@
                 }
               ]
             },
-            "description": "Returns every product owned by the authenticated seller, including drafts and inactive products."
+            "description": "Returns the products owned by the authenticated seller, including drafts and inactive products. An optional free-text `search` term filters name/description server-side; results are always scoped to the authenticated seller."
           }
         },
         {
@@ -2203,6 +2337,79 @@
               ]
             },
             "description": "Marks one of the authenticated user's notifications as read."
+          }
+        },
+        {
+          "name": "Send a custom notification to selected buyers (seller)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/sellers/notifications",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sellers",
+                "notifications"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Lets an authenticated seller send a custom notification to the buyers they picked in the Seller Customers broadcast dialog. Exactly one target must be provided:\n\n- `buyerIds` - one, several, or every buyer in the seller's selection (1-500 ids, de-duplicated server-side).\n- `buyerId` - a single buyer (kept for the legacy point-to-point call).\n- `audience: \"ALL_BUYERS\"` - every registered buyer in the marketplace.\n\nEvery target is re-checked against the database: only active accounts with the BUYER role are notified, so a seller can never reach another seller, an admin, or a deactivated profile. Ids that resolve to none of those are reported back in `notFoundBuyerIds` (and, when *no* id resolves, the request fails with 404 `BUYER_NOT_FOUND`).\n\nEach message is delivered like any other notification: persisted in the buyer's in-app Notifications section (with read/unread tracking) and mirrored to their registered email address through the configured provider (real SMTP such as Gmail, or a test inbox such as YOPmail), so buyers receive it even when offline. Email failures never drop the in-app notification; they are recorded on it (`emailStatus: FAILED`) and can be replayed with the admin retry endpoint. Pass a per-submission `requestId` to make the send idempotent: repeating the same request then creates no second notification and sends no second email, it only heals an email whose previous round failed. Every send is written to the audit log.\n"
+          }
+        },
+        {
+          "name": "Resend notification emails that failed to deliver",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/admin/notifications/retry-emails",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "notifications",
+                "retry-emails"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Replays the email copy of notifications whose delivery failed (`emailStatus: FAILED`), oldest first, up to `limit` records. The in-app notifications are never re-created and recipients are read from their own registered addresses, so this repairs the inbox side of a delivery without touching what buyers see in the app.\n\nSafe to call repeatedly: each record is claimed atomically (FAILED -> PENDING) before it is sent, so two overlapping runs can never send the same email twice, and a record that keeps failing is retired once it hits the dispatch budget (10 rounds). The run is audit-logged.\n"
           }
         }
       ]
@@ -3340,7 +3547,12 @@
                 "auth",
                 "google"
               ],
-              "query": []
+              "query": [
+                {
+                  "key": "to",
+                  "value": ""
+                }
+              ]
             },
             "auth": {
               "type": "bearer",
@@ -3352,7 +3564,7 @@
                 }
               ]
             },
-            "description": "Redirects the browser to Google's consent screen."
+            "description": "Redirects the browser to Google's consent screen with a signed state value (also stored in an httpOnly cookie) that protects the callback and carries the return path."
           }
         },
         {
@@ -3419,6 +3631,14 @@
                   "value": ""
                 },
                 {
+                  "key": "state",
+                  "value": ""
+                },
+                {
+                  "key": "iss",
+                  "value": ""
+                },
+                {
                   "key": "error",
                   "value": ""
                 }
@@ -3434,7 +3654,7 @@
                 }
               ]
             },
-            "description": "Exchanges the authorization code for tokens, upserts the user and redirects to the frontend with an access token. If the code is missing the user is redirected back to Google's consent screen."
+            "description": "Registered at exactly /api/v1/auth/google/callback - this URL must be listed verbatim in the Google Cloud console. Exchanges the authorization code for tokens, upserts the user, issues the normal access + refresh session and redirects the browser to the frontend route /auth/google/callback. If the code is missing the user is sent back to Google's consent screen."
           }
         },
         {
@@ -3893,8 +4113,167 @@
       ]
     },
     {
+      "name": "AI",
+      "item": [
+        {
+          "name": "Natural-language AI product search",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/ai/search",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ai",
+                "search"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Uses AI (Groq / semantic parser) to understand natural language shopping queries (e.g. \"running shoes under ₹3000\", \"black shirt below 1500\") and searches MongoDB for matching catalog products."
+          }
+        },
+        {
+          "name": "Natural-language AI product search (GET)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/ai/search",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ai",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Query via query parameter `q` (e.g. /api/v1/ai/search?q=running+shoes+under+3000)"
+          }
+        },
+        {
+          "name": "Conversational NexCart AI Assistant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/ai/chat",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ai",
+                "chat"
+              ],
+              "query": []
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Multi-turn conversational AI shopping assistant for authenticated buyers, grounded in MongoDB products, orders, and verified store policies."
+          }
+        }
+      ]
+    },
+    {
       "name": "Admin",
       "item": [
+        {
+          "name": "Super Admin Dashboard Metrics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:5000/api/v1/admin/dashboard",
+              "host": [
+                "http://localhost:5000"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "dashboard"
+              ],
+              "query": [
+                {
+                  "key": "range",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Aggregated single-endpoint metrics for the Super Admin Dashboard. Returns stats, sales series, order status distribution, top products, top sellers, recent orders, needs attention alerts, user growth, seller activity, and marketplace revenue."
+          }
+        },
         {
           "name": "List users",
           "request": {

@@ -2578,6 +2578,93 @@ Content-Type: application/json
 
 ---
 
+### 17.7 Send a Seller Notification to Selected Buyers
+
+```
+POST /api/v1/sellers/notifications
+```
+
+**Headers:**
+```
+Authorization: Bearer {{sellerAccessToken}}
+Content-Type: application/json
+```
+
+**Body — a selection of buyers (the Customers → Broadcast notification multi-select):**
+```json
+{
+  "title": "Loyalty preview",
+  "message": "Tomorrow: 15% off for our best repeat buyers.",
+  "buyerIds": ["<buyerUserId>"],
+  "requestId": "compose-2026-10-10-0001"
+}
+```
+
+Other targets (exactly one of the three): `"buyerId": "<buyerUserId>"` for a single buyer,
+or `"audience": "ALL_BUYERS"` for every registered buyer. `channel` defaults to `BOTH`
+(in-app + email); buyer in-app notifications are mirrored to email regardless.
+
+**Expected Response:** `201 Created`
+```json
+{
+  "success": true,
+  "message": "Notification sent to 1 buyer",
+  "data": {
+    "deliveredTo": 1,
+    "duplicates": 0,
+    "emailsQueued": 1,
+    "emailsInvalidAddress": 0,
+    "suppressed": 0,
+    "requested": 1,
+    "notFoundBuyerIds": []
+  }
+}
+```
+
+**Checks worth running:**
+- Repeating the same body (same `requestId`) answers `200` with `deliveredTo: 0` and
+  `duplicates: 1` — the buyer is not notified or emailed twice (an email that had failed
+  for that record is replayed instead).
+- Ids that are not active `BUYER` accounts are listed in `notFoundBuyerIds`; if none of
+  them resolve the response is `404 BUYER_NOT_FOUND`.
+- Sending to `SELLER`/admin tokens: `403`. `buyerIds: []`, a malformed id, or more than
+  500 ids: `400`.
+- The buyer then sees the item in `GET /api/v1/notifications` with
+  `emailStatus: "SENT"` (or `PENDING` until the transport answers), which is the email
+  mirror of that same record.
+
+### 17.8 Retry Failed Notification Emails (Admin)
+
+```
+POST /api/v1/admin/notifications/retry-emails
+```
+
+**Headers:**
+```
+Authorization: Bearer {{adminAccessToken}}
+Content-Type: application/json
+```
+
+**Body (optional):**
+```json
+{ "limit": 25 }
+```
+
+**Expected Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Retried 1 email delivery: 1 sent, 0 failed, 0 skipped",
+  "data": { "attempted": 1, "sent": 1, "failed": 0, "skipped": 0, "pending": 0 }
+}
+```
+
+Replays only the **email** copy of notifications stuck at `emailStatus: "FAILED"`; the
+in-app notification count for the buyer must not change. Running it twice in a row
+returns `attempted: 0`. Buyers/sellers calling it get `403`.
+
+---
+
 ## 18. Phase 14 — Analytics & Dashboard
 
 > All analytics endpoints require `SELLER` role and are mounted under `/api/v1/sellers/`.
@@ -3741,4 +3828,12 @@ Follow this exact order from an empty database:
 85. POST /api/v1/auth/2fa/verify                  (verify 2FA login)
 86. POST /api/v1/auth/2fa/disable                 (disable 2FA)
 87. POST /api/v1/auth/2fa/recovery-codes          (regenerate recovery codes)
+```
+
+#### Seller Buyer Targeting & Notification Email Delivery
+```
+88. POST /api/v1/sellers/notifications             (seller: notify selected buyerIds)
+89. POST /api/v1/sellers/notifications             (same requestId → no duplicate send)
+90. POST /api/v1/admin/notifications/retry-emails  (admin: replay failed email copies)
+91. GET  /api/v1/notifications                     (buyer: emailStatus of each email copy)
 ```

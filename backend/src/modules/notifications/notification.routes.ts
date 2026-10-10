@@ -289,11 +289,17 @@ sellerNotificationRouter.use(
  *   post:
  *     tags:
  *       - Notifications
- *     summary: Send a custom notification to buyers (seller)
+ *     summary: Send a custom notification to selected buyers (seller)
  *     description: |
- *       Lets an authenticated seller send a custom notification either to one specific buyer (`buyerId`) or broadcast it to every registered buyer (`audience: "ALL_BUYERS"`). Exactly one of the two targets must be provided.
+ *       Lets an authenticated seller send a custom notification to the buyers they picked in the Seller Customers broadcast dialog. Exactly one target must be provided:
  *
- *       Each message is delivered like any other notification: persisted in the buyer's in-app Notifications section (with read/unread tracking) and mirrored to their registered email address (real inbox or YOPmail), so buyers receive it even when offline. Email failures never drop the in-app notification. Every send is written to the audit log.
+ *       - `buyerIds` - one, several, or every buyer in the seller's selection (1-500 ids, de-duplicated server-side).
+ *       - `buyerId` - a single buyer (kept for the legacy point-to-point call).
+ *       - `audience: "ALL_BUYERS"` - every registered buyer in the marketplace.
+ *
+ *       Every target is re-checked against the database: only active accounts with the BUYER role are notified, so a seller can never reach another seller, an admin, or a deactivated profile. Ids that resolve to none of those are reported back in `notFoundBuyerIds` (and, when *no* id resolves, the request fails with 404 `BUYER_NOT_FOUND`).
+ *
+ *       Each message is delivered like any other notification: persisted in the buyer's in-app Notifications section (with read/unread tracking) and mirrored to their registered email address through the configured provider (real SMTP such as Gmail, or a test inbox such as YOPmail), so buyers receive it even when offline. Email failures never drop the in-app notification; they are recorded on it (`emailStatus: FAILED`) and can be replayed with the admin retry endpoint. Pass a per-submission `requestId` to make the send idempotent: repeating the same request then creates no second notification and sends no second email, it only heals an email whose previous round failed. Every send is written to the audit log.
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -304,7 +310,7 @@ sellerNotificationRouter.use(
  *             $ref: "#/components/schemas/SellerNotificationInput"
  *     responses:
  *       201:
- *         description: Notification sent successfully
+ *         description: Notification delivered to at least one buyer
  *         content:
  *           application/json:
  *             schema:
@@ -315,19 +321,28 @@ sellerNotificationRouter.use(
  *                 message:
  *                   type: string
  *                 data:
- *                   type: object
- *                   properties:
- *                     deliveredTo:
- *                       type: integer
- *                       description: Number of buyers the notification was delivered to
+ *                   $ref: "#/components/schemas/SellerNotificationResult"
+ *       200:
+ *         description: Nothing new was created (this requestId was already delivered to the selected buyers)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   $ref: "#/components/schemas/SellerNotificationResult"
  *       400:
- *         description: Validation error (buyerId XOR audience required; title 3-200 chars; message 5-2000 chars)
+ *         description: Validation error (exactly one target required; title 3-200 chars; message 5-2000 chars; 1-500 buyer ids)
  *       401:
  *         description: Not authenticated
  *       403:
  *         description: Requires SELLER role
  *       404:
- *         description: Buyer not found (unknown, non-buyer, or deactivated account)
+ *         description: No selected buyer could be notified (unknown, non-buyer, or deactivated account)
  */
 sellerNotificationRouter.post(
   "/notifications",
